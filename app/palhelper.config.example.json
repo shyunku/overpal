@@ -1,0 +1,13 @@
+{
+  "mode": "both",
+  "server": {
+    "listen": "127.0.0.1:17994",
+    "modOutputDir": "C:/PalServer/Pal/Binaries/Win64/ue4ss/Mods/PalHelperMod",
+    "palDefender": {
+      "url": "http://127.0.0.1:17993",
+      "tokenFile": "C:/path/to/paldefender_token.txt"
+    },
+    "accessTokens": ["change-me-to-a-long-random-string"]
+  },
+  "client": null
+}

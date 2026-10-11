@@ -3,7 +3,7 @@
 Real-time base storage data for a Palworld dedicated server, shown as an in-game overlay.
 
 - **Mod** (`mod/PalHelperMod`): a UE4SS Lua mod that runs inside the dedicated server and writes every base storage container (chests, production outputs, dropped items, guild storage) with its items and world location to `base_storage.json` every 10 seconds.
-- **App** (planned): a TypeScript executable that serves the mod output together with PalDefender data over HTTP and draws the overlay on top of the game window.
+- **App** (`app/`, in progress): a Tauri v2 executable. Its server part (Rust) serves the mod output and PalDefender data over token-authenticated HTTP; its client part (React + TypeScript) processes the data and will draw the overlay on top of the game window.
 
 ## Requirements
 
@@ -18,6 +18,17 @@ Real-time base storage data for a Palworld dedicated server, shown as an in-game
 2. Copy `mod/PalHelperMod` to `PalServer/Pal/Binaries/Win64/ue4ss/Mods/PalHelperMod`.
 3. Start the server. After about 30 seconds the mod writes `base_storage.json` and `status.json` into its folder.
 
+## Running the app
+
+1. Copy `app/palhelper.config.example.json` to `palhelper.config.json` and fill in the paths and tokens.
+2. Run with one of the modes:
+   - `--mode server`: HTTP API only, no window (on the PC that runs the dedicated server)
+   - `--mode client`: overlay only, connects to `client.serverUrl`
+   - `--mode both`: both in one process
+3. The config is looked up from `--config <path>`, then `PALHELPER_CONFIG`, then next to the executable, then the current directory.
+
+Development: `cd app && pnpm install && pnpm tauri dev`. On Windows, run it from a Visual Studio developer prompt (`vcvars64.bat`); see `docs/cautions.md`.
+
 ## Known risks
 
 - Installing UE4SS on a dedicated server has been reported to make players create a new character on join (RE-UE4SS issues #836, #1091). It did not happen in our test environment, but back up your world before installing.
@@ -28,3 +39,4 @@ Real-time base storage data for a Palworld dedicated server, shown as an in-game
 - `docs/project.md`: goals, terminology, architecture, output format
 - `docs/game-internals.md`: how the mod finds base storage in server memory
 - `docs/tasks.md`: task list
+- `docs/cautions.md`: development and test server notes

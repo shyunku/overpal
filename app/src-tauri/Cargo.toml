@@ -1,0 +1,33 @@
+[package]
+name = "palhelper"
+version = "0.1.0"
+description = "Palworld base storage overlay"
+authors = ["shyunku"]
+edition = "2024"
+
+[lib]
+# The `_lib` suffix avoids a name clash with the bin target on Windows
+# (https://github.com/rust-lang/cargo/issues/8519)
+name = "palhelper_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+axum = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs"] }
+tower-http = { version = "0.6", features = ["cors"] }
+# PalDefender is reached over plain http on localhost, so no TLS backend is needed
+reqwest = { version = "0.12", default-features = false }
+
+# https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
