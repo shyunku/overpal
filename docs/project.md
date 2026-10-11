@@ -78,9 +78,9 @@
 ```
 
 - `group`: 길드 ID. PalDefender `/guilds`의 길드 ID와 같다.
-- `kind`: `chest`, `guildChest`, `production`, `pickup`, `guildStorage`, `other`. `pickup`은 맵에 배치된 줍기 아이템(돌, 나뭇가지, 열매 덤불)이며 앱의 합계에서 제외한다.
+- `kind`: `chest`, `guildChest`, `production`, `dropped`, `pickup`, `guildStorage`, `other`. `dropped`는 플레이어가 바닥에 버린 아이템이다. `pickup`은 맵에 배치된 줍기 아이템(돌, 나뭇가지, 열매 덤불)이며 앱의 합계에서 제외한다.
 - `item`: 게임 내부 아이템 ID. 표시 이름 변환은 앱에서 한다.
-- `location`: 건설한 건물만 있다. `pickup`, `guildStorage`에는 없다.
+- `location`: 건설한 건물과 바닥에 버린 아이템에 있다. `pickup`, `guildStorage`에는 없다.
 
 ### 앱 (`app/`)
 

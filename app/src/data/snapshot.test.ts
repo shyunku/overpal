@@ -78,6 +78,11 @@ describe("aggregate", () => {
     ]);
   });
 
+  it("counts items players dropped on the ground", () => {
+    const dropped: Storage = { ...storageAt("D", "G", 0, [["Wood", 1]]), kind: "dropped" };
+    expect(aggregate([dropped]).map((t) => [t.item, t.count])).toEqual([["Wood", 1]]);
+  });
+
   it("sorts by count, then by item id", () => {
     const t = aggregate([storageAt("A", "G", 0, [["Wood", 5], ["Stone", 5], ["Wool", 9]])]);
     expect(t.map((x) => x.item)).toEqual(["Wool", "Stone", "Wood"]);

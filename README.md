@@ -2,7 +2,7 @@
 
 Real-time base storage data for a Palworld dedicated server, shown as an in-game overlay.
 
-- **Mod** (`mod/PalHelperMod`): a UE4SS Lua mod that runs inside the dedicated server and writes every base storage container (chests, production outputs, guild storage, and map pickups such as stones and berry bushes) with its items and world location to `base_storage.json` every 10 seconds.
+- **Mod** (`mod/PalHelperMod`): a UE4SS Lua mod that runs inside the dedicated server and writes every base storage container (chests, production buildings, guild storage, items dropped by players, and map pickups such as stones and berry bushes) with its items and world location to `base_storage.json` every 10 seconds.
 - **App** (`app/`, in progress): a Tauri v2 executable. Its server part (Rust) serves the mod output and PalDefender data over token-authenticated HTTP; its client part (React + TypeScript) processes the data and will draw the overlay on top of the game window.
 
 ## Requirements

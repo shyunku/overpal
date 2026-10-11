@@ -31,6 +31,8 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 건물 액터:K2_GetActorLocation()                → 월드 좌표
 ```
 
+- 바닥에 버린 아이템도 같은 방식으로 연결된다. 액터 클래스는 `PalMapObjectCommonDropItem3D`(`BP_MapObject_CommonDropItem3D_C`)이다.
+
 - 건물 액터의 `MapObjectModel.InstanceId`는 액터의 `ModelInstanceId`와 같고, 구체 모델의 `InstanceId`와는 다르다. 처음에 이걸로 연결하려다 실패했다.
 
 ## 구체 모델 클래스와 의미
@@ -40,6 +42,7 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 | `PalMapObjectItemChestModel` | 상자(나무 궤짝 등) | `chest` |
 | `PalMapObjectGuildChestModel` | 길드 상자 | `guildChest` |
 | `PalMapObjectConvertItemModel` | 제작 건물 보관함. 완성품과, 걸려 있는 주문 중 아직 만들지 않은 분의 재료가 함께 들어 있다 | `production` |
+| `PalMapObjectDropItemModel` | 플레이어가 바닥에 버린 아이템. 버린 묶음마다 컨테이너 하나. 거점 근처에서 버리면 길드 소속으로 잡힌다 | `dropped` |
 | `PalMapObjectPickupItemOnLevelModel` | 맵에 배치된 줍기 아이템(작은 돌, 나뭇가지, 열매 덤불). 플레이어가 보관한 것이 아님 | `pickup` (합계에서 제외) |
 | `BP_MapObjectTreasureBoxModel_C`, `PalMapObjectTreasureBoxModel` | 월드 보물상자(길드 소속 아님) | 제외 |
 

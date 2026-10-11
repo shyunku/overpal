@@ -1,5 +1,6 @@
 -- PalHelperMod
--- Reads base storage (chests, production outputs, guild storage, level pickups) from the
+-- Reads base storage (chests, production buildings, guild storage, items dropped by players,
+-- level pickups) from the
 -- running dedicated server and writes it to base_storage.json next to this mod.
 -- How the objects are linked is documented in docs/game-internals.md.
 
@@ -14,6 +15,8 @@ local KIND_BY_MODEL_CLASS = {
     PalMapObjectItemChestModel = "chest",
     PalMapObjectGuildChestModel = "guildChest",
     PalMapObjectConvertItemModel = "production",
+    -- items a player dropped on the ground
+    PalMapObjectDropItemModel = "dropped",
     -- small stones, branches, berry bushes placed on the map (not stored by players)
     PalMapObjectPickupItemOnLevelModel = "pickup",
 }
@@ -138,17 +141,23 @@ local function collect_modules()
 end
 
 -- map object model instance id -> { location, buildObjectId }
-local function collect_buildings()
+-- Actor classes whose location is looked up: buildings and items dropped on the ground.
+local LOCATED_ACTOR_CLASSES = { "PalBuildObject", "PalMapObjectCommonDropItem3D" }
+
+local function collect_actor_locations()
     local by_model = {}
-    for _, a in ipairs(FindAllOf("PalBuildObject") or {}) do
-        if a:IsValid() then
-            local id = try("building id", function() return guid_of(a.ModelInstanceId) end)
-            if id then
-                local loc = a:K2_GetActorLocation()
-                by_model[id] = {
-                    location = { x = loc.X, y = loc.Y, z = loc.Z },
-                    buildObjectId = try("build object id", function() return a.BuildObjectId:ToString() end),
-                }
+    for _, class_name in ipairs(LOCATED_ACTOR_CLASSES) do
+        for _, a in ipairs(FindAllOf(class_name) or {}) do
+            if a:IsValid() then
+                local id = try("actor id", function() return guid_of(a.ModelInstanceId) end)
+                if id then
+                    local loc = a:K2_GetActorLocation()
+                    local entry = { location = { x = loc.X, y = loc.Y, z = loc.Z } }
+                    if class_name == "PalBuildObject" then
+                        entry.buildObjectId = try("build object id", function() return a.BuildObjectId:ToString() end)
+                    end
+                    by_model[id] = entry
+                end
             end
         end
     end
@@ -193,12 +202,68 @@ local function collect_storages(modules, buildings)
     return storages, raw
 end
 
+-- ---------------------------------------------------------------- development probe
+-- Drop a probe.lua next to this mod to run it once on the game thread without restarting
+-- the server. Its output goes to probe_out.txt and the script is renamed to probe.done.lua.
+-- Anyone who can write to this folder can already change the mod itself.
+local ENABLE_PROBE = true
+
+-- properties of an object's class and its parents, as "Name : PropertyType" lines
+local function list_props(obj, max_depth)
+    local lines = {}
+    local cls = obj:GetClass()
+    local depth = 0
+    while cls and cls:IsValid() and depth < (max_depth or 8) do
+        local name = cls:GetFName():ToString()
+        if name == "Object" or name == "Actor" then break end
+        lines[#lines + 1] = "-- " .. name
+        cls:ForEachProperty(function(prop)
+            lines[#lines + 1] = ("   %s : %s"):format(prop:GetFName():ToString(), prop:GetClass():GetFName():ToString())
+        end)
+        cls = cls:GetSuperStruct()
+        depth = depth + 1
+    end
+    return lines
+end
+
+local function run_probe()
+    local path = DIR .. "probe.lua"
+    local f = io.open(path, "r")
+    if not f then return end
+    f:close()
+    local out = {}
+    local env = setmetatable({
+        out = function(...)
+            local parts = {}
+            for i = 1, select("#", ...) do parts[#parts + 1] = tostring(select(i, ...)) end
+            out[#out + 1] = table.concat(parts, " ")
+        end,
+        guid_of = guid_of,
+        list_props = list_props,
+        to_json = to_json,
+    }, { __index = _G })
+    local chunk, load_err = loadfile(path, "t", env)
+    if chunk then
+        local ok, err = pcall(chunk)
+        if not ok then out[#out + 1] = "error: " .. tostring(err) end
+    else
+        out[#out + 1] = "load error: " .. tostring(load_err)
+    end
+    os.remove(DIR .. "probe.done.lua")
+    os.rename(path, DIR .. "probe.done.lua")
+    write_file("probe_out.txt", table.concat(out, "\n"))
+end
+
 local function tick()
+    if ENABLE_PROBE then
+        local ok, err = pcall(run_probe)
+        if not ok then print("[PalHelperMod] probe failed: " .. tostring(err)) end
+    end
     errors = {}
     local started = os.clock()
     local ok, err = pcall(function()
         local modules = collect_modules()
-        local buildings = collect_buildings()
+        local buildings = collect_actor_locations()
         local storages, raw = collect_storages(modules, buildings)
         write_file("base_storage.json", to_json({ version = 1, updatedAt = os.time(), storages = storages }))
         if DEBUG_DUMP then
