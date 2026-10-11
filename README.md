@@ -1,0 +1,30 @@
+# palworld-helper-mod
+
+Real-time base storage data for a Palworld dedicated server, shown as an in-game overlay.
+
+- **Mod** (`mod/PalHelperMod`): a UE4SS Lua mod that runs inside the dedicated server and writes every base storage container (chests, production outputs, dropped items, guild storage) with its items and world location to `base_storage.json` every 10 seconds.
+- **App** (planned): a TypeScript executable that serves the mod output together with PalDefender data over HTTP and draws the overlay on top of the game window.
+
+## Requirements
+
+- Palworld dedicated server (Windows), tested with v1.0.5.102999
+- RE-UE4SS, Okaetsu fork, release `Palworld (2281fa31)`: https://github.com/Okaetsu/RE-UE4SS/releases
+  - The upstream UE4SS build does not work with Palworld 0.4.1.5 and later.
+- PalDefender v1.9.3 (optional, for player and guild data): https://github.com/Ultimeit/PalDefender/releases
+
+## Installing the mod
+
+1. Install UE4SS into `PalServer/Pal/Binaries/Win64` (`dwmapi.dll` and the `ue4ss` folder).
+2. Copy `mod/PalHelperMod` to `PalServer/Pal/Binaries/Win64/ue4ss/Mods/PalHelperMod`.
+3. Start the server. After about 30 seconds the mod writes `base_storage.json` and `status.json` into its folder.
+
+## Known risks
+
+- Installing UE4SS on a dedicated server has been reported to make players create a new character on join (RE-UE4SS issues #836, #1091). It did not happen in our test environment, but back up your world before installing.
+- Game updates can rename the classes and fields the mod reads. See `docs/game-internals.md`.
+
+## Documentation
+
+- `docs/project.md`: goals, terminology, architecture, output format
+- `docs/game-internals.md`: how the mod finds base storage in server memory
+- `docs/tasks.md`: task list
