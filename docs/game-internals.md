@@ -40,7 +40,7 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 | `PalMapObjectItemChestModel` | 상자(나무 궤짝 등) | `chest` |
 | `PalMapObjectGuildChestModel` | 길드 상자 | `guildChest` |
 | `PalMapObjectConvertItemModel` | 제작 건물 결과물 보관함 | `production` |
-| `PalMapObjectPickupItemOnLevelModel` | 바닥에 떨어진 아이템 | `dropped` |
+| `PalMapObjectPickupItemOnLevelModel` | 맵에 배치된 줍기 아이템(작은 돌, 나뭇가지, 열매 덤불). 플레이어가 보관한 것이 아님 | `pickup` (합계에서 제외) |
 | `BP_MapObjectTreasureBoxModel_C`, `PalMapObjectTreasureBoxModel` | 월드 보물상자(길드 소속 아님) | 제외 |
 
 - 모듈 없이 길드 소속인 컨테이너가 하나 있다(54칸). 길드 단위 공용 창고로 보이며 PalDefender `/guild`의 `items` 컨테이너와 ID가 같다. 모드는 `guildStorage`로 표시한다.

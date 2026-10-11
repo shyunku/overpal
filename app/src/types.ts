@@ -12,7 +12,8 @@ export interface StorageItem {
   count: number;
 }
 
-export type StorageKind = "chest" | "guildChest" | "production" | "dropped" | "guildStorage" | "other";
+/** "pickup": stones, branches, berry bushes placed on the map, not something players stored */
+export type StorageKind = "chest" | "guildChest" | "production" | "pickup" | "guildStorage" | "other";
 
 export interface Storage {
   containerId: string;

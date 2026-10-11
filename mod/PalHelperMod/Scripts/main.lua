@@ -1,5 +1,5 @@
 -- PalHelperMod
--- Reads base storage (chests, production outputs, dropped items, guild storage) from the
+-- Reads base storage (chests, production outputs, guild storage, level pickups) from the
 -- running dedicated server and writes it to base_storage.json next to this mod.
 -- How the objects are linked is documented in docs/game-internals.md.
 
@@ -14,7 +14,8 @@ local KIND_BY_MODEL_CLASS = {
     PalMapObjectItemChestModel = "chest",
     PalMapObjectGuildChestModel = "guildChest",
     PalMapObjectConvertItemModel = "production",
-    PalMapObjectPickupItemOnLevelModel = "dropped",
+    -- small stones, branches, berry bushes placed on the map (not stored by players)
+    PalMapObjectPickupItemOnLevelModel = "pickup",
 }
 
 -- ---------------------------------------------------------------- output location

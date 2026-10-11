@@ -1,0 +1,577 @@
+{
+  "storages": [
+    {
+      "containerId": "6092D28E-40211B56-D3D6D7AE-9751B560",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [],
+      "kind": "guildStorage",
+      "slotCount": 54
+    },
+    {
+      "buildObjectId": "Workbench",
+      "containerId": "231E126D-4D7481A9-701CFFA6-780D5B67",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 26,
+          "index": 5,
+          "item": "PalSphere"
+        }
+      ],
+      "kind": "production",
+      "location": {
+        "x": -354967.52148809,
+        "y": 259705.80265824,
+        "z": 3986.4865405916
+      },
+      "modelClass": "PalMapObjectConvertItemModel",
+      "slotCount": 6
+    },
+    {
+      "buildObjectId": "ItemChest",
+      "containerId": "D5A2D09F-406C826E-1BF0498E-5129A3C4",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 80,
+          "index": 0,
+          "item": "Stone"
+        },
+        {
+          "count": 5,
+          "index": 1,
+          "item": "Wool"
+        },
+        {
+          "count": 13,
+          "index": 2,
+          "item": "Berries"
+        },
+        {
+          "count": 12,
+          "index": 3,
+          "item": "Wood"
+        },
+        {
+          "count": 10,
+          "index": 4,
+          "item": "BerrySeeds"
+        },
+        {
+          "count": 2,
+          "index": 5,
+          "item": "PalSphere"
+        }
+      ],
+      "kind": "chest",
+      "location": {
+        "x": -354871.38055367,
+        "y": 259974.57112279,
+        "z": 3986.4865410601
+      },
+      "modelClass": "PalMapObjectItemChestModel",
+      "slotCount": 10
+    },
+    {
+      "buildObjectId": "ItemChest",
+      "containerId": "4FDA18B9-42E577A4-90F6DAAD-738E87F7",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [],
+      "kind": "chest",
+      "location": {
+        "x": -354825.30713911,
+        "y": 260116.46645748,
+        "z": 3986.4865410601
+      },
+      "modelClass": "PalMapObjectItemChestModel",
+      "slotCount": 10
+    },
+    {
+      "buildObjectId": "ItemChest",
+      "containerId": "B9516527-4587DA9D-6A1A918C-7402C547",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [],
+      "kind": "chest",
+      "location": {
+        "x": -354779.31616681,
+        "y": 260258.10410958,
+        "z": 3986.4865351527
+      },
+      "modelClass": "PalMapObjectItemChestModel",
+      "slotCount": 10
+    },
+    {
+      "buildObjectId": "ItemChest",
+      "containerId": "A38F7FD4-4295AB53-5F88D28C-150E0A83",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 12,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "chest",
+      "location": {
+        "x": -354738.18378386,
+        "y": 260384.77884278,
+        "z": 3987.9769083359
+      },
+      "modelClass": "PalMapObjectItemChestModel",
+      "slotCount": 10
+    },
+    {
+      "containerId": "FD1B11F4-4A805166-4BF2E0AC-ABAD16ED",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "D5D4E207-496563EE-B78910AB-0692F740",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "40F1A42A-4C77B8DB-EA390B8B-CE7DC9F8",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "72E6A873-4CD70394-BB7A3783-4BBDA58B",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "5C44CA38-42C6CCEC-218906B4-9CB4D8AD",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "BF8C9872-4784FA28-B3154490-0D52C445",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "D3B1802B-466D73F8-07F9EF85-52834454",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "67645FA9-47478A88-5C0015B2-E12318A2",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "0BFF23DB-4789C46B-B5EE4E8B-AB2BA853",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "D08CF8A2-433A5DE3-6DEE5FBC-A633AF4F",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "28B1EA54-4295CD93-9883F0AA-C8A2A54C",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "43EB2233-4F67FA85-CF2E5C8D-3F35FE09",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "40027B06-4884A190-A7F3BF97-E40C70CA",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Berries"
+        },
+        {
+          "count": 1,
+          "index": 1,
+          "item": "BerrySeeds"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 2
+    },
+    {
+      "containerId": "EDFDD9E7-4DD335EF-4904A599-1A6149D6",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "BB0AFCE9-45F38236-F0A80594-5A219A23",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "0981B105-49D58E4D-D7254D85-748426C1",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "0E3EB4B2-4754919B-3CD7D8AC-4270CA55",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "16FCFC5E-4DF1A81B-B8FE1C95-199467BA",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "4EA90B31-4AD2CA14-135DB684-AC3A57C7",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "62B6A215-4D1E3C36-CD505D84-CCC7605B",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "4853AB72-44FFF4B6-D9F9D584-AB9FBF16",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Stone"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "A7F3F6A0-40CB3008-904F25BB-DA7EA8A2",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "2C0300BA-420339B3-98BDAEB1-E2A9F290",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "C0474639-40256D27-3392EC83-AA13F61B",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "712A36D3-435E655D-F6203CA9-46BB1196",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "6A68DA67-4129B5BE-93845790-262B90E6",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "544FF750-461B62F2-57DA279C-DD586DE2",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "DF4E80D8-4EE970A7-FC518F9B-7699424C",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    },
+    {
+      "containerId": "4A88B9B8-4EDDDA08-D693A2B7-C4BF8048",
+      "group": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "items": [
+        {
+          "count": 2,
+          "index": 0,
+          "item": "Wood"
+        }
+      ],
+      "kind": "pickup",
+      "modelClass": "PalMapObjectPickupItemOnLevelModel",
+      "slotCount": 1
+    }
+  ],
+  "updatedAt": 1791757760,
+  "version": 1
+}

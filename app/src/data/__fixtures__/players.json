@@ -1,0 +1,27 @@
+{
+  "Meta": {
+    "PlayerCount": 1,
+    "OnlineCount": 0
+  },
+  "Players": [
+    {
+      "Name": "shyunku-test",
+      "IP": "",
+      "PlayerUID": "E5EEB250-00000000-00000000-00000000",
+      "UserId": "",
+      "GuildName": "무명 길드",
+      "GuildUUID": "550A88ED-45A08C78-E5FA84BC-74F75B00",
+      "Status": "Offline",
+      "WorldLocation": {
+        "x": -354740.38,
+        "y": 259962.96,
+        "z": 4076.64
+      },
+      "MapLocation": {
+        "x": 222.14152505446623,
+        "y": -502.9463616557735,
+        "z": 4076.64
+      }
+    }
+  ]
+}
