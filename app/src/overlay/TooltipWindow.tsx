@@ -11,7 +11,7 @@ const ITEM_TIP = "item-tip";
 export interface TipPayload {
   name: string;
   /** where the item is stored: place and count */
-  lines: { label: string; count: number }[];
+  lines: { label: string; count: number; tone: "inventory" | "production" | null }[];
   /** physical px: left edge and the top of the hovered row */
   x: number;
   y: number;
@@ -64,7 +64,7 @@ export function TooltipWindow() {
         <>
           <b>{tip.name}</b>
           {tip.lines.map((l) => (
-            <div className="tip-line" key={l.label}>
+            <div className={`tip-line ${l.tone ? `tone-${l.tone}` : ""}`} key={l.label}>
               <span>{l.label}</span>
               <span className="tabular">{l.count}</span>
             </div>

@@ -1113,3 +1113,17 @@ img.item-icon {
   font-size: 16px;
   border-radius: 6px;
 }
+/* place tones: the player's own inventory, and items still in production buildings (not usable
+   in game until taken out); the whole line takes the tone, label and count */
+.tone-inventory,
+.tone-inventory span,
+.dx-kv .dx-kvrow.tone-inventory span,
+.tip-win .tip-line.tone-inventory span {
+  color: #7cc7ff;
+}
+.tone-production,
+.tone-production span,
+.dx-kv .dx-kvrow.tone-production span,
+.tip-win .tip-line.tone-production span {
+  color: #ffb84c;
+}

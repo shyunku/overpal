@@ -114,11 +114,24 @@ function useItemDesc(): Record<string, string> {
   return desc;
 }
 
-/** Where an item is stored: place name and count, places merged by name, most first. */
-function whereStored(t: ItemTotal, placeOf: (containerId: string) => string): { label: string; count: number }[] {
-  const m = new Map<string, number>();
-  for (const s of t.sources) m.set(placeOf(s.containerId), (m.get(placeOf(s.containerId)) ?? 0) + s.count);
-  return [...m].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+/**
+ * How a place line is colored: "inventory" (the player's own items) or "production" (items still
+ * in a production building, e.g. finished products not taken out, which the game cannot use yet).
+ */
+export type PlaceTone = "inventory" | "production" | null;
+
+const toneOf = (kind: string): PlaceTone => (kind === "inventory" ? "inventory" : kind === "production" ? "production" : null);
+
+/** Where an item is stored: place name, count and tone, places merged by name, most first. */
+function whereStored(t: ItemTotal, placeOf: (containerId: string) => string): { label: string; count: number; tone: PlaceTone }[] {
+  const m = new Map<string, { count: number; tone: PlaceTone }>();
+  for (const s of t.sources) {
+    const label = placeOf(s.containerId);
+    const e = m.get(label) ?? { count: 0, tone: toneOf(s.kind) };
+    e.count += s.count;
+    m.set(label, e);
+  }
+  return [...m].map(([label, e]) => ({ label, ...e })).sort((a, b) => b.count - a.count);
 }
 
 /** Shows the item's tooltip (where it is stored) to the right of the main window, level with the row. */
@@ -156,7 +169,7 @@ function ItemDetail({ t, desc, placeOf }: { t: ItemTotal; desc: Record<string, s
         {where.length ? (
           <div className="dx-kv">
             {where.map((w) => (
-              <span key={w.label} className="dx-kvrow">
+              <span key={w.label} className={`dx-kvrow ${w.tone ? `tone-${w.tone}` : ""}`}>
                 <span>{w.label}</span>
                 <span className="tabular">{w.count}</span>
               </span>
@@ -297,7 +310,7 @@ function ItemsTab(props: {
                   return (
                     <div className="gbox" key={p.key}>
                       <div className="gname">
-                        <span>{p.name}</span>
+                        <span className={p.key === "inventory" ? "tone-inventory" : p.storages.every((s) => s.kind === "production") ? "tone-production" : ""}>{p.name}</span>
                         <span>{items.size}종</span>
                       </div>
                       <div className="chips">
@@ -506,7 +519,9 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
             {baseLabel}
             <Icon name="chevron" />
           </button>
-          <span className="rest">· {baseNote}</span>
+          <span className="rest">
+            · <span className="tone-inventory">{baseNote}</span>
+          </span>
         </>
       )
     ) : layout.subs[tab] === "dex" && mode !== "hud" ? (
