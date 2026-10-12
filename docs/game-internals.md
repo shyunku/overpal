@@ -57,17 +57,23 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 
 ## 작업 진행도 복제 (#13)
 
-건설·제작 진행 바가 전용 서버에서 1초에 약 3번 툭툭 오르는 원인을 2026-10-12에 확인했다. 서버와 클라이언트 양쪽에 UE4SS를 붙여 측정했다. 측정 로그는 `.local/probes/progress_*_2026-10-12.txt`에 있다.
+건설·제작 진행 바가 전용 서버에서 1초에 약 3번 툭툭 오르는 원인을 2026-10-12에 확인하고 모드로 개선했다. 서버와 클라이언트 양쪽에 UE4SS를 붙여 측정했다. 측정 로그는 `.local/probes/progress_*_2026-10-12.txt`에 있다.
 
 - 진행도는 `PalWorkProgress`(outer는 `BP_PalWorkProgressManager_C`)의 `CurrentWorkAmount`이고, 일반 복제 변수(`OnRep_CurrentWorkAmount`)로 클라에 간다. 진행 속도 `ReplicatedWorkAmountBySec`도 함께 복제된다(감시대 건설 때 540~600).
 - 서버: 진행량이 약 0.08초 간격으로 매끄럽게 오른다.
 - 클라: `OnRep_CurrentWorkAmount`가 약 0.34초 간격(초당 약 3번)으로 온다. 받는 사이에는 클라의 `CurrentWorkAmount`가 바뀌지 않는다(클라 예측 없음). 진행 바는 받은 값을 보간 없이 그리므로 "띡-띡-띡" 하고 오른다.
 - 0.34초 주기의 근거:
   - 서버는 `PalReplicationGraph`를 쓰고 그래프는 초당 30번 돈다(`Net.RepGraph.Frequency.Override`=30. `DefaultEngine.ini`에는 20이지만 실행 중 값은 30).
-  - 건물 액터(`BP_BuildObject_*`)의 `NetUpdateFrequency`가 3이다. 30 / 3 = 10프레임 = 0.33초로 측정값과 맞는다. 진행도는 건물 액터 쪽으로 복제되는 것으로 본다.
+  - 진행도 객체는 클라에서 건물 액터 밑에 생긴다(예: `BP_BuildObject_BaseCampWorkHard_C_...PalWorkProgress_...`). 진행도는 건물 액터가 복제한다.
+  - `PalBuildObject`의 클래스 기본값(CDO) `NetUpdateFrequency`가 3이고 건물 블루프린트 클래스가 이를 물려받는다. 복제 그래프는 클래스를 처음 볼 때 이 값으로 주기를 정한다. 30 / 3 = 10프레임 = 0.33초로 측정값과 맞는다.
+  - 진행량 setter(`0x14321EC30`, 서버 exe)는 값만 쓰고 푸시 모델 dirty 표시를 하지 않는다. 일반 속성 비교 방식으로 복제된다.
   - 서버 네트워크 틱레이트(`NetServerMaxTickRate`=60)와 대역폭은 원인이 아니다.
-- 효과가 없었던 것: 실행 중에 건물 액터·GameState·`PalNetworkTransmitter`의 `NetUpdateFrequency`를 올리기, `Net.RepGraph.SetPeriodFrame BP_PalGameStateInGame_C 1`. 복제 그래프는 클래스별 주기를 시작할 때 정해 두므로, 실행 중에 액터 값을 바꾸면 무시되는 것으로 본다.
-- 개선한다면 시도할 후보: 건물 클래스에 `Net.RepGraph.SetPeriodFrame`를 쓰거나, 복제 그래프가 초기화되기 전에 건물 클래스 기본값(CDO)의 `NetUpdateFrequency`를 올리는 방법. 둘 다 확인하지 않았다. 클라 쪽에서 `ReplicatedWorkAmountBySec`로 보간하는 방법은 클라 모드가 필요하다.
+- 효과가 없었던 것(모두 서버 실행 중에 변경): 건물 액터·GameState·`PalNetworkTransmitter`의 `NetUpdateFrequency`, 건물 클래스 CDO(클래스를 이미 본 뒤), `Net.RepGraph.SetPeriodFrame`(GameState, `BP_BuildObject`), `Net.RepGraph.Frequency.Override` 60, `PalRepGraph.DynamicActorFrequencyBuckets` 1.
+- 해결(모드 `BUILD_NET_UPDATE_HZ`): 모드가 로드되자마자(건물 클래스와 복제 그래프가 생기기 전) `PalBuildObject` CDO의 `NetUpdateFrequency`를 30으로 올린다. 클라 수신 간격이 0.35초에서 0.05초(초당 약 20번)로 줄었다. 클라는 건드리지 않는다.
+  - 건물 액터 자체의 `NetUpdateFrequency`는 여전히 3으로 보인다. 주기를 정하는 것은 클래스 기본값이다.
+  - 30보다 올려도 그래프가 초당 30번 돌아서 더 빨라지지 않는다. 실제 상한은 약 20번이었다.
+  - 모든 건물(완성된 벽·바닥 포함)이 더 자주 복제 검사 대상이 된다. 바뀌지 않은 건물은 보낼 데이터가 없어 네트워크는 거의 늘지 않고 서버 CPU만 조금 더 쓴다. 테스트 월드(건물 9개)에서 서버 FPS는 60 그대로였다. 큰 거점에서는 확인하지 않았다.
+- 협동(초대) 방식도 같은 코드와 설정을 쓰므로 초대받은 사람은 같은 끊김을 봤을 것으로 본다(확인하지 않음). 호스트는 서버 안에서 직접 보므로 연속으로 보인다.
 - 서버는 Shipping 빌드라 로그가 남지 않는다. 복제 그래프 콘솔 명령(`PalRepGraph.PrintRouting` 등)의 출력은 볼 수 없었다.
 
 ## 검증 기록

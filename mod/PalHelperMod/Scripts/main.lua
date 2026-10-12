@@ -13,6 +13,11 @@ local FAST_MS = 250
 local UPDATE_HOOK = "/Script/Pal.PalMapObjectItemContainerModule:OnUpdateContents"
 -- also write the raw containers/modules/buildings lists (for investigation)
 local DEBUG_DUMP = false
+-- How often buildings replicate to clients (class default of PalBuildObject, 3 in the game).
+-- The replication graph fixes each class's rate when it first sees the class, so this must be
+-- set at startup. Higher makes build/craft progress bars smoother and costs more server CPU.
+-- 0 leaves the game's value. See docs/game-internals.md, "작업 진행도 복제".
+local BUILD_NET_UPDATE_HZ = 30
 
 local ZERO_GUID = "00000000-00000000-00000000-00000000"
 
@@ -312,6 +317,22 @@ local function run_probe()
     write_file("probe_out.txt", table.concat(out, "\n"))
 end
 
+-- ---------------------------------------------------------------- building replication rate
+-- class default rate after the change below; nil until applied
+local build_rate = nil
+
+-- Runs as soon as the mod loads, before any building class or the replication graph exists:
+-- blueprint building classes copy the PalBuildObject default when they load.
+local function raise_build_rate()
+    local cls = StaticFindObject("/Script/Pal.PalBuildObject")
+    if not cls or not cls:IsValid() then return false end
+    local cdo = cls:GetCDO()
+    cdo.NetUpdateFrequency = BUILD_NET_UPDATE_HZ
+    cdo.MinNetUpdateFrequency = BUILD_NET_UPDATE_HZ
+    build_rate = cdo.NetUpdateFrequency
+    return true
+end
+
 local function tick()
     if ENABLE_PROBE then
         local ok, err = pcall(run_probe)
@@ -338,11 +359,23 @@ local function tick()
         ok = ok and #errors == 0,
         elapsedMs = math.floor((os.clock() - started) * 1000),
         hooked = hooked,
+        buildNetUpdateHz = build_rate,
         errors = errors,
     }))
 end
 
 print("[PalHelperMod] loaded, output: " .. DIR)
+if BUILD_NET_UPDATE_HZ > 0 then
+    local function retry()
+        local ok, done = pcall(raise_build_rate)
+        if not ok then
+            print("[PalHelperMod] building rate failed: " .. tostring(done))
+        elseif not done then
+            ExecuteInGameThreadWithDelay(100, retry)
+        end
+    end
+    retry()
+end
 -- Everything runs on the game thread. LoopAsync callbacks run on another thread and touch the
 -- same Lua state as the update hook (game thread); at 250 ms that race corrupted the state
 -- ("Ref was not function") and crashed the server.

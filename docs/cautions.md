@@ -40,6 +40,9 @@
 
 - 모드의 루프에 `LoopAsync`(+ `ExecuteInGameThread`)를 쓰면 안 된다. `LoopAsync` 콜백은 다른 스레드에서 돌면서 게임 스레드의 훅 콜백과 같은 Lua 상태를 건드린다. 250ms 루프로 바꾼 뒤 `Ref was not function` 같은 Lua 오류가 몇 분마다 찍히다가 서버가 UE4SS 안에서 접근 위반으로 죽었다(2026-10-12 10:39 KST). `LoopInGameThreadWithDelay`로 바꾼 뒤로는 오류가 없다.
 
+- 팰월드 서버를 REST로 끄면 프로세스는 종료되지만 콘솔 창(Windows Terminal)이 열려 있는 동안 프로세스 목록에 남는다(`HasExited`=True). `redeploy.ps1`은 종료된 프로세스를 무시한다. 남은 창은 닫으면 된다.
+- 모드의 `BUILD_NET_UPDATE_HZ`는 서버 시작 때만 효과가 있다. 값을 바꾸면 서버를 재시작해야 한다.
+
 ## 화면 개발
 
 - 패치 스크립트로 파일을 여러 번 나눠 쓰면 vite가 중간 상태를 핫 리로드해 창이 오류 상태로 남을 수 있다(예: `match is not defined`). 앱만 재시작해서는 풀리지 않았고 vite를 다시 띄워야 했다.

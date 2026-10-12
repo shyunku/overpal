@@ -56,6 +56,7 @@
 - 서버 시작 30초 뒤부터 10초마다 전체를 다시 읽어 `base_storage.json`과 `status.json`을 모드 폴더에 쓴다.
 - 그 사이에는 `PalMapObjectItemContainerModule:OnUpdateContents` 훅이 바뀐 컨테이너를 표시하고, 250ms마다 표시된 컨테이너만 다시 읽어 내용이 실제로 바뀌었을 때만 파일을 쓴다. 파일의 `seq`는 쓸 때마다 1씩 늘어난다.
 - 모든 루프는 게임 스레드(`LoopInGameThreadWithDelay`)에서 돈다. 이유는 [cautions.md](cautions.md)의 모드 항목.
+- 서버 시작 직후 건물 클래스 기본 복제 빈도를 3에서 30으로 올린다(`BUILD_NET_UPDATE_HZ`, 0이면 안 함). 건설·제작 진행 바가 클라에서 부드럽게 오르게 하기 위해서다. 적용 값은 `status.json`의 `buildNetUpdateHz`. 자세한 내용은 [game-internals.md](game-internals.md)의 "작업 진행도 복제".
 - 쓰기 중인 파일을 읽지 않도록 임시 파일에 쓰고 이름을 바꾼다.
 - 읽는 방법과 객체 연결 구조는 [game-internals.md](game-internals.md)에 정리했다.
 - 추적 범위(2026-10-12 결정): 위치(상자, 제작 건물 결과물 보관함, 길드 창고, 맵 줍기 아이템 등)별 아이템 개수와, 제작 건물에 걸린 주문 중 아직 만들지 않은 수량(무엇을 몇 개 더 만들지)을 추적한다.
