@@ -364,9 +364,13 @@ img.item-icon {
   min-height: 0;
   max-height: 640px;
 }
-/* fixed height of 7 rows (54 px each + list padding) so searching or changes never resize the window */
+/* fixed list height so searching or changes never resize the window: 7 rows (54 px each + list
+   padding) plus 31 px (25 screen px at QHD) asked for in game */
+.items {
+  --list-h: 423px;
+}
 .items.mode-side .scroll {
-  height: 392px;
+  height: var(--list-h);
   max-height: none;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
@@ -831,7 +835,7 @@ img.item-icon {
 }
 /* a detail has no sub tabs or search, so its scroll area takes their height to keep the window size */
 .items.is-detail .scroll.dx-detail {
-  height: calc(392px + var(--dx-detail-extra, 90px));
+  height: calc(var(--list-h) + var(--dx-detail-extra, 90px));
 }
 .dx-tiles,
 .dx-list,
@@ -948,5 +952,5 @@ img.item-icon {
 }
 /* the notice takes its height from the list so the window keeps its size */
 .items.mode-side .base-notice + .scroll {
-  height: calc(392px - 40px);
+  height: calc(var(--list-h) - 40px);
 }

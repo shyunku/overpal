@@ -6,7 +6,7 @@ import type { BaseStorage, ClientConfig, ModStatus } from "../types";
 import { streamStorage } from "./storageStream";
 
 /** player positions (minimap) */
-const PLAYERS_MS = 2000;
+const PLAYERS_MS = 500;
 /** own inventory (PalDefender has no push) */
 const INVENTORY_MS = 2000;
 /** guilds and camps change rarely */
