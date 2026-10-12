@@ -96,6 +96,12 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
       if (dragging.current) return;
       const r = el.getBoundingClientRect();
       placeWindow(screen, win, r.width * screen.dpr, r.height * screen.dpr).then(() => {
+        // clip the window (and the blur behind it) to the panel's corner radius; a circle
+        // (the minimap, given as a percentage) has no blur and is left alone
+        const radius = getComputedStyle(el).borderTopLeftRadius;
+        if (radius.endsWith("px") && parseFloat(radius) > 0) {
+          invoke("round_corners", { radius: parseFloat(radius) * cssZoom(screen, scale) * screen.dpr });
+        }
         if (!revealed) {
           revealed = true;
           native.show();

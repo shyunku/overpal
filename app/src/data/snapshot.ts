@@ -100,6 +100,27 @@ export function withInventory(base: BaseView, inv: Storage): BaseView {
   return { ...base, storages, totals: aggregate(storages) };
 }
 
+/** The base the player is in: the nearest camp within BASE_RADIUS, or null outside every base. */
+export function baseAt(bases: BaseView[], pos: Vec3 | null | undefined): BaseView | null {
+  if (!pos) return null;
+  let best: BaseView | null = null;
+  let bestDist = Infinity;
+  for (const b of bases) {
+    const d = distance2d(pos, b.worldPos);
+    if (d < bestDist) {
+      bestDist = d;
+      best = b;
+    }
+  }
+  return best && bestDist <= BASE_RADIUS ? best : null;
+}
+
+/** Outside every base only the player's own inventory counts; campId is empty. */
+export function inventoryOnly(inv: Storage): BaseView {
+  const zero = { x: 0, y: 0, z: 0 };
+  return { campId: "", worldPos: zero, mapPos: zero, storages: [inv], totals: aggregate([inv]) };
+}
+
 export function buildSnapshot(storage: BaseStorage, guilds: PdGuilds | null, players: PdPlayers | null): Snapshot {
   const storagesByGuild = new Map<string, Storage[]>();
   for (const s of storage.storages) {

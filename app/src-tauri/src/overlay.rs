@@ -123,6 +123,29 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
 /// Acrylic through the pre-Windows-11 SetWindowCompositionAttribute API, which (unlike the
 /// DWM system backdrop) does not fall back to a solid color while the window is inactive.
 #[cfg(windows)]
+/// Clips the window to a rounded rectangle (radius in physical px) so the blur behind it, which
+/// covers the whole window, follows the panel's rounded corners instead of showing a square edge.
+#[tauri::command]
+pub fn round_corners(window: tauri::WebviewWindow, radius: f64) {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
+        let (Ok(hwnd), Ok(inner), Ok(outer), Ok(size)) = (window.hwnd(), window.inner_position(), window.outer_position(), window.inner_size()) else {
+            return;
+        };
+        // the region is relative to the outer window, which can include an invisible frame
+        let (x, y) = (inner.x - outer.x, inner.y - outer.y);
+        let d = (radius * 2.0).round().max(0.0) as i32;
+        unsafe {
+            let rgn = CreateRoundRectRgn(x, y, x + size.width as i32 + 1, y + size.height as i32 + 1, d, d);
+            // the system owns the region from here on
+            SetWindowRgn(hwnd.0 as _, rgn, 1);
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = (window, radius);
+}
+
 fn legacy_acrylic(window: &tauri::WebviewWindow) {
     use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryW};
 

@@ -17,10 +17,11 @@ interface ViewProps {
 const ICONS = {
   map: <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2zM9 4v14M15 6v14" />,
   box: <path d="M21 8 12 3 3 8v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8" />,
+  // cog (lucide "settings", ISC)
   gear: (
     <>
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" />
     </>
   ),
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
@@ -97,8 +98,9 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
 
 // ---------------------------------------------------------------- items
 
-// 0.6 with the narrower widths felt cramped; shrink everything instead (340 / 420 of 0.6)
-const ITEM_SCALE = 0.49;
+// 0.49 was too small in game; 25% larger (text included), with the content widths cut to 0.92
+// in overlay.css so the window grows 25% in height but only 15% in width
+const ITEM_SCALE = 0.6125;
 
 function ItemsTab({ data, mode }: { data: OverlayData; mode: ItemMode }) {
   const [tab, setTab] = useState<"total" | "where">("total");
@@ -338,7 +340,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   };
   const setMode = (m: ItemMode) => onLayout({ ...layout, modes: { ...layout.modes, [tab]: m } });
   const label = TABS.find((x) => x.id === tab)!.label;
-  const base = data.guild ? `${data.guild.name || "길드"} · 거점 1` : "거점 없음";
+  const base = data.baseIndex >= 0 ? `${data.guild?.name || "길드"} · 거점 ${data.baseIndex + 1}` : "거점 밖 · 내 인벤토리";
   const subText =
     tab === "items" ? (mode === "hud" ? statusText(data) : `${base} · ${statusText(data)}`) : layout.subs[tab] === "dex" && mode !== "hud" ? dexSummary(dex, tab) : "준비 중";
   // a detail is always shown at the normal width, also when opened from the wide layout

@@ -24,8 +24,15 @@ local ZERO_GUID = "00000000-00000000-00000000-00000000"
 
 local KIND_BY_MODEL_CLASS = {
     PalMapObjectItemChestModel = "chest",
+    -- refrigerator (slows food decay)
+    PalMapObjectItemChest_AffectCorruption = "chest",
+    -- feed boxes and the medicine shelf hold items players put in
+    PalMapObjectPalFoodBoxModel = "chest",
+    PalMapObjectPalMedicineBoxModel = "chest",
     PalMapObjectGuildChestModel = "guildChest",
     PalMapObjectConvertItemModel = "production",
+    -- output storage of quarries, logging sites, coal mines and oil pumps
+    PalMapObjectProductItemModel = "production",
     -- items a player dropped on the ground
     PalMapObjectDropItemModel = "dropped",
     -- small stones, branches, berry bushes placed on the map (not stored by players)

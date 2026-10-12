@@ -9,6 +9,7 @@ Usage: python scripts/build_dex.py ../palworld-helper
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -19,6 +20,8 @@ ITEM_TABLE = ROOT / "app" / "src" / "data" / "itemTable.json"
 # fetched by the main window only, so the other overlay windows do not load it
 OUT_DATA = ROOT / "app" / "public" / "data" / "dex.json"
 OUT_ICONS = ROOT / "app" / "public" / "icons" / "dex"
+# building id (as the mod reports it, e.g. ItemChest_02) -> Korean name; small, bundled with the app
+OUT_BUILDINGS = ROOT / "app" / "src" / "data" / "buildingNames.json"
 # same size as the item icons (scripts/build_item_table.py)
 ICON_SIZE = 96
 PAL_STATS = ["HP", "공격", "방어", "작업 속도", "식사량"]
@@ -86,6 +89,14 @@ def main() -> None:
             "works": [{"name": work_names.get(w["icon"], ""), "lv": w["lv"], "icon": icon(w["icon"])} for w in s.get("works") or []],
         })
 
+    # structure icons are named after the building id: T_icon_buildObject_<id>.webp
+    buildings = {}
+    for s in structs:
+        m = re.match(r"T_icon_buildObject_(.+)\.webp$", s.get("icon") or "")
+        if m:
+            buildings.setdefault(m.group(1), s["name"])
+    OUT_BUILDINGS.write_text(json.dumps(buildings, ensure_ascii=False, indent=0), encoding="utf-8")
+
     layers = {}
     for key, label in [("fast", "빠른 이동"), ("tower", "탑"), ("dungeon", "던전"), ("alpha", "알파 팰")]:
         layers[key] = {"label": label, "icon": icon(markers["icons"][key]), "points": markers[key]}
@@ -107,7 +118,7 @@ def main() -> None:
         img.save(OUT_ICONS / name, "WEBP", quality=85)
 
     size = sum(f.stat().st_size for f in OUT_ICONS.glob("*.webp"))
-    print(f"pals {len(out_pals)}, structures {len(out_structs)}, marker layers {len(layers)}")
+    print(f"pals {len(out_pals)}, structures {len(out_structs)}, marker layers {len(layers)}, building names {len(buildings)}")
     print(f"icons {len(icons) - len(missing)} ({size / 1024 / 1024:.1f} MB), missing {len(missing)}: {missing[:5]}")
     print(f"data {OUT_DATA.stat().st_size / 1024:.0f} KB; item refs not mapped to game ids: {len(unmapped)} {sorted(unmapped)[:8]}")
 

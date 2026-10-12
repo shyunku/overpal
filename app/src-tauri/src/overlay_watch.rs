@@ -3,9 +3,10 @@
 //!   when other windows cover 10% or more of it (on any monitor; focus does not matter)
 //! - placed on the game's monitor
 //! - click-through unless the game shows a cursor (ESC menu, inventory), so moving the
-//!   hidden in-game cursor over an overlay window does not make an arrow appear; while another
-//!   app is in front the overlay always takes the mouse (that app hiding the cursor while typing
-//!   is not the game's camera control)
+//!   hidden in-game cursor over an overlay window does not make an arrow appear; while anything
+//!   else is in front (another app or an overlay window, e.g. typing in its search box) the
+//!   overlay always takes the mouse: Windows hiding the cursor while typing is not the game's
+//!   camera control
 
 use serde::Serialize;
 use std::sync::Mutex;
@@ -111,7 +112,7 @@ fn sample(always_show: bool, game: &mut GameWindow) -> OverlayState {
     };
     let monitor = win::monitor_rect(hwnd);
     let visible = always_show || (!win::is_minimized(hwnd) && win::covered_fraction(hwnd, game_pid) < MAX_COVERED);
-    let interactive = visible && (!win::game_or_self_in_front(game_pid) || win::cursor_showing());
+    let interactive = visible && (!win::game_in_front(game_pid) || win::cursor_showing());
     OverlayState { visible, interactive, monitor }
 }
 
@@ -153,15 +154,11 @@ mod win {
         unsafe { IsIconic(h as HWND) != 0 }
     }
 
-    /// The game or one of this app's windows is the foreground window.
-    pub fn game_or_self_in_front(game_pid: u32) -> bool {
+    /// The game window is the foreground window. False while nothing is in front for a moment
+    /// (switching windows).
+    pub fn game_in_front(game_pid: u32) -> bool {
         let fg = unsafe { GetForegroundWindow() };
-        if fg.is_null() {
-            // nothing in front for a moment (e.g. while switching windows)
-            return true;
-        }
-        let pid = pid_of(fg);
-        pid == game_pid || pid == std::process::id()
+        !fg.is_null() && pid_of(fg) == game_pid
     }
 
     fn pid_of(h: HWND) -> u32 {

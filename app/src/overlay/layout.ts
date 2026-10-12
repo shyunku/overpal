@@ -39,14 +39,15 @@ export interface Layout {
 }
 
 // Defaults were fitted to the in-game HUD (docs/designs/overlay-mock.html):
-// minimap right below the top-right quest/base panels, item window above the pal slots,
+// minimap in the lower right left of the weapon panel, main window above the pal slots,
 // menu bar in the top-right corner, 5 QHD px (~4 units) from both edges.
 export const DEFAULT_LAYOUT: Layout = {
   version: 3,
   windows: {
     menubar: { open: true, ax: "right", dx: 4, ay: "top", dy: 4 },
     items: { open: true, ax: "left", dx: 40, ay: "bottom", dy: 380 },
-    minimap: { open: true, ax: "right", dx: 58, ay: "top", dy: 367 },
+    // lower right, left of the weapon panel
+    minimap: { open: true, ax: "right", dx: 400, ay: "bottom", dy: 26 },
     settings: { open: false, ax: "left", dx: 760, ay: "top", dy: 200 },
   },
   mainTab: "items",

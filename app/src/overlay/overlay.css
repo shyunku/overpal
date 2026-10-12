@@ -216,15 +216,17 @@ svg.ic {
 .win.items {
   flex-direction: row;
 }
+/* 0.92 of the earlier widths (392 / 296 / 936): with the larger window scale the window is
+   25% taller but only 15% wider */
 .items.mode-side {
-  width: 392px;
+  width: 361px;
   max-height: 900px;
 }
 .items.mode-hud {
-  width: 296px;
+  width: 272px;
 }
 .items.mode-full {
-  width: 936px;
+  width: 861px;
 }
 .items .wtitle {
   padding-top: 20px;

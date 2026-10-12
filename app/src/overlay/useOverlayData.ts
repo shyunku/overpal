@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchGuilds, fetchInventory, fetchModStatus, fetchPlayers, loadClientConfig } from "../api";
 import type { PdGuilds, PdInventory, PdPlayers } from "../data/paldefender";
-import { buildSnapshot, inventoryStorage, withInventory, type BaseView, type GuildView, type PlayerView, type Snapshot } from "../data/snapshot";
+import { baseAt, buildSnapshot, inventoryOnly, inventoryStorage, withInventory, type BaseView, type GuildView, type PlayerView, type Snapshot } from "../data/snapshot";
 import type { BaseStorage, ClientConfig, ModStatus } from "../types";
 import { streamStorage } from "./storageStream";
 
@@ -32,7 +32,10 @@ export interface OverlayData {
   error: string | null;
   snapshot: Snapshot | null;
   guild: GuildView | null;
+  /** items at hand: the base the player is in plus the inventory, or only the inventory outside bases */
   base: BaseView | null;
+  /** index of the base the player is in within guild.bases, -1 outside every base */
+  baseIndex: number;
   me: PlayerView | null;
   recent: RecentChange[];
 }
@@ -124,12 +127,15 @@ export function useOverlayData(): OverlayData {
     return every(INVENTORY_MS, () => fetchInventory(cfg, meUid).then(setInventory));
   }, [cfg, meUid]);
 
+  // the base the player stands in; other bases are not counted
+  const current = guild ? baseAt(guild.bases, me?.worldPos) : null;
+  const baseIndex = current && guild ? guild.bases.indexOf(current) : -1;
   // the player's own items count with the base
   const base = useMemo(() => {
-    const b = guild?.bases[0] ?? null;
-    if (!b || !guild || !inventory || inventory.Meta.PlayerUID !== meUid) return b;
-    return withInventory(b, inventoryStorage(inventory, guild.guildId));
-  }, [guild, inventory, meUid]);
+    const inv = guild && inventory && inventory.Meta.PlayerUID === meUid ? inventoryStorage(inventory, guild.guildId) : null;
+    if (current) return inv ? withInventory(current, inv) : current;
+    return inv ? inventoryOnly(inv) : null;
+  }, [current, guild, inventory, meUid]);
 
   const recent = useRecentChanges(base);
 
@@ -138,7 +144,7 @@ export function useOverlayData(): OverlayData {
   const statusAge = status ? now / 1000 - status.updatedAt : null;
   const conn: ConnState = streamDown || (!storage && error) ? "down" : statusAge !== null && (statusAge > STALE_AFTER_S || !status?.ok) ? "stale" : "ok";
 
-  return { conn, ageSeconds, error, snapshot, guild, base, me, recent };
+  return { conn, ageSeconds, error, snapshot, guild, base, baseIndex, me, recent };
 }
 
 function useRecentChanges(base: BaseView | null): RecentChange[] {

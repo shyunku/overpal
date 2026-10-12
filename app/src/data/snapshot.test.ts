@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BaseStorage, Storage } from "../types";
 import type { PdGuilds, PdInventory, PdPlayers } from "./paldefender";
-import { BASE_RADIUS, aggregate, buildSnapshot, inventoryStorage, withInventory } from "./snapshot";
+import { BASE_RADIUS, aggregate, baseAt, buildSnapshot, inventoryOnly, inventoryStorage, withInventory, type BaseView } from "./snapshot";
 import baseStorageFixture from "./__fixtures__/base_storage.json";
 import guildsFixture from "./__fixtures__/guilds.json";
 import playersFixture from "./__fixtures__/players.json";
@@ -152,5 +152,25 @@ describe("buildSnapshot edge cases", () => {
     expect(snap.guilds[0].bases).toEqual([]);
     expect(snap.guilds[0].elsewhere).toHaveLength(1);
     expect(snap.players).toEqual([]);
+  });
+});
+
+describe("baseAt", () => {
+  const camp = (id: string, x: number): BaseView => ({ campId: id, worldPos: { x, y: 0, z: 0 }, mapPos: { x: 0, y: 0, z: 0 }, storages: [], totals: [] });
+  const bases = [camp("A", 0), camp("B", 100000)];
+
+  it("picks the base the player stands in", () => {
+    expect(baseAt(bases, { x: 99000, y: 500, z: 0 })?.campId).toBe("B");
+  });
+
+  it("is null outside every base or without a position", () => {
+    expect(baseAt(bases, { x: 50000, y: 0, z: 0 })).toBeNull();
+    expect(baseAt(bases, undefined)).toBeNull();
+  });
+
+  it("counts only the inventory outside bases", () => {
+    const v = inventoryOnly(storageAt("inventory", "G", 0, [["Wood", 3]]));
+    expect(v.campId).toBe("");
+    expect(totalsOf(v.totals)).toEqual({ Wood: 3 });
   });
 });
