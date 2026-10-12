@@ -153,6 +153,10 @@ fn window_corners(window: &tauri::WebviewWindow, round: bool) {
 /// Turns click-through on or off by changing only the extended style. tao's
 /// set_ignore_cursor_events rewrites the whole style, putting back the caption of the undecorated
 /// window, which Windows then sometimes drew over the overlay ("PalHelper").
+///
+/// Window changes must run on the main thread at a safe point of the event loop
+/// (run_on_main_thread): made from another thread, or in the middle of a webview callback, their
+/// messages can arrive while tao flushes redraws and trip its re-entrancy assert, ending the app.
 #[cfg(windows)]
 pub fn set_click_through(window: &tauri::WebviewWindow, on: bool) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_LAYERED, WS_EX_TRANSPARENT};
@@ -174,9 +178,13 @@ pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
     #[cfg(windows)]
     {
         use windows_sys::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNOACTIVATE, ShowWindow};
-        if let Ok(hwnd) = window.hwnd() {
-            unsafe { ShowWindow(hwnd.0 as _, if on { SW_SHOWNOACTIVATE } else { SW_HIDE }) };
-        }
+        // deferred to a safe point of the event loop (see set_click_through)
+        let w = window.clone();
+        let _ = window.run_on_main_thread(move || {
+            if let Ok(hwnd) = w.hwnd() {
+                unsafe { ShowWindow(hwnd.0 as _, if on { SW_SHOWNOACTIVATE } else { SW_HIDE }) };
+            }
+        });
     }
     #[cfg(not(windows))]
     let _ = if on { window.show() } else { window.hide() };
@@ -186,15 +194,27 @@ pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
 #[tauri::command]
 pub fn click_through(window: tauri::WebviewWindow, on: bool) {
     #[cfg(windows)]
-    set_click_through(&window, on);
+    {
+        let w = window.clone();
+        let _ = window.run_on_main_thread(move || set_click_through(&w, on));
+    }
     #[cfg(not(windows))]
     let _ = window.set_ignore_cursor_events(on);
 }
 
+/// Whether the caption or frame styles came back. Only reads the style, so it is safe from any thread.
+#[cfg(windows)]
+pub fn needs_popup_fix(window: &tauri::WebviewWindow) -> bool {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GWL_STYLE, GetWindowLongPtrW, WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME};
+    let Ok(hwnd) = window.hwnd() else { return false };
+    let style = unsafe { GetWindowLongPtrW(hwnd.0 as _, GWL_STYLE) } as u32;
+    style & (WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX) != 0 || style & WS_POPUP == 0
+}
+
 /// Keeps the window a plain popup. An undecorated window keeps the caption and frame styles and
 /// only hides them; when tao writes them back Windows sometimes drew that caption ("PalHelper ×")
-/// over the overlay. Called at creation and by the watcher every tick as a safety net; it only
-/// writes when the caption came back.
+/// over the overlay. Called at creation, and on the main thread when the watcher finds the caption
+/// back (needs_popup_fix); it only writes when the caption came back.
 #[cfg(windows)]
 pub fn ensure_popup(window: &tauri::WebviewWindow) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{
@@ -227,11 +247,14 @@ pub fn round_corners(window: tauri::WebviewWindow, radius: f64) {
         // the region is relative to the outer window, which can include an invisible frame
         let (x, y) = (inner.x - outer.x, inner.y - outer.y);
         let d = (radius * 2.0).round().max(0.0) as i32;
-        unsafe {
-            let rgn = CreateRoundRectRgn(x, y, x + size.width as i32 + 1, y + size.height as i32 + 1, d, d);
+        let (w, h) = (size.width as i32, size.height as i32);
+        let h_wnd = hwnd.0 as isize;
+        // deferred to a safe point of the event loop (see set_click_through)
+        let _ = window.run_on_main_thread(move || unsafe {
+            let rgn = CreateRoundRectRgn(x, y, x + w + 1, y + h + 1, d, d);
             // the system owns the region from here on
-            SetWindowRgn(hwnd.0 as _, rgn, 1);
-        }
+            SetWindowRgn(h_wnd as _, rgn, 1);
+        });
     }
     #[cfg(not(windows))]
     let _ = (window, radius);

@@ -65,24 +65,37 @@ pub fn spawn(app: &AppHandle, labels: &'static [&'static str], always_show: bool
                 s.interactive = false;
             }
             if last != Some(s) {
-                for label in labels {
-                    if let Some(w) = app.get_webview_window(label) {
-                        #[cfg(windows)]
-                        crate::overlay::set_click_through(&w, !s.interactive);
-                        #[cfg(not(windows))]
-                        let _ = w.set_ignore_cursor_events(!s.interactive);
+                // window changes run on the main thread: changing a window from this thread sends
+                // its messages into the main thread at any point, also while tao is flushing
+                // redraws, which trips tao's re-entrancy assert and ends the app
+                let handle = app.clone();
+                let click_through = !s.interactive;
+                let _ = app.run_on_main_thread(move || {
+                    for label in labels {
+                        if let Some(w) = handle.get_webview_window(label) {
+                            #[cfg(windows)]
+                            crate::overlay::set_click_through(&w, click_through);
+                            #[cfg(not(windows))]
+                            let _ = w.set_ignore_cursor_events(click_through);
+                        }
                     }
-                }
+                });
                 *app.state::<CurrentState>().0.lock().unwrap() = s;
                 last = Some(s);
                 ticks = RESEND_EVERY;
             }
             // tao writes the caption styles back on window changes; take them out again
+            // (reading the style here is safe, the fix runs on the main thread)
             #[cfg(windows)]
-            for label in crate::overlay::ALL {
-                if let Some(w) = app.get_webview_window(label) {
-                    crate::overlay::ensure_popup(&w);
-                }
+            if crate::overlay::ALL.iter().any(|l| app.get_webview_window(l).is_some_and(|w| crate::overlay::needs_popup_fix(&w))) {
+                let handle = app.clone();
+                let _ = app.run_on_main_thread(move || {
+                    for label in crate::overlay::ALL {
+                        if let Some(w) = handle.get_webview_window(label) {
+                            crate::overlay::ensure_popup(&w);
+                        }
+                    }
+                });
             }
             if ticks >= RESEND_EVERY {
                 let _ = app.emit(OVERLAY_STATE, s);
