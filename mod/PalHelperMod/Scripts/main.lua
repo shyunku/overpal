@@ -20,6 +20,14 @@ local DEBUG_DUMP = false
 -- 0 leaves the game's value. See docs/game-internals.md, "작업 진행도 복제".
 local BUILD_NET_UPDATE_HZ = 20
 
+-- Stall log: a game-thread callback every STALL_WATCH_MS notes when it comes STALL_WARN_MS or
+-- more late, i.e. the server did nothing else for that long. Lines go to stalls.txt
+-- ("HH:MM:SS <late ms>[ scan]", "scan" when this mod's full scan ran in that time); the app
+-- server prints them as warnings.
+local STALL_WATCH_MS = 50
+local STALL_WARN_MS = 50
+local STALL_FILE = "stalls.txt"
+
 local ZERO_GUID = "00000000-00000000-00000000-00000000"
 
 local KIND_BY_MODEL_CLASS = {
@@ -60,6 +68,13 @@ local function write_file(name, text)
     -- replace in one step so readers never see a half-written file
     os.remove(DIR .. name)
     return os.rename(tmp, DIR .. name)
+end
+
+local function append_line(name, line)
+    local f = io.open(DIR .. name, "a")
+    if not f then return end
+    f:write(line, "\n")
+    f:close()
 end
 
 local errors = {}
@@ -388,6 +403,9 @@ local function raise_build_rate()
     return true
 end
 
+-- end of the last full scan (os.clock), to tell the mod's own stalls apart
+local scan_ended = -math.huge
+
 local function tick()
     if ENABLE_PROBE then
         local ok, err = pcall(run_probe)
@@ -409,6 +427,7 @@ local function tick()
         end
     end)
     if not ok then log_error("tick", err) end
+    scan_ended = os.clock()
     write_file("status.json", to_json({
         updatedAt = os.time(),
         ok = ok and #errors == 0,
@@ -420,6 +439,19 @@ local function tick()
 end
 
 print("[PalHelperMod] loaded, output: " .. DIR)
+-- stalls of this run only
+os.remove(DIR .. STALL_FILE)
+local last_watch = nil
+LoopInGameThreadWithDelay(STALL_WATCH_MS, function()
+    local now = os.clock()
+    if last_watch then
+        local late = (now - last_watch) * 1000 - STALL_WATCH_MS
+        if late >= STALL_WARN_MS then
+            append_line(STALL_FILE, ("%s %d%s"):format(os.date("%H:%M:%S"), math.floor(late), scan_ended > last_watch and " scan" or ""))
+        end
+    end
+    last_watch = now
+end)
 if BUILD_NET_UPDATE_HZ > 0 then
     local function retry()
         local ok, done = pcall(raise_build_rate)

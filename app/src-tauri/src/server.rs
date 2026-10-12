@@ -20,6 +20,8 @@ use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
 
 const STORAGE_FILE: &str = "base_storage.json";
+/// server stalls logged by the mod
+const STALL_FILE: &str = "stalls.txt";
 /// how often the mod output file is checked for a new version
 const WATCH_EVERY: Duration = Duration::from_millis(150);
 
@@ -47,6 +49,7 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
     let listen = cfg.listen.clone();
     let (storage_tx, _) = broadcast::channel(16);
     spawn_storage_watcher(cfg.mod_output_dir.join(STORAGE_FILE), storage_tx.clone());
+    spawn_stall_printer(cfg.mod_output_dir.join(STALL_FILE));
     let state = AppState { cfg: Arc::new(cfg), http: reqwest::Client::new(), pd_token, storage_tx };
 
     let protected = Router::new()
@@ -122,6 +125,32 @@ async fn base_storage(State(s): State<AppState>) -> Response {
 }
 
 /// Sends the mod output whenever the mod writes a new version.
+/// Prints the game server stalls the mod logs (stalls.txt, one "HH:MM:SS <ms>[ scan]" per line)
+/// to this console as they come in.
+fn spawn_stall_printer(path: std::path::PathBuf) {
+    tokio::spawn(async move {
+        let mut seen = 0usize;
+        loop {
+            if let Ok(text) = tokio::fs::read_to_string(&path).await {
+                // the mod starts a new file when the server restarts
+                if text.len() < seen {
+                    seen = 0;
+                }
+                for line in text[seen..].lines() {
+                    let mut parts = line.split_whitespace();
+                    if let (Some(at), Some(ms)) = (parts.next(), parts.next()) {
+                        let cause = if parts.next() == Some("scan") { " (during the PalHelperMod scan)" } else { "" };
+                        eprintln!("[warn] {at} game server stalled {ms} ms{cause}");
+                    }
+                }
+                // only whole lines count as seen
+                seen = text.rfind('\n').map_or(seen, |i| i + 1);
+            }
+            tokio::time::sleep(WATCH_EVERY).await;
+        }
+    });
+}
+
 fn spawn_storage_watcher(path: std::path::PathBuf, tx: broadcast::Sender<String>) {
     tokio::spawn(async move {
         let mut last: Option<SystemTime> = None;
