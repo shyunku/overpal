@@ -1,7 +1,7 @@
 import type { ViewId } from "./layout";
 import { TooltipWindow } from "./TooltipWindow";
 import { useSharedLayout } from "./OverlayWindow";
-import { useOverlayData } from "./useOverlayData";
+import { MINIMAP_PLAYERS_MS, useOverlayData } from "./useOverlayData";
 import { MainWindow, MenuBar, MinimapWindow, SettingsWindow } from "./views";
 import "@fontsource/oxanium/400.css";
 import "@fontsource/oxanium/500.css";
@@ -19,7 +19,7 @@ export function OverlayApp({ view }: { view: ViewId | "tooltip" }) {
 
 function Panel({ view }: { view: ViewId }) {
   const [layout, setLayout] = useSharedLayout();
-  const data = useOverlayData();
+  const data = useOverlayData(view === "minimap" ? MINIMAP_PLAYERS_MS : undefined);
   if (!layout) return null;
   const props = { layout, onLayout: setLayout, data };
   switch (view) {

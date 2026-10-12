@@ -671,7 +671,7 @@ const MINIMAP_FAR = 0.25;
 const MINIMAP_SMALL = 0.5;
 const ZOOM_TAG_MS = 1000;
 /** the server sends no facing; the heading follows movement of at least this much (world units) */
-const HEADING_MIN_MOVE = 150;
+const HEADING_MIN_MOVE = 100;
 /** width of the view fan in front of my arrow */
 const FAN = Math.PI / 3;
 type MarkerKey = keyof Dex["markers"];
@@ -718,7 +718,10 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
     const prev = last.current;
     if (prev && Math.hypot(meWorld.x - prev.wx, meWorld.y - prev.wy) < HEADING_MIN_MOVE) return;
     last.current = { wx: meWorld.x, wy: meWorld.y, px };
-    if (prev) setHeading(Math.atan2(px[0] - prev.px[0], prev.px[1] - px[1]));
+    if (!prev) return;
+    const raw = Math.atan2(px[0] - prev.px[0], prev.px[1] - px[1]);
+    // keep the angle continuous so the turn animates the short way round
+    setHeading((h) => (h === null ? raw : h + Math.atan2(Math.sin(raw - h), Math.cos(raw - h))));
   }, [meWorld?.x, meWorld?.y]);
 
   const center = data.me ? mapPx(data.me.mapPos.x, data.me.mapPos.y) : camps[0] ? mapPx(camps[0].mapPos.x, camps[0].mapPos.y) : null;

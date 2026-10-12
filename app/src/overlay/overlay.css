@@ -591,6 +591,10 @@ img.item-icon {
   background-repeat: no-repeat;
   /* the game shows through a little; markers stay fully opaque */
   opacity: 0.8;
+  /* positions come every 100 ms; sliding between them makes the movement smooth */
+  transition:
+    background-position 0.1s linear,
+    background-size 0.1s linear;
 }
 .minimap::after {
   content: "";
@@ -605,6 +609,10 @@ img.item-icon {
   position: absolute;
   transform: translate(-50%, -50%);
   z-index: 2;
+  transition:
+    left 0.1s linear,
+    top 0.1s linear,
+    transform 0.2s linear;
 }
 /* base: house badge */
 .mk.base {

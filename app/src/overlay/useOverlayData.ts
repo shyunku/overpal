@@ -5,8 +5,10 @@ import { baseAt, buildSnapshot, inventoryOnly, inventoryStorage, withInventory, 
 import type { BaseStorage, ClientConfig, ModStatus } from "../types";
 import { streamStorage } from "./storageStream";
 
-/** player positions (minimap) */
+/** player positions */
 const PLAYERS_MS = 500;
+/** player positions in the minimap window, which draws the movement in between (2-3 ms a call) */
+export const MINIMAP_PLAYERS_MS = 100;
 /** own inventory (PalDefender has no push) */
 const INVENTORY_MS = 2000;
 /** guilds and camps change rarely */
@@ -60,7 +62,7 @@ function every(ms: number, fn: () => Promise<void>): () => void {
   };
 }
 
-export function useOverlayData(): OverlayData {
+export function useOverlayData(playersMs = PLAYERS_MS): OverlayData {
   const [cfg, setCfg] = useState<ClientConfig | null>(null);
   const [storage, setStorage] = useState<BaseStorage | null>(null);
   const [status, setStatus] = useState<ModStatus | null>(null);
@@ -104,7 +106,7 @@ export function useOverlayData(): OverlayData {
     );
     const stops = [
       // PalDefender is optional
-      every(PLAYERS_MS, () => fetchPlayers(cfg).then(setPlayers)),
+      every(playersMs, () => fetchPlayers(cfg).then(setPlayers)),
       every(GUILDS_MS, () => fetchGuilds(cfg).then(setGuilds)),
       every(STATUS_MS, () => fetchModStatus(cfg).then(setStatus)),
       // keeps the "n seconds ago" text and the stale check moving
@@ -114,7 +116,7 @@ export function useOverlayData(): OverlayData {
       abort.abort();
       stops.forEach((f) => f());
     };
-  }, [cfg]);
+  }, [cfg, playersMs]);
 
   const snapshot = useMemo(() => (storage ? buildSnapshot(storage, guilds, players) : null), [storage, guilds, players]);
   const me = snapshot ? pickMe(snapshot.players, cfg) : null;
