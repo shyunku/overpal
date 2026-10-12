@@ -1212,3 +1212,9 @@ img.item-icon {
 .items .wtitle .ttl .sub {
   min-height: 23.5px;
 }
+/* a faint line between the total and the places */
+.dx-kv .dx-kvrow.total {
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
