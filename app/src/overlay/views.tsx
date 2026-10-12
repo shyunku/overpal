@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ItemTotal } from "../data/snapshot";
-import { itemName, placesOf } from "./labels";
+import { itemIconUrl, itemName, placesOf } from "./labels";
 import { resetPositions, type ItemMode, type Layout, type ViewId } from "./layout";
 import { MAP_SIZE, mapPx } from "./mapcoords";
 import type { OverlayData } from "./useOverlayData";
@@ -34,9 +34,10 @@ function Icon({ name }: { name: keyof typeof ICONS }) {
   );
 }
 
-/** Placeholder until task #8 brings the item icons. */
 function ItemIcon({ id }: { id: string }) {
-  return <span className="item-icon">{itemName(id).slice(0, 1)}</span>;
+  const url = itemIconUrl(id);
+  // items without an icon show the first letter of their name
+  return url ? <img className="item-icon" src={url} alt="" draggable={false} /> : <span className="item-icon">{itemName(id).slice(0, 1)}</span>;
 }
 
 const statusText = (d: OverlayData) =>

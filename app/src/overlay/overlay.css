@@ -239,6 +239,10 @@ svg.ic {
   font-weight: 700;
   font-size: 18px;
 }
+img.item-icon {
+  background: none;
+  object-fit: contain;
+}
 
 .tabs {
   display: flex;

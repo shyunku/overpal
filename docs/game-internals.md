@@ -59,6 +59,13 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 - 게임 내부 ID와 palworld-helper 프로젝트(`paldb` 기반) ID가 다른 것이 있다. 예: 팰지움 파편은 내부 `Pal_crystal_S`, 프로젝트 `Paldium_Fragment`.
 - 내부 ID 목록은 클라이언트 팩의 `Pal/Content/Pal/DataTable/Item/DT_ItemDataTable` 이름 테이블에서 볼 수 있다.
 
+## 아이템 이름 테이블
+
+- 한국어 이름: 클라이언트 팩의 `Pal/Content/L10N/ko/Pal/DataTable/Text/DT_ItemNameText_Common`. 행 이름이 `ITEM_NAME_<게임 ID>`다.
+- 팰월드는 "버전 없는 속성(unversioned properties)"으로 쿡되어 속성 이름이 파일에 없다. 텍스트 테이블은 행마다 FText 하나뿐이라 구조 정보 없이 읽을 수 있다(`scripts/ue_datatable.py`). 아이템 데이터 테이블(`DT_ItemDataTable`, 아이콘 이름 포함)은 구조 정보가 없으면 읽을 수 없어서 아이콘은 palworld-helper에서 이름이 같은 아이템으로 맞춘다.
+- 번역되지 않은 행은 값이 `ko_Text`다. 무기·방어구의 등급 변형(`ClothArmor_3` 등)은 기본 아이템 이름을 쓴다.
+- 추출: `.local/tools/repak/repak.exe unpack <Pal-Windows.pak> -i "Pal/Content/L10N/ko/Pal/DataTable/Text/DT_ItemNameText_Common*" -o .local/gamedata` (Oodle 압축 해제에 `oo2core_9_win64.dll` 필요).
+
 ## 미확인
 
 - 플레이어 체력 등 캐릭터 상태 필드는 조사하지 않았다.
