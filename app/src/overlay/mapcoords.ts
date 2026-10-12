@@ -4,6 +4,9 @@
 
 export const MAP_SIZE = 4096;
 
+/** world units (cm) per map pixel: one PalDefender map unit is 459 world units, 1.3 px */
+export const WORLD_PER_PX = 459 / 1.3;
+
 export function mapPx(mapX: number, mapY: number): [number, number] {
   return [1442 + (mapX + 814) * 1.3, 2413 - (mapY + 824) * 1.3];
 }

@@ -9,6 +9,7 @@ import type { OverlayData } from "./useOverlayData";
 import { OverlayWindow } from "./OverlayWindow";
 import { DexDetail, DexList, dexSummary, useCaptureBonus, useDex, type DexTab } from "./dexViews";
 import { loadItemDesc, type Dex } from "../data/dex";
+import { MineView, useMinePals, type MinePals } from "./mineViews";
 
 interface ViewProps {
   layout: Layout;
@@ -401,14 +402,16 @@ interface OtherTabProps {
   captures: Map<string, number>;
   detail: string | null;
   onOpen: (id: string) => void;
+  data: OverlayData;
+  pals: MinePals | null;
+  /** base shown by the "mine" pal and structure lists */
+  base: BaseView | null;
 }
 
-/**
- * Pals, structures and places: "mine" (this server) or "dex" (game data).
- * "mine" is filled in by 19.5 of #19; the compact layout shows only "mine".
- */
-function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, captures, detail, onOpen }: OtherTabProps) {
-  if (mode === "hud") return <div className="empty">준비 중</div>;
+/** Pals, structures and places: "mine" (this server) or "dex" (game data); compact shows only "mine". */
+function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, captures, detail, onOpen, data, pals, base }: OtherTabProps) {
+  const mine = (head: ReactNode) => <MineView tab={tab} mode={mode} data={data} dex={dex} pals={pals} base={base} query={query} detail={detail} onOpen={onOpen} head={head} />;
+  if (mode === "hud") return mine(null);
   if (detail && sub === "dex" && dex) return <DexDetail dex={dex} tab={tab} id={detail} />;
   const subTabs = (
     <div className="tabs">
@@ -430,28 +433,11 @@ function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, captures, detail
       </>
     );
   }
-  if (mode === "full") {
-    return (
-      <>
-        {subTabs}
-        {search}
-        <div className="full-body">
-          <div className="filters">
-            <div className="on">전체</div>
-          </div>
-          <div className="empty">준비 중</div>
-        </div>
-      </>
-    );
-  }
-  return (
+  return mine(
     <>
       {subTabs}
       {search}
-      <div className="scroll">
-        <div className="empty">준비 중</div>
-      </div>
-    </>
+    </>,
   );
 }
 
@@ -480,8 +466,10 @@ function BaseMenu(props: {
   hereLabel: string;
   onPick: (campId: string | null) => void;
   onClose: () => void;
+  /** what each base shows instead of its item count (pal and structure tabs) */
+  countText?: (b: BaseView) => string;
 }) {
-  const { anchor, item, hereBase, bases, me, hereIndex, pickedIndex, hereLabel, onPick, onClose } = props;
+  const { anchor, item, hereBase, bases, me, hereIndex, pickedIndex, hereLabel, onPick, onClose, countText } = props;
   const count = (b: BaseView | null) => (item ? (b?.totals.find((t) => t.item === item)?.count ?? 0) : (b?.totals.reduce((a, t) => a + t.count, 0) ?? 0));
   // offsets are relative to .mainbody (the button's offset parent); keep the menu inside the window
   const body = anchor?.offsetParent as HTMLElement | null;
@@ -503,7 +491,7 @@ function BaseMenu(props: {
           <div key={b.campId} className={pickedIndex === i ? "on" : ""} onClick={() => onPick(b.campId)}>
             <span>거점 {i + 1}</span>
             <small>
-              {i === hereIndex ? "여기" : distanceText(me, b.worldPos)} · {count(b)}개
+              {i === hereIndex ? "여기" : distanceText(me, b.worldPos)} · {countText ? countText(b) : `${count(b)}개`}
             </small>
           </div>
         ))}
@@ -528,6 +516,13 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   const bases = data.guild?.bases ?? [];
   const pickedIndex = picked ? bases.findIndex((b) => b.campId === picked) : -1;
   const shownBase = pickedIndex >= 0 ? bases[pickedIndex] : data.base;
+  const pals = useMinePals(tab === "pals" || tab === "places" ? data.me?.uid : undefined);
+  // pal and structure lists show the picked base, else the one the player is in, else the nearest
+  const me = data.me?.worldPos;
+  const nearestIndex = me && bases.length ? bases.reduce((best, b, i) => (Math.hypot(b.worldPos.x - me.x, b.worldPos.y - me.y) < Math.hypot(bases[best].worldPos.x - me.x, bases[best].worldPos.y - me.y) ? i : best), 0) : bases.length ? 0 : -1;
+  const mineIndex = pickedIndex >= 0 ? pickedIndex : data.baseIndex >= 0 ? data.baseIndex : nearestIndex;
+  const mineBase = mineIndex >= 0 ? bases[mineIndex] : null;
+  const showsBaseMenu = mode !== "hud" && (tab === "items" || ((tab === "pals" || tab === "structs") && layout.subs[tab] === "mine"));
   const setTab = (t: MainTab) => {
     setDetail(null);
     onLayout({ ...layout, mainTab: t });
@@ -554,8 +549,20 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
       )
     ) : layout.subs[tab] === "dex" && mode !== "hud" ? (
       dexSummary(dex, tab)
+    ) : mode === "hud" ? (
+      statusText(data)
+    ) : tab === "places" ? (
+      "내 위치 기준"
+    ) : mineBase ? (
+      <>
+        <button ref={baseBtn} className={`basebtn ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
+          거점 {mineIndex + 1}
+          <Icon name="chevron" />
+        </button>
+        {pickedIndex < 0 && data.baseIndex < 0 && <span className="rest">· 가장 가까운 거점</span>}
+      </>
     ) : (
-      "준비 중"
+      "거점 없음"
     );
   const pick = (campId: string | null) => {
     setPicked(campId);
@@ -608,8 +615,20 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
             <div className="sub">{subText}</div>
           </div>
         </div>
-        {tab === "items" && menuOpen && mode !== "hud" && (
-          <BaseMenu anchor={baseBtn.current} item={detail} hereBase={data.base} bases={bases} me={data.me?.worldPos ?? null} hereIndex={data.baseIndex} pickedIndex={pickedIndex} hereLabel={hereLabel} onPick={pick} onClose={() => setMenuOpen(false)} />
+        {showsBaseMenu && menuOpen && (
+          <BaseMenu
+            anchor={baseBtn.current}
+            item={tab === "items" ? detail : null}
+            hereBase={data.base}
+            bases={bases}
+            me={data.me?.worldPos ?? null}
+            hereIndex={data.baseIndex}
+            pickedIndex={pickedIndex}
+            hereLabel={tab === "items" || data.baseIndex >= 0 ? hereLabel : `거점 ${nearestIndex + 1} (가장 가까움)`}
+            onPick={pick}
+            onClose={() => setMenuOpen(false)}
+            countText={tab === "pals" ? (b) => `일꾼 ${pals?.workers.get(b.campId)?.length ?? "-"}` : tab === "structs" ? (b) => `건물 ${b.buildings.length}` : undefined}
+          />
         )}
         {tab === "items" ? (
           <ItemsTab data={data} mode={mode} base={mode === "hud" ? data.base : shownBase} notice={notice} detail={detail} onOpen={setDetail} />
@@ -628,6 +647,9 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
             captures={captures}
             detail={detail}
             onOpen={setDetail}
+            data={data}
+            pals={pals}
+            base={mineBase}
           />
         )}
       </div>
