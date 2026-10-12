@@ -1218,3 +1218,22 @@ img.item-icon {
   margin-bottom: 2px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
+/* compact rows use the normal list's sizes: 36 px icon, 14 px name, 16 px count */
+.items .hud-row {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 1px 12px 1px 16px;
+}
+.items .hud-row .item-icon {
+  width: 36px;
+  height: 36px;
+}
+.items .hud-row .name {
+  font-size: 14px;
+  line-height: 1.3;
+}
+.items .hud-row b {
+  font-size: 16px;
+  text-box: normal;
+  line-height: 1.3;
+}

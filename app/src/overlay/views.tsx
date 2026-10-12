@@ -195,6 +195,9 @@ function ItemDetail({ t, desc, placeOf }: { t: ItemTotal; desc: Record<string, s
   );
 }
 
+/** items in the compact layout: recent changes first, then the largest counts */
+const COMPACT_ROWS = 6;
+
 const byName = (a: { item: string }, b: { item: string }) => itemName(a.item).localeCompare(itemName(b.item), "ko");
 
 /** `base`: the storages shown (current base + inventory, or a base picked from the menu); `notice` goes under the search box. */
@@ -243,10 +246,10 @@ function ItemsTab(props: {
     body = <div className="empty">앱 서버에 연결할 수 없음 · 재시도 중</div>;
   } else if (mode === "hud") {
     const rows = [...data.recent.map((r) => ({ item: r.item, delta: r.delta }))];
-    for (const t of totals) if (rows.length < 4 && !rows.some((r) => r.item === t.item)) rows.push({ item: t.item, delta: 0 });
+    for (const t of totals) if (rows.length < COMPACT_ROWS && !rows.some((r) => r.item === t.item)) rows.push({ item: t.item, delta: 0 });
     body = (
       <div className={data.conn === "stale" ? "dim" : ""} style={{ paddingBottom: 8 }}>
-        {rows.slice(0, 4).map((r) => (
+        {rows.slice(0, COMPACT_ROWS).map((r) => (
           <div className="hud-row" key={r.item}>
             <ItemIcon id={r.item} />
             <span className="name">{itemName(r.item)}</span>
