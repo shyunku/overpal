@@ -398,7 +398,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   const label = TABS.find((x) => x.id === tab)!.label;
   const hereLabel = data.baseIndex >= 0 ? `거점 ${data.baseIndex + 1}` : "거점 밖";
   const baseLabel = pickedIndex >= 0 ? `거점 ${pickedIndex + 1}` : hereLabel;
-  const baseNote = pickedIndex >= 0 ? "보는 중" : data.baseIndex >= 0 ? "+ 내 인벤토리" : "내 인벤토리만";
+  const baseNote = pickedIndex >= 0 ? "내 인벤토리 미포함" : data.baseIndex >= 0 ? "내 인벤토리 포함" : "내 인벤토리만";
   const subText =
     tab === "items" ? (
       mode === "hud" ? (
@@ -409,9 +409,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
             {baseLabel}
             <Icon name="chevron" />
           </button>
-          <span className="rest">
-            · {baseNote} · {statusText(data)}
-          </span>
+          <span className="rest">· {baseNote}</span>
         </>
       )
     ) : layout.subs[tab] === "dex" && mode !== "hud" ? (
