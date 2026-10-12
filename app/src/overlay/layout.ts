@@ -34,6 +34,8 @@ export interface Layout {
   subs: Record<Exclude<MainTab, "items">, MainSub>;
   /** alpha of the dark tint over the blurred background */
   opacity: number;
+  /** minimap magnification (MINIMAP_ZOOMS), changed with the - and = keys */
+  minimapZoom: number;
   /** windows can be dragged only while this is on; never persisted as on */
   editMode: boolean;
 }
@@ -55,6 +57,7 @@ export const DEFAULT_LAYOUT: Layout = {
   modes: { items: "side", pals: "side", structs: "side", places: "side" },
   subs: { pals: "mine", structs: "mine", places: "mine" },
   opacity: 0.25,
+  minimapZoom: 1,
   editMode: false,
 };
 

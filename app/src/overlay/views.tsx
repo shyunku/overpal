@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTip } from "./TooltipWindow";
-import type { BaseView, ItemTotal } from "../data/snapshot";
+import { BASE_RADIUS, type BaseView, type ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
 import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId } from "./layout";
-import { MAP_SIZE, mapPx } from "./mapcoords";
+import { MAP_SIZE, mapPx, WORLD_PER_PX } from "./mapcoords";
+import { listen } from "@tauri-apps/api/event";
 import type { OverlayData } from "./useOverlayData";
 import { OverlayWindow } from "./OverlayWindow";
 import { DexDetail, DexList, dexSummary, useCaptureBonus, useDex, type DexTab } from "./dexViews";
@@ -660,14 +661,76 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
 // ---------------------------------------------------------------- minimap
 
 const MINIMAP_SIZE = 169;
-/** map pixels shown across the minimap */
+/** map pixels shown across the minimap at ×1 */
 const MINIMAP_SPAN = 160;
+/** magnifications the - and = keys step through */
+export const MINIMAP_ZOOMS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2];
+/** at or below this only fast travel points and towers are drawn, smaller */
+const MINIMAP_FAR = 0.25;
+/** marker icons are drawn smaller below this */
+const MINIMAP_SMALL = 0.5;
+const ZOOM_TAG_MS = 1000;
+/** the server sends no facing; the heading follows movement of at least this much (world units) */
+const HEADING_MIN_MOVE = 150;
+/** width of the view fan in front of my arrow */
+const FAN = Math.PI / 3;
+type MarkerKey = keyof Dex["markers"];
+// dungeons are left out (too many, asked to turn off)
+const MINIMAP_MARKERS: MarkerKey[] = ["alpha", "fast", "tower"];
+const FAR_MARKERS: MarkerKey[] = ["fast", "tower"];
+
+const meters = (cm: number) => (cm < 100_000 ? `${Math.round(cm / 100)}m` : `${(cm / 100_000).toFixed(1)}km`);
 
 export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
+  const dex = useDex();
   const camps = data.guild?.bases ?? [];
+  const zoom = MINIMAP_ZOOMS.includes(layout.minimapZoom) ? layout.minimapZoom : 1;
+  const [tag, setTag] = useState<{ text: string; at: number } | null>(null);
+  // the key event handler reads the latest layout
+  const latest = useRef({ layout, onLayout });
+  latest.current = { layout, onLayout };
+  useEffect(() => {
+    let timer: number | undefined;
+    const un = listen<number>("minimap-zoom", (e) => {
+      const { layout: l, onLayout: set } = latest.current;
+      const i = Math.max(0, MINIMAP_ZOOMS.indexOf(MINIMAP_ZOOMS.includes(l.minimapZoom) ? l.minimapZoom : 1));
+      const next = MINIMAP_ZOOMS[Math.max(0, Math.min(MINIMAP_ZOOMS.length - 1, i + Math.sign(e.payload)))];
+      if (next === l.minimapZoom) return;
+      set({ ...l, minimapZoom: next });
+      setTag({ text: `×${next}`, at: Date.now() });
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setTag(null), ZOOM_TAG_MS);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      un.then((f) => f());
+    };
+  }, []);
+
+  // heading (radians clockwise from north on the map image) from the last movement; kept while standing
+  const last = useRef<{ wx: number; wy: number; px: [number, number] } | null>(null);
+  const [heading, setHeading] = useState<number | null>(null);
+  const meWorld = data.me?.worldPos;
+  const meMap = data.me?.mapPos;
+  useEffect(() => {
+    if (!meWorld || !meMap) return;
+    const px = mapPx(meMap.x, meMap.y);
+    const prev = last.current;
+    if (prev && Math.hypot(meWorld.x - prev.wx, meWorld.y - prev.wy) < HEADING_MIN_MOVE) return;
+    last.current = { wx: meWorld.x, wy: meWorld.y, px };
+    if (prev) setHeading(Math.atan2(px[0] - prev.px[0], prev.px[1] - px[1]));
+  }, [meWorld?.x, meWorld?.y]);
+
   const center = data.me ? mapPx(data.me.mapPos.x, data.me.mapPos.y) : camps[0] ? mapPx(camps[0].mapPos.x, camps[0].mapPos.y) : null;
-  const k = MINIMAP_SIZE / MINIMAP_SPAN;
-  const toView = ([x, y]: [number, number]) => center && { left: (x - center[0]) * k + MINIMAP_SIZE / 2, top: (y - center[1]) * k + MINIMAP_SIZE / 2 };
+  const k = (MINIMAP_SIZE / MINIMAP_SPAN) * zoom;
+  const half = MINIMAP_SIZE / 2;
+  const view = ([x, y]: [number, number]) => (center ? { left: (x - center[0]) * k + half, top: (y - center[1]) * k + half } : null);
+  const inside = (v: { left: number; top: number } | null, pad = 0) => !!v && Math.hypot(v.left - half, v.top - half) <= half - pad;
+  const me = data.me;
+  const friends = (data.snapshot?.players ?? []).filter((p) => p.online && p.uid !== me?.uid);
+  const markers = zoom <= MINIMAP_FAR ? FAR_MARKERS : MINIMAP_MARKERS;
+  // the base radius (world units) on the minimap
+  const ringPx = (BASE_RADIUS / WORLD_PER_PX) * k * 2;
 
   return (
     <OverlayWindow view="minimap" layout={layout} onLayout={onLayout} passive className="glass round minimap-win">
@@ -678,17 +741,65 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
               className="map-img"
               style={{
                 backgroundSize: `${MAP_SIZE * k}px`,
-                backgroundPosition: `${-(center[0] * k - MINIMAP_SIZE / 2)}px ${-(center[1] * k - MINIMAP_SIZE / 2)}px`,
+                backgroundPosition: `${-(center[0] * k - half)}px ${-(center[1] * k - half)}px`,
               }}
             />
-            {camps.map((c) => (
-              <span key={c.campId} className="mk base" style={toView(mapPx(c.mapPos.x, c.mapPos.y)) ?? undefined} />
-            ))}
-            {(data.snapshot?.players ?? [])
-              .filter((p) => p.online || p.uid === data.me?.uid)
-              .map((p) => (
-                <span key={p.uid} className={`mk ${p.uid === data.me?.uid ? "me" : "friend"}`} style={toView(mapPx(p.mapPos.x, p.mapPos.y)) ?? undefined} title={p.name} />
-              ))}
+            {dex &&
+              markers.flatMap((key) =>
+                dex.markers[key].points.map((pt, i) => {
+                  const v = view([pt.x, pt.y]);
+                  return inside(v, 4) ? (
+                    <img key={`${key}${i}`} className={`mk ico ${zoom < MINIMAP_SMALL ? "small" : ""}`} src={`/icons/dex/${dex.markers[key].icon}`} style={v!} alt="" draggable={false} />
+                  ) : null;
+                }),
+              )}
+            {camps.map((c) => {
+              const v = view(mapPx(c.mapPos.x, c.mapPos.y));
+              return (
+                <span key={c.campId}>
+                  <span className="mk ring" style={{ ...v!, width: ringPx, height: ringPx }} />
+                  <span className="mk base" style={v!}>
+                    <svg viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="11" />
+                      <path d="M6.5 11.5 12 7l5.5 4.5V17h-3.5v-3.5h-4V17H6.5z" />
+                    </svg>
+                  </span>
+                </span>
+              );
+            })}
+            {friends.map((p) => {
+              const v = view(mapPx(p.mapPos.x, p.mapPos.y));
+              if (inside(v, 3)) return <span key={p.uid} className="mk friend" style={v!} title={p.name} />;
+              // outside the minimap: an arrow on the edge pointing at the friend, with name and distance
+              const a = Math.atan2(v!.top - half, v!.left - half);
+              const edge = { left: half + Math.cos(a) * (half - 9), top: half + Math.sin(a) * (half - 9) };
+              const label = { left: half + Math.cos(a) * (half - 26), top: half + Math.sin(a) * (half - 20) };
+              return (
+                <span key={p.uid}>
+                  <span className="mk edge" style={{ ...edge, transform: `translate(-50%, -50%) rotate(${a + Math.PI / 2}rad)` }} />
+                  <span className="mk edge-name" style={label}>
+                    {p.name} ({me ? meters(Math.hypot(p.worldPos.x - me.worldPos.x, p.worldPos.y - me.worldPos.y)) : "?"})
+                  </span>
+                </span>
+              );
+            })}
+            {me && heading !== null && (
+              <svg className="mk fan" viewBox="-1 -1 2 2" style={{ left: half, top: half, width: MINIMAP_SIZE, height: MINIMAP_SIZE, transform: `translate(-50%, -50%) rotate(${heading}rad)` }}>
+                <defs>
+                  <radialGradient id="fan-fill" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stopColor="rgba(88, 166, 255, 0.2)" />
+                    <stop offset="1" stopColor="rgba(88, 166, 255, 0.04)" />
+                  </radialGradient>
+                </defs>
+                <path d={`M0 0 L${-Math.sin(FAN / 2)} ${-Math.cos(FAN / 2)} A1 1 0 0 1 ${Math.sin(FAN / 2)} ${-Math.cos(FAN / 2)} Z`} fill="url(#fan-fill)" />
+              </svg>
+            )}
+            {me && (
+              <svg className="mk me" viewBox="0 0 24 24" style={{ left: half, top: half, transform: `translate(-50%, -50%) rotate(${heading ?? 0}rad)` }}>
+                <path d="M12 2.5 19.5 20 12 16 4.5 20Z" />
+              </svg>
+            )}
+            <span className={`zoom-tag ${tag ? "show" : ""}`}>{tag?.text}</span>
           </>
         ) : (
           <div className="empty">위치 정보 없음</div>

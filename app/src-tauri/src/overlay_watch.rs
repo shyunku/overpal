@@ -107,6 +107,12 @@ pub fn spawn(app: &AppHandle, labels: &'static [&'static str], always_show: bool
     });
 }
 
+/// Whether the process runs the game (by its exe name).
+#[cfg(windows)]
+pub fn is_game_process(pid: u32) -> bool {
+    win::exe_name(pid).is_some_and(|n| n == GAME_EXE)
+}
+
 /// The game's main window, found once and re-searched only when it goes away.
 #[derive(Default)]
 struct GameWindow {
