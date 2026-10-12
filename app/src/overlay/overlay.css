@@ -211,22 +211,100 @@ svg.ic {
   height: 18px;
 }
 
-/* item window widths per mode (before the 60% scale) */
+/* main window ("items" view): icon rail on the left, tab content on the right.
+   Widths per layout are the content widths plus the 56 px rail (before the window scale). */
+.win.items {
+  flex-direction: row;
+}
 .items.mode-side {
-  width: 336px;
+  width: 392px;
   max-height: 900px;
 }
 .items.mode-hud {
-  width: 240px;
+  width: 296px;
 }
 .items.mode-full {
-  width: 880px;
+  width: 936px;
 }
 .items .wtitle {
   padding-top: 20px;
 }
 .items .wtitle .sub {
   margin-top: 6px;
+}
+.mainbody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.rail {
+  width: 56px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 0;
+  border-right: 1px solid var(--glass-line);
+}
+.rail button {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: var(--glass-muted);
+}
+.rail button:hover {
+  background: var(--chip);
+  color: var(--glass-fg);
+}
+.rail button.on {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--glass-fg);
+}
+/* accent bar on the active tab */
+.rail button.on::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 2px;
+  background: #ffb84c;
+}
+.rail svg.ic {
+  width: 22px;
+  height: 22px;
+}
+.rail .tip {
+  position: absolute;
+  left: 46px;
+  top: 8px;
+  white-space: nowrap;
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.rail button:hover .tip {
+  opacity: 1;
+}
+.back {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--chip);
+  font-size: 18px;
 }
 
 .item-icon {

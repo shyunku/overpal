@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
-import { resetPositions, type ItemMode, type Layout, type ViewId } from "./layout";
+import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId } from "./layout";
 import { MAP_SIZE, mapPx } from "./mapcoords";
 import type { OverlayData } from "./useOverlayData";
 import { OverlayWindow } from "./OverlayWindow";
@@ -24,6 +24,23 @@ const ICONS = {
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
   mini: <path d="M6 4h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 18h8" />,
   grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />,
+  bag: <path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" />,
+  paw: (
+    <>
+      <circle cx="8" cy="7" r="2" />
+      <circle cx="16" cy="7" r="2" />
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+      <path d="M8 18c0-3 2-5 4-5s4 2 4 5c0 2-8 2-8 0z" />
+    </>
+  ),
+  house: <path d="M3 21h18M5 21V10l7-5 7 5v11M10 21v-6h4v6" />,
+  pin: (
+    <>
+      <path d="M12 21s-7-6-7-12a7 7 0 0 1 14 0c0 6-7 12-7 12z" />
+      <circle cx="12" cy="9" r="2.5" />
+    </>
+  ),
 };
 
 function Icon({ name }: { name: keyof typeof ICONS }) {
@@ -69,7 +86,7 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
     <OverlayWindow view="menubar" layout={layout} onLayout={onLayout} className="glass menubar">
       <span className={`dot ${dotClass(data)}`} title={statusText(data)} />
       {btn("minimap", "map", "미니맵")}
-      {btn("items", "box", "아이템 수량")}
+      {btn("items", "box", "메인 창")}
       <span className="sep" />
       {btn("settings", "gear", "설정")}
     </OverlayWindow>
@@ -81,12 +98,11 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
 // 0.6 with the narrower widths felt cramped; shrink everything instead (340 / 420 of 0.6)
 const ITEM_SCALE = 0.49;
 
-export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
+function ItemsTab({ data, mode }: { data: OverlayData; mode: ItemMode }) {
   const [tab, setTab] = useState<"total" | "where">("total");
   const [query, setQuery] = useState("");
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [place, setPlace] = useState("all");
-  const mode = layout.itemMode;
   const places = placesOf(data.base?.storages ?? []);
   const totals = data.base?.totals ?? [];
   const placeOf = (containerId: string) => places.find((p) => p.storages.some((s) => s.containerId === containerId))?.name ?? "?";
@@ -95,9 +111,6 @@ export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
     ...totals.filter((t) => matchesItem(t.item, query)),
     ...missingItems(query, new Set(totals.map((t) => t.item))).map((item) => ({ item, count: 0, sources: [] })),
   ];
-
-  const setMode = (m: ItemMode) => onLayout({ ...layout, itemMode: m });
-  const title = data.guild ? `${data.guild.name || "길드"} · 거점 1` : "거점 없음";
 
   let body;
   if (data.conn === "down" && !data.snapshot) {
@@ -234,27 +247,115 @@ export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
     );
   }
 
-  const modeBtn = (m: ItemMode, icon: keyof typeof ICONS, label: string) => (
-    <button className={mode === m ? "on" : ""} title={label} onClick={() => setMode(m)}>
+  return body;
+}
+
+// ---------------------------------------------------------------- main window
+
+const TABS: { id: MainTab; icon: keyof typeof ICONS; label: string }[] = [
+  { id: "items", icon: "bag", label: "아이템" },
+  { id: "pals", icon: "paw", label: "팰" },
+  { id: "structs", icon: "house", label: "구조물" },
+  { id: "places", icon: "pin", label: "장소" },
+];
+
+/**
+ * Pals, structures and places: "mine" (this server) or "dex" (game data).
+ * The lists are filled in by later steps of #19; for now each shows where its content will go.
+ */
+function OtherTab({ mode, sub, onSub }: { mode: ItemMode; sub: "mine" | "dex"; onSub: (s: "mine" | "dex") => void }) {
+  if (mode === "hud") return <div className="empty">준비 중</div>;
+  const subTabs = (
+    <div className="tabs">
+      <b className={sub === "mine" ? "on" : ""} onClick={() => onSub("mine")}>
+        내 것
+      </b>
+      <b className={sub === "dex" ? "on" : ""} onClick={() => onSub("dex")}>
+        도감
+      </b>
+    </div>
+  );
+  const search = <input className="search" placeholder="검색" disabled />;
+  if (mode === "full") {
+    return (
+      <>
+        {subTabs}
+        {search}
+        <div className="full-body">
+          <div className="filters">
+            <div className="on">전체</div>
+          </div>
+          <div className="empty">준비 중</div>
+        </div>
+      </>
+    );
+  }
+  return (
+    <>
+      {subTabs}
+      {search}
+      <div className="scroll">
+        <div className="empty">준비 중</div>
+      </div>
+    </>
+  );
+}
+
+export function MainWindow({ layout, onLayout, data }: ViewProps) {
+  const tab = layout.mainTab;
+  const mode = layout.modes[tab];
+  const [sub, setSub] = useState<Record<Exclude<MainTab, "items">, "mine" | "dex">>({ pals: "mine", structs: "mine", places: "mine" });
+  // item shown in place of the list (opened from a list row); cleared when the tab changes
+  const [detail, setDetail] = useState<string | null>(null);
+  const setTab = (t: MainTab) => {
+    setDetail(null);
+    onLayout({ ...layout, mainTab: t });
+  };
+  const setMode = (m: ItemMode) => onLayout({ ...layout, modes: { ...layout.modes, [tab]: m } });
+  const label = TABS.find((x) => x.id === tab)!.label;
+  const base = data.guild ? `${data.guild.name || "길드"} · 거점 1` : "거점 없음";
+  const subText = tab === "items" ? (mode === "hud" ? statusText(data) : `${base} · ${statusText(data)}`) : "준비 중";
+
+  const modeBtn = (m: ItemMode, icon: keyof typeof ICONS, title: string) => (
+    <button className={mode === m ? "on" : ""} title={title} onClick={() => setMode(m)}>
       <Icon name={icon} />
     </button>
   );
 
   return (
     <OverlayWindow view="items" layout={layout} onLayout={onLayout} scale={ITEM_SCALE} className={`glass win items mode-${mode}`}>
-      <div className="wtitle">
-        <div>
-          <div className="t">아이템 수량</div>
-          <div className="sub">{mode === "hud" ? statusText(data) : `${title} · ${statusText(data)}`}</div>
+      <nav className="rail">
+        {TABS.map((x) => (
+          <button key={x.id} className={tab === x.id ? "on" : ""} onClick={() => setTab(x.id)}>
+            <Icon name={x.icon} />
+            <span className="tip">{x.label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="mainbody">
+        <div className="wtitle">
+          {detail && (
+            <button className="back" title="목록으로" onClick={() => setDetail(null)}>
+              ‹
+            </button>
+          )}
+          <div>
+            <div className="t">{label}</div>
+            <div className="sub">{subText}</div>
+          </div>
+          <span className="grow" />
+          <div className="modes">
+            {modeBtn("hud", "mini", "컴팩트")}
+            {modeBtn("side", "list", "일반")}
+            {modeBtn("full", "grid", "와이드")}
+          </div>
         </div>
-        <span className="grow" />
-        <div className="modes">
-          {modeBtn("side", "list", "사이드 패널")}
-          {modeBtn("hud", "mini", "미니 HUD")}
-          {modeBtn("full", "grid", "전체 격자")}
-        </div>
+        {tab === "items" ? (
+          <ItemsTab data={data} mode={mode} />
+        ) : (
+          <OtherTab mode={mode} sub={sub[tab]} onSub={(s) => setSub({ ...sub, [tab]: s })} />
+        )}
       </div>
-      {body}
     </OverlayWindow>
   );
 }

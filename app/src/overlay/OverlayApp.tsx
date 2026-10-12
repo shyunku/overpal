@@ -1,7 +1,7 @@
 import type { ViewId } from "./layout";
 import { useSharedLayout } from "./OverlayWindow";
 import { useOverlayData } from "./useOverlayData";
-import { ItemsWindow, MenuBar, MinimapWindow, SettingsWindow } from "./views";
+import { MainWindow, MenuBar, MinimapWindow, SettingsWindow } from "./views";
 import "@fontsource/oxanium/400.css";
 import "@fontsource/oxanium/600.css";
 import "@fontsource/oxanium/700.css";
@@ -19,7 +19,7 @@ export function OverlayApp({ view }: { view: ViewId }) {
     case "menubar":
       return <MenuBar {...props} />;
     case "items":
-      return <ItemsWindow {...props} />;
+      return <MainWindow {...props} />;
     case "minimap":
       return <MinimapWindow {...props} />;
     case "settings":

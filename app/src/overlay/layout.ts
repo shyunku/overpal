@@ -4,8 +4,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
+// "items" is the main window (items, pals, structures, places); the id predates the other tabs
 export type ViewId = "menubar" | "items" | "minimap" | "settings";
+/** main window layouts: compact (hud), normal (side), wide (full) */
 export type ItemMode = "side" | "hud" | "full";
+export type MainTab = "items" | "pals" | "structs" | "places";
 
 /**
  * Window position in stage units (1 unit = screen height / 1080), measured from a screen edge
@@ -20,9 +23,12 @@ export interface WinLayout {
 }
 
 export interface Layout {
-  version: 2;
+  version: 3;
   windows: Record<ViewId, WinLayout>;
-  itemMode: ItemMode;
+  /** tab shown in the main window */
+  mainTab: MainTab;
+  /** layout of each main window tab */
+  modes: Record<MainTab, ItemMode>;
   /** alpha of the dark tint over the blurred background */
   opacity: number;
   /** windows can be dragged only while this is on; never persisted as on */
@@ -33,27 +39,36 @@ export interface Layout {
 // minimap right below the top-right quest/base panels, item window above the pal slots,
 // menu bar in the top-right corner, 5 QHD px (~4 units) from both edges.
 export const DEFAULT_LAYOUT: Layout = {
-  version: 2,
+  version: 3,
   windows: {
     menubar: { open: true, ax: "right", dx: 4, ay: "top", dy: 4 },
     items: { open: true, ax: "left", dx: 40, ay: "bottom", dy: 380 },
     minimap: { open: true, ax: "right", dx: 58, ay: "top", dy: 367 },
     settings: { open: false, ax: "left", dx: 760, ay: "top", dy: 200 },
   },
-  itemMode: "side",
+  mainTab: "items",
+  modes: { items: "side", pals: "side", structs: "side", places: "side" },
   opacity: 0.25,
   editMode: false,
 };
 
 const LAYOUT_CHANGED = "layout-changed";
 
+/** Version 2 had one item window with a single `itemMode`; keep positions and that mode. */
+function migrate(s: Record<string, unknown>): Partial<Layout> {
+  if (s.version !== 2) return s as Partial<Layout>;
+  const { itemMode, ...rest } = s;
+  return { ...(rest as Partial<Layout>), version: 3, modes: { ...DEFAULT_LAYOUT.modes, items: (itemMode as ItemMode) ?? "side" } };
+}
+
 function merge(stored: unknown): Layout {
-  const s = (stored ?? {}) as Partial<Layout>;
+  const s = migrate((stored ?? {}) as Record<string, unknown>);
   if (s.version !== DEFAULT_LAYOUT.version) return structuredClone(DEFAULT_LAYOUT);
   return {
     ...DEFAULT_LAYOUT,
     ...s,
     windows: { ...DEFAULT_LAYOUT.windows, ...s.windows },
+    modes: { ...DEFAULT_LAYOUT.modes, ...s.modes },
   };
 }
 
