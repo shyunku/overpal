@@ -215,8 +215,8 @@ svg.ic {
    Widths per layout are the content widths plus the 56 px rail (before the window scale). */
 .win.items {
   flex-direction: row;
-  /* 5 screen px at QHD (the window scale is 0.8167 screen px per px); the window region follows it */
-  border-radius: 6.1px;
+  /* 20 screen px at QHD (the window scale is 0.8167 screen px per px); the window region follows it */
+  border-radius: 24.5px;
 }
 /* 0.92 of the earlier widths (392 / 296 / 936): with the larger window scale the window is
    25% taller but only 15% wider */
@@ -955,4 +955,9 @@ img.item-icon {
 /* the notice takes its height from the list so the window keeps its size */
 .items.mode-side .base-notice + .scroll {
   height: calc(var(--list-h) - 40px);
+}
+/* main window rows 2 px shorter at top and bottom than elsewhere */
+.items .row {
+  padding-top: 5px;
+  padding-bottom: 5px;
 }

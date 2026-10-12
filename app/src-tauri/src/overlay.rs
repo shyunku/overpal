@@ -99,6 +99,9 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
             .always_on_top(true)
             .skip_taskbar(true)
             .resizable(false)
+            // a minimized skip-taskbar window shows as a small title bar stub above the taskbar
+            .minimizable(false)
+            .maximizable(false)
             .visible(false)
             .focused(false)
             .focusable(v.focusable)

@@ -114,6 +114,17 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
     return () => ro.disconnect();
   }, [screen, shown, win.ax, win.dx, win.ay, win.dy, scale]);
 
+  // never stay minimized (e.g. by "minimize all"): a minimized overlay window shows as a title bar stub
+  useEffect(() => {
+    const native = getCurrentWindow();
+    const un = native.onResized(async () => {
+      if (await native.isMinimized()) native.unminimize();
+    });
+    return () => {
+      un.then((f) => f());
+    };
+  }, []);
+
   // after a drag, store the new place relative to the window's anchors
   useEffect(() => {
     if (!screen) return;

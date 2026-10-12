@@ -103,6 +103,8 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
 // in overlay.css so the window grows 25% in height but only 15% in width
 const ITEM_SCALE = 0.6125;
 
+const byName = (a: { item: string }, b: { item: string }) => itemName(a.item).localeCompare(itemName(b.item), "ko");
+
 /** `base`: the storages shown (current base + inventory, or a base picked from the menu); `notice` goes under the search box. */
 function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemMode; base: BaseView | null; notice?: ReactNode }) {
   const [tab, setTab] = useState<"total" | "where">("total");
@@ -112,9 +114,9 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
   const places = placesOf(base?.storages ?? []);
   const totals = base?.totals ?? [];
   const placeOf = (containerId: string) => places.find((p) => p.storages.some((s) => s.containerId === containerId))?.name ?? "?";
-  // while searching, items the base does not have are listed too, with a count of 0
+  // by name (가나다); while searching, items the base does not have follow with a count of 0
   const found: ItemTotal[] = [
-    ...totals.filter((t) => matchesItem(t.item, query)),
+    ...totals.filter((t) => matchesItem(t.item, query)).sort(byName),
     ...missingItems(query, new Set(totals.map((t) => t.item))).map((item) => ({ item, count: 0, sources: [] })),
   ];
 
@@ -151,7 +153,7 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
           t.set(it.item, e);
         }
     const list = [
-      ...[...t.values()].sort((a, b) => b.count - a.count).filter((x) => matchesItem(x.item, query)),
+      ...[...t.values()].sort(byName).filter((x) => matchesItem(x.item, query)),
       ...missingItems(query, new Set(t.keys())).map((item) => ({ item, count: 0, sources: [] as [string, number][] })),
     ];
     body = (
