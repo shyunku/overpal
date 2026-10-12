@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Main window mock</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Oxanium:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page-bg: #0d1117; --page-fg: #e6edf3; --page-muted: #8b949e; --page-line: #30363d;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --accent: #58a6ff; --orange: #ffb84c;
+    --glass-line: rgba(255, 255, 255, 0.14); --glass-fg: #f2f5f9; --glass-muted: rgba(242, 245, 249, 0.62); --chip: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page-bg); color: var(--page-fg); font-family: "Oxanium", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; font-size: 14px; }
+  .page { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; padding: 16px; }
+  @media (max-width: 1100px) { .page { grid-template-columns: 1fr; } }
+  .controls { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 12px; }
+  .group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .group > span { color: var(--page-muted); font-size: 12px; margin-right: 2px; }
+  .group button { background: #161b22; color: var(--page-fg); border: 1px solid var(--page-line); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+  .group button.on { background: #1f6feb; border-color: #1f6feb; }
+  .hint { color: var(--page-muted); font-size: 12px; margin: -4px 0 10px; }
+
+  /* a 1920x1080 stage scaled to the page width; the window inside is drawn at the app's real size */
+  .screen-wrap { width: 100%; aspect-ratio: 16 / 9; position: relative; overflow: hidden; border-radius: 8px; border: 1px solid var(--page-line); }
+  .stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0;
+    background: radial-gradient(ellipse at 60% 40%, #6d8a5a 0%, #3e5236 45%, #26301f 100%); }
+  .stage .sky { position: absolute; inset: 0 0 55% 0; background: linear-gradient(#9cc3e6, #cfe3ef 70%, transparent); opacity: 0.55; }
+  .stage .crosshair { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px; border: 2px solid #fffb; border-radius: 50%; }
+  .stage .slots { position: absolute; left: 40px; bottom: 36px; display: flex; gap: 8px; }
+  .stage .slots i { width: 64px; height: 64px; border-radius: 10px; background: #0006; border: 2px solid #fff3; }
+
+  .glass { background: rgba(16, 20, 28, 0.25); backdrop-filter: blur(18px) saturate(140%); border: 1px solid var(--glass-line); border-radius: 16px; color: var(--glass-fg); font-size: 17px; }
+  .tabular { font-variant-numeric: tabular-nums; }
+  .anchor { position: absolute; left: 40px; bottom: 380px; transform-origin: 0 100%; }
+  .win { display: flex; overflow: hidden; }
+
+  /* rail */
+  .rail { width: 56px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 0; border-right: 1px solid var(--glass-line); }
+  .rail .rb { position: relative; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: var(--glass-muted); cursor: pointer; }
+  .rail .rb:hover { background: var(--chip); color: var(--glass-fg); }
+  .rail .rb.on { background: rgba(255, 255, 255, 0.18); color: var(--glass-fg); }
+  .rail .rb.on::before { content: ""; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: var(--orange); }
+  .rail svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .rail .rb .tip { position: absolute; left: 48px; top: 8px; white-space: nowrap; font-size: 13px; padding: 3px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.75); opacity: 0; pointer-events: none; z-index: 5; }
+  .rail .rb:hover .tip { opacity: 1; }
+
+  /* same height on every tab and view: the item list's fixed 7 rows plus its title, tabs and search */
+  .main { width: 340px; height: 566px; display: flex; flex-direction: column; min-width: 0; }
+  .wtitle { display: flex; align-items: center; gap: 10px; padding: 16px 10px 10px 16px; }
+  .wtitle .t { font-weight: 700; font-size: 18px; }
+  .wtitle .sub { color: var(--glass-muted); font-size: 13px; margin-top: 6px; }
+  .wtitle .grow { flex: 1; }
+  .back { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--chip); cursor: pointer; font-size: 18px; }
+  .modes { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: rgba(0, 0, 0, 0.3); }
+  .modes span { width: 30px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: var(--glass-muted); font-size: 13px; }
+  .modes span.on { background: rgba(255, 255, 255, 0.2); color: var(--glass-fg); }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: rgba(0, 0, 0, 0.3); font-size: 13px; }
+  .seg span { padding: 3px 9px; border-radius: 7px; color: var(--glass-muted); cursor: pointer; }
+  .seg span.on { background: rgba(255, 255, 255, 0.2); color: var(--glass-fg); }
+
+  .tabs { display: flex; gap: 6px; padding: 0 16px 10px; }
+  .tabs b { font-weight: 500; font-size: 15px; padding: 5px 12px; border-radius: 8px; background: var(--chip); color: var(--glass-muted); }
+  .tabs b.on { background: rgba(255, 255, 255, 0.18); color: var(--glass-fg); }
+  .search { margin: 0 16px 10px; padding: 9px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--glass-line); color: var(--glass-fg); font: inherit; font-size: 15px; outline: none; width: calc(100% - 32px); }
+  .scroll { flex: 1; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.25) transparent; padding-bottom: 12px; }
+  .rows { padding: 2px 10px 0; }
+  .row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 10px; padding: 7px 8px; border-radius: 10px; cursor: pointer; }
+  .row:hover { background: rgba(255, 255, 255, 0.06); }
+  .row img, .row .ph { width: 40px; height: 40px; object-fit: contain; }
+  .row .count { font-size: 19px; font-weight: 700; }
+  .row .nm { display: flex; flex-direction: column; min-width: 0; }
+  .row .nm small { color: var(--glass-muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .right { display: flex; gap: 2px; align-items: center; color: var(--glass-muted); font-size: 13px; }
+  .row .right img { width: 20px; height: 20px; }
+  .sec { display: flex; justify-content: space-between; padding: 10px 18px 4px; color: var(--orange); font-size: 13px; font-weight: 600; }
+  .sec span:last-child { color: var(--glass-muted); font-weight: 400; }
+  .bar { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; margin-top: 4px; }
+  .bar i { display: block; height: 100%; background: var(--ok); }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; background: var(--ok); }
+  .dot.idle { background: var(--glass-muted); }
+  .dot.bad { background: var(--bad); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 2px 16px 0; }
+  .tile { position: relative; border-radius: 12px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--glass-line); padding: 6px 4px 6px; text-align: center; cursor: pointer; }
+  .tile img { width: 58px; height: 58px; object-fit: contain; }
+  .tile .no { position: absolute; left: 7px; top: 4px; font-size: 11px; color: var(--glass-muted); }
+  .tile .tn { font-size: 13px; }
+  .tile:hover { border-color: rgba(88, 166, 255, 0.8); }
+  .empty { padding: 30px 18px; color: var(--glass-muted); text-align: center; font-size: 15px; }
+  .note { margin: 8px 16px 0; padding: 6px 10px; border-radius: 8px; border: 1px dashed rgba(255, 184, 76, 0.6); color: #ffd99a; font-size: 12.5px; }
+
+  /* detail */
+  .dhead { display: grid; grid-template-columns: 76px 1fr; gap: 12px; align-items: center; padding: 4px 16px 10px; }
+  .dhead img { width: 76px; height: 76px; object-fit: contain; border-radius: 12px; background: rgba(0, 0, 0, 0.22); }
+  .dhead .dn { font-size: 20px; font-weight: 700; }
+  .dhead .dm { color: var(--glass-muted); font-size: 13px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+  .dhead .dm img { width: 18px; height: 18px; background: none; }
+  .box { margin: 0 16px 10px; padding: 10px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.22); }
+  .box h4 { margin: 0 0 8px; font-size: 13px; color: var(--orange); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px 2px 3px; border-radius: 7px; background: var(--chip); font-size: 14px; }
+  .chip img { width: 24px; height: 24px; object-fit: contain; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 14px; }
+  .kv span:nth-child(odd) { color: var(--glass-muted); }
+  .btn { display: inline-block; margin-top: 8px; padding: 5px 12px; border-radius: 8px; background: var(--chip); border: 1px solid var(--glass-line); font-size: 13px; }
+
+  aside h3 { margin: 16px 0 6px; font-size: 14px; }
+  aside h3:first-child { margin-top: 0; }
+  aside ul { margin: 0; padding-left: 18px; color: #c9d1d9; line-height: 1.6; font-size: 12.5px; }
+  aside .decide li { color: #ffd88a; }
+  aside p { color: var(--page-muted); font-size: 12.5px; line-height: 1.6; }
+
+  /* HUD and full layouts */
+  .lay-hud .main { height: auto; }
+  .hud { padding: 0 0 10px; }
+  .hud-row { display: grid; grid-template-columns: 34px 1fr auto auto; align-items: center; gap: 8px; padding: 5px 14px; cursor: pointer; }
+  .hud-row img, .hud-row .ph { width: 34px; height: 34px; object-fit: contain; }
+  .hud-row.hud-wide { grid-template-columns: 34px 1fr auto; }
+  .hud-row .hs { color: var(--glass-muted); font-size: 12.5px; }
+  .delta { font-size: 13px; font-weight: 700; padding: 1px 6px; border-radius: 6px; }
+  .delta.up { color: #7ee787; background: rgba(63, 185, 80, 0.18); }
+  .delta.down { color: #ffa198; background: rgba(248, 81, 73, 0.18); }
+  .lay-full .main { width: 760px; height: 600px; }
+  .lay-full.is-detail .main { width: 340px; height: 566px; }
+  .full-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 170px 1fr; }
+  .filters { padding: 4px 10px 14px 14px; border-right: 1px solid var(--glass-line); overflow: auto; }
+  .filters div { padding: 7px 10px; border-radius: 8px; font-size: 15px; color: var(--glass-muted); }
+  .filters div.on { background: rgba(255, 255, 255, 0.14); color: var(--glass-fg); }
+  .tiles { padding: 4px 16px 16px; display: grid; grid-template-columns: repeat(auto-fill, 104px); gap: 10px; align-content: start; overflow: auto; }
+  .flist { overflow: auto; padding: 0 6px; }
+  .ftile { position: relative; height: 104px; border-radius: 12px; background: rgba(0, 0, 0, 0.22); border: 1px solid var(--glass-line); display: grid; place-items: center; cursor: pointer; }
+  .ftile img { width: 56px; height: 56px; object-fit: contain; }
+  .ftile .tn { position: absolute; left: 0; right: 0; top: 5px; text-align: center; font-size: 12px; color: var(--glass-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+  .ftile .n { position: absolute; right: 8px; bottom: 5px; font-weight: 700; font-size: 15px; text-shadow: 0 1px 3px #000; }
+  .ftile .no { position: absolute; left: 7px; bottom: 5px; font-size: 11px; color: var(--glass-muted); }
+  .ftile .fdot { position: absolute; left: 8px; bottom: 10px; }
+  .ftile .fbar { position: absolute; left: 8px; right: 8px; bottom: 26px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.15); overflow: hidden; }
+  .ftile .fbar i { display: block; height: 100%; background: var(--ok); }
+  .group button:disabled { opacity: 0.35; cursor: default; }
+</style>
+</head>
+<body>
+<div class="page">
+  <main>
+    <div class="controls">
+      <div class="group" id="g-tab"><span>탭</span></div>
+      <div class="group" id="g-scope"><span>다른 탭 레이아웃</span></div>
+      <div class="group" id="g-layout"><span>레이아웃</span></div>
+      <div class="group" id="g-view"><span>화면</span></div>
+      <div class="group" id="g-zoom"><span>크기</span></div>
+    </div>
+    <div class="hint">레일 아이콘, "내 것 / 도감" 탭, 레이아웃 버튼, 목록 항목을 직접 눌러도 바뀜. "실제 크기"는 QHD 화면에서 보이는 비율 그대로임.</div>
+    <div class="screen-wrap" id="wrap">
+      <div class="stage" id="stage">
+        <div class="sky"></div>
+        <div class="crosshair"></div>
+        <div class="slots"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="anchor" id="anchor"></div>
+      </div>
+    </div>
+  </main>
+  <aside>
+    <h3>바뀌는 것</h3>
+    <ul>
+      <li>"아이템 수량" 창 → <b>메인 창</b>. 왼쪽에 세로 아이콘 레일(아이템 · 팰 · 구조물 · 장소)</li>
+      <li>팰 · 구조물 · 장소 탭은 제목 아래 <b>"내 것 / 도감"</b> 탭으로 전환(아이템 탭의 "합계 / 위치별" 자리)</li>
+      <li>목록에서 항목을 누르면 같은 창 안에서 상세로 바뀌고, 제목줄의 ‹ 로 돌아감</li>
+      <li>창 폭은 레일만큼(약 16%) 넓어짐. 일반 레이아웃은 모든 탭·화면에서 높이가 같음</li>
+      <li>메뉴 바의 아이템 버튼은 "메인 창" 버튼이 됨</li>
+    </ul>
+    <h3>그대로인 것</h3>
+    <ul>
+      <li>아이템 탭: 합계/위치별, 검색(안 가진 것 빨간 0), 3가지 레이아웃(이름만 컴팩트 / 일반 / 와이드로 바뀌고 이 순서로 놓임, 기본은 일반)</li>
+      <li>배경 블러, 25% 틴트, 폰트, 클릭 통과 규칙, 창 위치</li>
+    </ul>
+    <h3>데이터</h3>
+    <ul>
+      <li><b>내 것</b>: 팰 = 거점 일꾼·파티·팰 상자, 구조물 = 거점에 지은 건물과 제작 진행, 장소 = 거점·플레이어·근처 빠른 이동</li>
+      <li><b>도감</b>: palworld-helper 데이터(팰·구조물 전체, 빠른 이동·탑·던전·알파 팰)</li>
+      <li>점선 표시(일꾼 상태, 제작 진행)는 서버에서 가져올 수 있는지 구현 전에 조사함</li>
+    </ul>
+    <h3>레이아웃 비교 ("다른 탭 레이아웃")</h3>
+    <ul>
+      <li><b>일반만</b>: 팰·구조물·장소는 항상 일반. 레이아웃 버튼은 아이템 탭에서만 보임. 다른 탭으로 가면 일반으로 보이고 아이템으로 돌아오면 원래 레이아웃</li>
+      <li><b>3가지 모두</b>: 모든 탭에 컴팩트 / 일반 / 와이드 버튼. 레이아웃은 탭마다 따로 기억
+        <ul>
+          <li>컴팩트: 내 것 요약(일꾼 상태, 제작 진행, 가까운 장소). 도감은 컴팩트에서 안 보임</li>
+          <li>와이드: 왼쪽 분류 + 격자</li>
+        </ul>
+      </li>
+    </ul>
+    <h3>정할 것</h3>
+    <ul class="decide">
+      <li>다른 탭 레이아웃: 일반만 / 3가지 모두</li>
+    </ul>
+  </aside>
+</div>
+<script>
+const D = {"pals": [{"id": "Lamball", "no": "#1", "name": "도로롱", "icon": "T_SheepBall_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_00.webp", "name": "무속성"}], "works": [{"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 1}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 1}, {"icon": "T_icon_palwork_12.webp", "name": "목장", "lv": 1}], "stats": {"Size": "XS", "HP": "70", "공격": "70", "방어": "70", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Wool", "qty": "1~3", "prob": "100%"}, {"id": "Lamball_Mutton", "qty": "1", "prob": "100%"}]}, {"id": "Cattiva", "no": "#2", "name": "까부냥", "icon": "T_PinkCat_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_00.webp", "name": "무속성"}], "works": [{"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 1}, {"icon": "T_icon_palwork_05.webp", "name": "채집", "lv": 1}, {"icon": "T_icon_palwork_07.webp", "name": "채굴", "lv": 1}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 1}], "stats": {"Size": "XS", "HP": "70", "공격": "70", "방어": "70", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Red_Berries", "qty": "1", "prob": "100%"}]}, {"id": "Chikipi", "no": "#3", "name": "꼬꼬닭", "icon": "T_ChickenPal_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_00.webp", "name": "무속성"}], "works": [{"icon": "T_icon_palwork_05.webp", "name": "채집", "lv": 1}, {"icon": "T_icon_palwork_12.webp", "name": "목장", "lv": 1}], "stats": {"Size": "XS", "HP": "60", "공격": "60", "방어": "60", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Egg", "qty": "1", "prob": "100%"}, {"id": "Chikipi_Poultry", "qty": "1", "prob": "100%"}]}, {"id": "Lifmunk", "no": "#4", "name": "큐룰리스", "icon": "T_Carbunclo_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_04.webp", "name": "풀 속성"}], "works": [{"icon": "T_icon_palwork_02.webp", "name": "씨뿌리기", "lv": 1}, {"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 1}, {"icon": "T_icon_palwork_05.webp", "name": "채집", "lv": 1}, {"icon": "T_icon_palwork_06.webp", "name": "벌목", "lv": 1}, {"icon": "T_icon_palwork_08.webp", "name": "제약", "lv": 1}], "stats": {"Size": "XS", "HP": "75", "공격": "70", "방어": "70", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Wheat_Seeds", "qty": "1", "prob": "100%"}, {"id": "Low_Grade_Medical_Supplies", "qty": "1", "prob": "20%"}]}, {"id": "Depresso", "no": "#16", "name": "뚱코알라", "icon": "T_NegativeKoala_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_05.webp", "name": "어둠 속성"}], "works": [{"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 1}, {"icon": "T_icon_palwork_07.webp", "name": "채굴", "lv": 1}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 1}, {"icon": "T_icon_palwork_12.webp", "name": "목장", "lv": 1}], "stats": {"Size": "XS", "HP": "70", "공격": "70", "방어": "70", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Venom_Gland", "qty": "2~3", "prob": "100%"}]}, {"id": "Pengullet", "no": "#17", "name": "펭키", "icon": "T_Penguin_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_02.webp", "name": "물 속성"}, {"icon": "T_Icon_element_s_08.webp", "name": "얼음 속성"}], "works": [{"icon": "T_icon_palwork_01.webp", "name": "물 주기", "lv": 1}, {"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 1}, {"icon": "T_icon_palwork_10.webp", "name": "냉각", "lv": 1}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 1}], "stats": {"Size": "XS", "HP": "70", "공격": "75", "방어": "70", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Ice_Organ", "qty": "1~2", "prob": "100%"}, {"id": "Aquatic_Pal_Fluids", "qty": "1", "prob": "100%"}]}, {"id": "Penking", "no": "#18", "name": "펭킹", "icon": "T_CaptainPenguin_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_02.webp", "name": "물 속성"}, {"icon": "T_Icon_element_s_08.webp", "name": "얼음 속성"}], "works": [{"icon": "T_icon_palwork_01.webp", "name": "물 주기", "lv": 2}, {"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 2}, {"icon": "T_icon_palwork_07.webp", "name": "채굴", "lv": 3}, {"icon": "T_icon_palwork_10.webp", "name": "냉각", "lv": 2}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 3}], "stats": {"Size": "M", "HP": "95", "공격": "95", "방어": "95", "작업 속도": "100", "식사량": "270", "Rarity": "6"}, "drops": [{"id": "Ice_Organ", "qty": "1~3", "prob": "100%"}, {"id": "Penking_Plume", "qty": "1", "prob": "50%"}]}, {"id": "Tanzee", "no": "#23", "name": "몽지", "icon": "T_Monkey_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_04.webp", "name": "풀 속성"}], "works": [{"icon": "T_icon_palwork_02.webp", "name": "씨뿌리기", "lv": 1}, {"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 1}, {"icon": "T_icon_palwork_05.webp", "name": "채집", "lv": 1}, {"icon": "T_icon_palwork_06.webp", "name": "벌목", "lv": 1}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 1}], "stats": {"Size": "XS", "HP": "80", "공격": "70", "방어": "70", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Mushroom", "qty": "1", "prob": "100%"}]}, {"id": "Foxparks", "no": "#29", "name": "파이호", "icon": "T_Kitsunebi_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_01.webp", "name": "화염 속성"}], "works": [{"icon": "T_icon_palwork_00.webp", "name": "불 피우기", "lv": 1}], "stats": {"Size": "XS", "HP": "65", "공격": "75", "방어": "70", "작업 속도": "100", "식사량": "100", "Rarity": "1"}, "drops": [{"id": "Leather", "qty": "1", "prob": "100%"}, {"id": "Flame_Organ", "qty": "1~2", "prob": "100%"}]}, {"id": "Direhowl", "no": "#33", "name": "다크울프", "icon": "T_Garm_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_00.webp", "name": "무속성"}], "works": [{"icon": "T_icon_palwork_05.webp", "name": "채집", "lv": 1}], "stats": {"Size": "S", "HP": "80", "공격": "90", "방어": "75", "작업 속도": "100", "식사량": "150", "Rarity": "2"}, "drops": [{"id": "Leather", "qty": "1~2", "prob": "100%"}, {"id": "Ruby", "qty": "1", "prob": "3%"}, {"id": "Gold_Coin", "qty": "10~20", "prob": "3%"}]}, {"id": "Anubis", "no": "#139", "name": "아누비스", "icon": "T_Anubis_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_07.webp", "name": "땅 속성"}], "works": [{"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 6}, {"icon": "T_icon_palwork_07.webp", "name": "채굴", "lv": 6}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 4}], "stats": {"Size": "M", "HP": "120", "공격": "130", "방어": "100", "작업 속도": "100", "식사량": "540", "Rarity": "10"}, "drops": [{"id": "Bone", "qty": "3~5", "prob": "100%"}, {"id": "Large_Pal_Soul", "qty": "1", "prob": "100%"}, {"id": "Innovative_Technical_Manual", "qty": "1", "prob": "5%"}, {"id": "Ground_Radiant_Gem", "qty": "10~20", "prob": "100%"}, {"id": "Decayed_Ancient_Relic", "qty": "30~50", "prob": "100%"}, {"id": "Dormant_Ancient_Relic", "qty": "10~20", "prob": "100%"}, {"id": "Gorgeous_Ancient_Relic", "qty": "4~8", "prob": "100%"}, {"id": "Glowing_Ancient_Relic", "qty": "2~3", "prob": "50%"}, {"id": "Glistening_Ancient_Relic", "qty": "1", "prob": "25%"}, {"id": "Bone", "qty": "3~5", "prob": "100%"}, {"id": "Large_Pal_Soul", "qty": "1", "prob": "100%"}, {"id": "Innovative_Technical_Manual", "qty": "1", "prob": "5%"}]}, {"id": "Grizzbolt", "no": "#185", "name": "일렉판다", "icon": "T_ElecPanda_icon_normal.webp", "elements": [{"icon": "T_Icon_element_s_03.webp", "name": "번개 속성"}], "works": [{"icon": "T_icon_palwork_03.webp", "name": "발전", "lv": 5}, {"icon": "T_icon_palwork_04.webp", "name": "수작업", "lv": 4}, {"icon": "T_icon_palwork_06.webp", "name": "벌목", "lv": 3}, {"icon": "T_icon_palwork_11.webp", "name": "운반", "lv": 5}], "stats": {"Size": "L", "HP": "120", "공격": "105", "방어": "105", "작업 속도": "100", "식사량": "410", "Rarity": "8"}, "drops": [{"id": "Electric_Organ", "qty": "2~4", "prob": "100%"}, {"id": "Leather", "qty": "2~3", "prob": "100%"}, {"id": "Electric_Radiant_Gem", "qty": "10~20", "prob": "100%"}, {"id": "Decayed_Ancient_Relic", "qty": "30~50", "prob": "100%"}, {"id": "Dormant_Ancient_Relic", "qty": "10~20", "prob": "100%"}, {"id": "Gorgeous_Ancient_Relic", "qty": "4~8", "prob": "100%"}, {"id": "Glowing_Ancient_Relic", "qty": "2~3", "prob": "50%"}, {"id": "Glistening_Ancient_Relic", "qty": "1", "prob": "25%"}, {"id": "Electric_Organ", "qty": "2~4", "prob": "100%"}, {"id": "Leather", "qty": "2~3", "prob": "100%"}, {"id": "Electric_Organ", "qty": "2~4", "prob": "100%"}, {"id": "Leather", "qty": "2~3", "prob": "100%"}, {"id": "World_Tree_Holy_Water", "qty": "2~4", "prob": "75%"}, {"id": "Electric_Radiant_Gem", "qty": "1~3", "prob": "50%"}, {"id": "Decayed_Ancient_Relic", "qty": "1~10", "prob": "10%"}, {"id": "Dormant_Ancient_Relic", "qty": "1~5", "prob": "5%"}, {"id": "Gorgeous_Ancient_Relic", "qty": "1~3", "prob": "3.33%"}, {"id": "Glowing_Ancient_Relic", "qty": "1~2", "prob": "2.5%"}, {"id": "Glistening_Ancient_Relic", "qty": "1", "prob": "2%"}]}], "structs": [{"id": "Primitive_Workbench", "name": "원시적인 작업대", "icon": "T_icon_buildObject_WorkBench.webp", "cat": "생산", "techLv": 1, "mats": [{"id": "Wood", "qty": 2}], "works": [{"icon": "T_icon_palwork_04.webp", "lv": 1}]}, {"id": "Wooden_Foundation", "name": "나무 토대", "icon": "T_icon_buildObject_Wood_Foundation.webp", "cat": "건축", "techLv": 2, "mats": [{"id": "Wood", "qty": 2}], "works": null}, {"id": "Wooden_Wall", "name": "나무 벽", "icon": "T_icon_buildObject_Wood_Wall_V2.webp", "cat": "건축", "techLv": 2, "mats": [{"id": "Wood", "qty": 2}], "works": null}, {"id": "Wooden_Chest", "name": "나무 상자", "icon": "T_icon_buildObject_ItemChest.webp", "cat": "수납", "techLv": 2, "mats": [{"id": "Wood", "qty": 15}, {"id": "Stone", "qty": 5}], "works": null}, {"id": "Palbox", "name": "팰 상자", "icon": "T_icon_buildObject_PalBoxV2.webp", "cat": "팰", "techLv": 2, "mats": [{"id": "Paldium_Fragment", "qty": 1}, {"id": "Wood", "qty": 8}, {"id": "Stone", "qty": 3}], "works": null}, {"id": "Campfire", "name": "모닥불", "icon": "T_icon_buildObject_CampFire.webp", "cat": "식료품", "techLv": 2, "mats": [{"id": "Wood", "qty": 10}], "works": [{"icon": "T_icon_palwork_00.webp", "lv": 1}]}, {"id": "Feed_Box", "name": "먹이 상자", "icon": "T_icon_buildObject_PalFoodBox.webp", "cat": "식료품", "techLv": 4, "mats": [{"id": "Wood", "qty": 20}], "works": null}, {"id": "Berry_Plantation", "name": "열매 농원", "icon": "T_icon_buildObject_FarmBlockV2_Berries.webp", "cat": "식료품", "techLv": 5, "mats": [{"id": "Berry_Seeds", "qty": 3}, {"id": "Wood", "qty": 10}, {"id": "Stone", "qty": 10}], "works": null}, {"id": "Monitoring_Stand", "name": "감시대", "icon": "T_icon_buildObject_BaseCampWorkHard.webp", "cat": "팰", "techLv": 7, "mats": [{"id": "Wood", "qty": 30}, {"id": "Stone", "qty": 10}], "works": null}, {"id": "Primitive_Furnace", "name": "원시적인 화로", "icon": "T_icon_buildObject_BlastFurnace.webp", "cat": "생산", "techLv": 10, "mats": [{"id": "Wood", "qty": 20}, {"id": "Stone", "qty": 40}, {"id": "Flame_Organ", "qty": 3}], "works": [{"icon": "T_icon_palwork_00.webp", "lv": 1}]}, {"id": "High_Quality_Monitoring_Stand", "name": "고급 감시대", "icon": "T_icon_buildObject_BaseCampWorkHard02.webp", "cat": "팰", "techLv": 28, "mats": [{"id": "Ingot", "qty": 100}, {"id": "Cement", "qty": 30}], "works": null}, {"id": "Guild_Chest", "name": "길드 상자", "icon": "T_icon_buildObject_GuildChest.webp", "cat": "수납", "techLv": 41, "mats": [{"id": "Refined_Ingot", "qty": 50}, {"id": "Paldium_Fragment", "qty": 100}, {"id": "Ancient_Civilization_Parts", "qty": 10}], "works": null}], "markers": {"icons": {"fast": "T_icon_compass_FTtower.webp", "tower": "T_icon_compass_tower.webp", "alpha": "T_icon_enemy_strong.webp", "dungeon": "T_icon_compass_dungeon.webp"}, "fast": [{"x": 2272, "y": 1295, "n": "잊힌 외딴 섬"}, {"x": 2539, "y": 1738, "n": "팰 애호 단체의 탑 입구"}, {"x": 1849, "y": 1914, "n": "흑요 화산 중턱"}, {"x": 1723, "y": 2027, "n": "영원한 불꽃의 동지의 탑 입구"}, {"x": 1978, "y": 2160, "n": "고대 문명 유적"}, {"x": 1872, "y": 2305, "n": "끝자락 어촌"}, {"x": 1794, "y": 2165, "n": "흑요 화산 아누비스 상"}, {"x": 1452, "y": 2071, "n": "영원한 여름의 해변"}, {"x": 3198, "y": 904, "n": "자경단의 탑 입구"}, {"x": 2861, "y": 1130, "n": "모래 언덕 입구"}, {"x": 2956, "y": 887, "n": "사막 마을"}, {"x": 3179, "y": 655, "n": "모래 언덕 오지"}], "tower": [{"x": 2541, "y": 1741, "n": "팰 애호 단체 창시자 릴리&릴린", "lv": 20, "c": "팰 애호 단체의 탑"}, {"x": 1731, "y": 2010, "n": "영원한 불꽃의 동지의 영혼 지도자 액슬&볼젝스", "lv": 40, "c": "영원한 불꽃의 동지의 탑"}, {"x": 2303, "y": 758, "n": "팰 유전자 연구 부대 대장 빅터&제노그리프", "lv": 50, "c": "유전자 연구 부대의 탑"}, {"x": 3217, "y": 903, "n": "팰파고스섬 자경단 간부 마커스&호루스", "lv": 30, "c": "자경단의 탑"}, {"x": 2639, "y": 1897, "n": "레인 밀렵단 간부 조이&일렉판다", "lv": 10, "c": "레인 밀렵단의 탑"}, {"x": 1946, "y": 3188, "n": "창천의 맹약 맹주 아우리&샤오롱", "lv": 68, "c": "맹약의 탑"}, {"x": 816, "y": 3503, "n": "천락의 민족 수령 비에른&빙호우거", "lv": 60, "c": "천락의 탑"}, {"x": 1720, "y": 1071, "n": "달꽃단 대장 사야&셀레문", "lv": 55, "c": "달꽃단의 탑"}], "dungeon": [{"x": 2285, "y": 1909, "n": "계곡의 동굴", "lv": 17}, {"x": 2022, "y": 3355, "n": "천양향의 공역", "lv": 65}, {"x": 2032, "y": 1161, "n": "벚꽃 동굴", "lv": 47}, {"x": 1014, "y": 3241, "n": "천락의 동굴", "lv": 56}, {"x": 1328, "y": 2650, "n": "천락의 동굴", "lv": 56}, {"x": 2298, "y": 603, "n": "영봉의 동굴", "lv": 42}, {"x": 2199, "y": 997, "n": "영봉의 동굴", "lv": 42}, {"x": 2213, "y": 1950, "n": "계곡의 동굴", "lv": 17}, {"x": 832, "y": 3468, "n": "천락의 동굴", "lv": 56}, {"x": 2629, "y": 1664, "n": "시냇물 동굴", "lv": 27}, {"x": 1765, "y": 1895, "n": "화산 동굴", "lv": 36}, {"x": 1704, "y": 1663, "n": "화산 동굴", "lv": 36}], "alpha": [{"x": 800, "y": 3441, "n": "이시스", "lv": 66, "c": "필드 보스", "i": "T_Horus_Water_icon_normal.webp"}, {"x": 1095, "y": 3227, "n": "얀데리나", "lv": 65, "c": "필드 보스", "i": "T_GrimGirl_icon_normal.webp"}, {"x": 1172, "y": 2942, "n": "금강벌레", "lv": 64, "c": "필드 보스", "i": "T_HerculesBeetle_Ground_icon_normal.webp"}, {"x": 1275, "y": 3171, "n": "러시골드", "lv": 63, "c": "필드 보스", "i": "T_GoldenHorse_icon_normal.webp"}, {"x": 1576, "y": 2544, "n": "홀로페이스", "lv": 60, "c": "필드 보스", "i": "T_MysteryMask_icon_normal.webp"}, {"x": 827, "y": 3028, "n": "토랑이", "lv": 62, "c": "필드 보스", "i": "T_WhiteTiger_Ground_icon_normal.webp"}, {"x": 1336, "y": 3016, "n": "나이트롯", "lv": 63, "c": "필드 보스", "i": "T_NightBlueHorse_icon_normal.webp"}, {"x": 936, "y": 2447, "n": "다크키드", "lv": 60, "c": "필드 보스", "i": "T_RaijinDaughter_Water_icon_normal.webp"}, {"x": 1395, "y": 3034, "n": "음이리", "lv": 65, "c": "필드 보스", "i": "T_AmaterasuWolf_Dark_icon_normal.webp"}, {"x": 1027, "y": 3502, "n": "썬더호스", "lv": 66, "c": "필드 보스", "i": "T_BlueThunderHorse_icon_normal.webp"}, {"x": 1242, "y": 2859, "n": "셀레스디얼", "lv": 65, "c": "필드 보스", "i": "T_WhiteDeer_icon_normal.webp"}, {"x": 1301, "y": 2528, "n": "멀보냥", "lv": 60, "c": "필드 보스", "i": "T_BadCatgirl_icon_normal.webp"}]}, "items": {"Stone": ["돌", "T_itemicon_Material_Stone.webp"], "PalSphere": ["팰 스피어", "T_itemicon_PalSphere.webp"], "Pal_crystal_S": ["팰지움 파편", "T_itemicon_Material_Pal_crystal_S.webp"], "BakedMeat_GrassMammoth": ["그린모스 스테이크", "T_itemicon_Food_BakedMeat_GrassMammoth.webp"], "Wood": ["목재", "T_itemicon_Material_Wood.webp"], "BerrySeeds": ["열매 씨", "T_itemicon_Material_BerrySeeds.webp"], "Wool": ["양털", "T_itemicon_Material_Wool.webp"], "Berries": ["빨간 열매", "T_itemicon_Food_Berries.webp"], "CopperIngot": ["금속 주괴", "T_itemicon_Material_CopperIngot.webp"], "Fiber": ["섬유", "T_itemicon_Material_Fiber.webp"], "Arrow": ["화살", "T_itemicon_Ammo_Arrow.webp"]}, "helperItems": {"Low_Grade_Medical_Supplies": {"name": "하급 의약품", "icon": "T_itemicon_Food_Herbs.webp"}, "Ancient_Civilization_Parts": {"name": "고대 문명의 부품", "icon": "T_itemicon_Material_PalCrystal_Ex.webp"}, "Cement": {"name": "시멘트", "icon": "T_itemicon_Material_Cement.webp"}, "Wool": {"name": "양털", "icon": "T_itemicon_Material_Wool.webp"}, "Mushroom": {"name": "버섯", "icon": "T_itemicon_Food_Mushroom.webp"}, "Decayed_Ancient_Relic": {"name": "고대 문명의 낡은 유물", "icon": "T_itemicon_Material_WorldTreeRelic_1.webp"}, "Electric_Organ": {"name": "발전 기관", "icon": "T_itemicon_Material_ElectricOrgan.webp"}, "Innovative_Technical_Manual": {"name": "혁신적인 기술서", "icon": "T_itemicon_Consume_TechnologyBook_G2.webp"}, "Ingot": {"name": "금속 주괴", "icon": "T_itemicon_Material_CopperIngot.webp"}, "Gold_Coin": {"name": "금화", "icon": "T_itemicon_Material_Money.webp"}, "Refined_Ingot": {"name": "제련 주괴", "icon": "T_itemicon_Material_IronIngot.webp"}, "Stone": {"name": "돌", "icon": "T_itemicon_Material_Stone.webp"}, "Bone": {"name": "뼈", "icon": "T_itemicon_Material_Bone.webp"}, "Electric_Radiant_Gem": {"name": "번개의 휘석", "icon": "T_itemicon_PalAwakening_Material_Electric.webp"}, "Gorgeous_Ancient_Relic": {"name": "고대 문명의 아름다운 유물", "icon": "T_itemicon_Material_WorldTreeRelic_3.webp"}, "Aquatic_Pal_Fluids": {"name": "수생 팰의 점액", "icon": "T_itemicon_Material_PalFluid.webp"}, "Venom_Gland": {"name": "독샘", "icon": "T_itemicon_Material_Venom.webp"}, "Glistening_Ancient_Relic": {"name": "고대 문명의 찬란한 유물", "icon": "T_itemicon_Material_WorldTreeRelic_5.webp"}, "Ground_Radiant_Gem": {"name": "땅의 휘석", "icon": "T_itemicon_PalAwakening_Material_Ground.webp"}, "Wheat_Seeds": {"name": "밀 씨", "icon": "T_itemicon_Material_WheatSeeds.webp"}, "Egg": {"name": "알", "icon": "T_itemicon_Food_Egg.webp"}, "Berry_Seeds": {"name": "열매 씨", "icon": "T_itemicon_Material_BerrySeeds.webp"}, "Leather": {"name": "가죽", "icon": "T_itemicon_Material_Leather.webp"}, "Ice_Organ": {"name": "빙결 기관", "icon": "T_itemicon_Material_IceOrgan.webp"}, "Flame_Organ": {"name": "발화 기관", "icon": "T_itemicon_Material_FireOrgan.webp"}, "Red_Berries": {"name": "빨간 열매", "icon": "T_itemicon_Food_Berries.webp"}, "Ruby": {"name": "루비", "icon": "T_itemicon_Material_Ruby.webp"}, "Glowing_Ancient_Relic": {"name": "고대 문명의 빛나는 유물", "icon": "T_itemicon_Material_WorldTreeRelic_4.webp"}, "Lamball_Mutton": {"name": "도로롱의 양고기", "icon": "T_itemicon_Food_Meat_SheepBall.webp"}, "Large_Pal_Soul": {"name": "대형 팰 영혼", "icon": "T_itemicon_PalUpgradeStone3.webp"}, "Paldium_Fragment": {"name": "팰지움 파편", "icon": "T_itemicon_Material_Pal_crystal_S.webp"}, "Dormant_Ancient_Relic": {"name": "고대 문명의 잠자는 유물", "icon": "T_itemicon_Material_WorldTreeRelic_2.webp"}, "Penking_Plume": {"name": "펭킹 날개 장식", "icon": "T_itemicon_Material_PalItem_CaptainPenguin.webp"}, "Chikipi_Poultry": {"name": "꼬꼬닭의 닭고기", "icon": "T_itemicon_Food_Meat_ChickenPal.webp"}, "Wood": {"name": "목재", "icon": "T_itemicon_Material_Wood.webp"}, "World_Tree_Holy_Water": {"name": "세계수의 성수", "icon": "T_itemicon_Material_WorldTreeHolyWater.webp"}}};
+const HICON = "../../../palworld-helper/public/icons/";
+const IICON = "../../app/public/icons/items/";
+// layout per tab ("3가지 모두"); the item tab always keeps its own
+const state = { tab: "pals", scope: "all", layouts: { items: "side", pals: "side", structs: "side", places: "side" }, view: "list", zoom: "real", sub: "mine", sel: null };
+
+const opts = {
+  tab: [["items", "아이템"], ["pals", "팰"], ["structs", "구조물"], ["places", "장소"]],
+  scope: [["side", "일반만"], ["all", "3가지 모두"]],
+  layout: [["hud", "컴팩트"], ["side", "일반"], ["full", "와이드"]],
+  view: [["list", "목록"], ["detail", "상세"]],
+  zoom: [["real", "실제 크기"], ["big", "2배 확대"]],
+};
+const layoutOf = () => (state.tab === "items" || state.scope === "all" ? state.layouts[state.tab] : "side");
+for (const [k, list] of Object.entries(opts)) {
+  const g = document.getElementById("g-" + k);
+  for (const [v, label] of list) {
+    const b = document.createElement("button");
+    b.textContent = label; b.dataset.k = k; b.dataset.v = v;
+    b.onclick = () => {
+      if (k === "layout") state.layouts[state.tab] = v;
+      else state[k] = v;
+      if (k === "tab") { state.view = "list"; state.sel = null; }
+      render();
+    };
+    g.appendChild(b);
+  }
+}
+
+const ICONS = {
+  items: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>',
+  pals: '<circle cx="8" cy="7" r="2"/><circle cx="16" cy="7" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M8 18c0-3 2-5 4-5s4 2 4 5c0 2-8 2-8 0z"/>',
+  structs: '<path d="M3 21h18"/><path d="M5 21V10l7-5 7 5v11"/><path d="M10 21v-6h4v6"/>',
+  places: '<path d="M12 21s-7-6-7-12a7 7 0 0 1 14 0c0 6-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+};
+const TITLES = { items: "아이템", pals: "팰", structs: "구조물", places: "장소" };
+const svg = (k) => `<svg viewBox="0 0 24 24">${ICONS[k]}</svg>`;
+const himg = (n) => n ? `<img src="${HICON}${n}" alt="">` : `<span class="ph"></span>`;
+const iimg = (id) => D.items[id] ? `<img src="${IICON}${D.items[id][1]}" alt="">` : `<span class="ph"></span>`;
+const iname = (id) => (D.items[id] ? D.items[id][0] : id);
+const pal = (id) => D.pals.find((p) => p.id === id);
+const st = (id) => D.structs.find((s) => s.id === id);
+const works = (p, max = 4) => p.works.slice(0, max).map((w) => `<img src="${HICON}${w.icon}" title="${w.name} ${w.lv}">`).join("");
+const lv = (n) => `<span style="color:var(--glass-muted);font-size:13px">Lv${n}</span>`;
+
+// ---------------------------------------------------------------- sample "my server" data
+const ITEMS = [["Stone", 87], ["PalSphere", 60], ["Pal_crystal_S", 38], ["BakedMeat_GrassMammoth", 35], ["Wood", 30], ["BerrySeeds", 13], ["Wool", 5], ["CopperIngot", 8]];
+const RECENT = [["Wool", -5], ["Wood", 12], ["Stone", 0], ["PalSphere", 0]];
+const WORKERS = [
+  { id: "Anubis", lv: 23, status: "작업 중 · 원시적인 작업대", s: "" },
+  { id: "Penking", lv: 18, status: "운반 중", s: "" },
+  { id: "Lifmunk", lv: 12, status: "작업 중 · 열매 농원", s: "" },
+  { id: "Depresso", lv: 9, status: "휴식 (SAN 32%)", s: "bad" },
+  { id: "Foxparks", lv: 7, status: "대기", s: "idle" },
+];
+const PARTY = [{ id: "Grizzbolt", lv: 27 }, { id: "Direhowl", lv: 15 }, { id: "Pengullet", lv: 6 }];
+const BOX = [{ id: "Lamball", lv: 3 }, { id: "Cattiva", lv: 5 }, { id: "Chikipi", lv: 4 }, { id: "Tanzee", lv: 8 }];
+const BUILT = [
+  { cat: "생산", rows: [{ id: "Primitive_Workbench", n: 1, job: "화살 ×50", pct: 62 }, { id: "Primitive_Furnace", n: 1, job: "금속 주괴 ×10", pct: 18 }] },
+  { cat: "수납", rows: [{ id: "Wooden_Chest", n: 4, sub: "아이템 214개" }, { id: "Guild_Chest", n: 1, sub: "비어 있음" }] },
+  { cat: "팰", rows: [{ id: "Palbox", n: 1, sub: "일꾼 5 / 15" }, { id: "Monitoring_Stand", n: 1, sub: "평소대로 일하기" }] },
+  { cat: "식료품", rows: [{ id: "Campfire", n: 1, sub: "대기" }, { id: "Feed_Box", n: 1, sub: "빨간 열매 13" }, { id: "Berry_Plantation", n: 2, sub: "성장 70%" }] },
+  { cat: "건축", rows: [{ id: "Wooden_Foundation", n: 24 }, { id: "Wooden_Wall", n: 31 }] },
+];
+const PLACES = [
+  { g: "거점", icon: "⌂", color: "", name: "거점 1", sub: "일꾼 5 · 상자 4 · 작업대 1", dist: "120m", id: "camp" },
+  { g: "플레이어", icon: "▲", color: "#58a6ff", name: "shyunku-test (나)", sub: "-354,871  259,974", dist: "", id: "me" },
+  { g: "플레이어", icon: "▲", color: "#7ee787", name: "친구", sub: "온라인 · 거점 근처", dist: "86m", id: "friend" },
+];
+const glyph = (c, color) => `<span class="ph" style="display:grid;place-items:center;font-size:24px;${color ? "color:" + color : ""}">${c}</span>`;
+
+const sec = (label, n) => `<div class="sec"><span>${label}</span><span>${n}</span></div>`;
+const subTabs = () => state.tab === "items"
+  ? `<div class="tabs"><b class="on">합계</b><b>위치별</b></div>`
+  : `<div class="tabs"><b data-sub="mine" class="${state.sub === "mine" ? "on" : ""}">내 것</b><b data-sub="dex" class="${state.sub === "dex" ? "on" : ""}">도감</b></div>`;
+const search = (ph) => `<input class="search" placeholder="${ph}" readonly>`;
+
+// ---------------------------------------------------------------- side lists
+function palRow(p, extra, sub) {
+  return `<div class="row" data-sel="${p.id}">${himg(p.icon)}<span class="nm"><span>${p.name} ${extra}</span>${sub ? `<small>${sub}</small>` : ""}</span><span class="right">${works(p, 3)}</span></div>`;
+}
+const side = {
+  items: () => `${search("아이템 검색")}<div class="scroll"><div class="rows">${ITEMS.map(([id, n]) => `<div class="row">${iimg(id)}<span>${iname(id)}</span><span class="count tabular">${n}</span></div>`).join("")}</div></div>`,
+  pals: () => state.sub === "mine"
+    ? `${search("팰 검색")}<div class="scroll">
+        ${sec("거점 일꾼", "5 / 15")}<div class="rows">${WORKERS.map((x) => palRow(pal(x.id), lv(x.lv), `<span class="dot ${x.s}"></span>${x.status}`)).join("")}</div>
+        <div class="note">일꾼 상태(작업 중·휴식·SAN)는 서버에서 가져올 수 있는지 조사 필요</div>
+        ${sec("파티", PARTY.length)}<div class="rows">${PARTY.map((x) => palRow(pal(x.id), lv(x.lv))).join("")}</div>
+        ${sec("팰 상자", BOX.length)}<div class="rows">${BOX.map((x) => palRow(pal(x.id), lv(x.lv))).join("")}</div></div>`
+    : `${search("팰 검색 (이름·작업 적성)")}<div class="scroll"><div class="grid">${D.pals.map((p) => `<div class="tile" data-sel="${p.id}"><span class="no">${p.no}</span>${himg(p.icon)}<div class="tn">${p.name}</div></div>`).join("")}</div></div>`,
+  structs: () => {
+    if (state.sub === "mine") {
+      return `${search("구조물 검색")}<div class="scroll">${BUILT.map((g) => `${sec(g.cat, g.rows.reduce((a, r) => a + r.n, 0))}<div class="rows">${g.rows.map((r) => {
+        const s = st(r.id);
+        const sub = r.job ? `${r.job}<div class="bar"><i style="width:${r.pct}%"></i></div>` : (r.sub || "");
+        return `<div class="row" data-sel="${r.id}">${himg(s.icon)}<span class="nm"><span>${s.name}</span>${sub ? `<small>${sub}</small>` : ""}</span><span class="count tabular" style="font-size:16px">${r.n > 1 ? "×" + r.n : ""}</span></div>`;
+      }).join("")}</div>`).join("")}<div class="note">제작 진행(무엇을 몇 % 만드는 중)은 모드에서 읽을 수 있는지 조사 필요</div></div>`;
+    }
+    const cats = {};
+    for (const s of D.structs) (cats[s.cat] = cats[s.cat] || []).push(s);
+    return `${search("구조물 검색")}<div class="scroll">${Object.entries(cats).map(([c, list]) => `${sec(c, list.length)}<div class="rows">${list.map((s) => `<div class="row" data-sel="${s.id}">${himg(s.icon)}<span class="nm"><span>${s.name}</span><small>기술 Lv ${s.techLv ?? "-"}</small></span><span></span></div>`).join("")}</div>`).join("")}</div>`;
+  },
+  places: () => {
+    const row = (p) => `<div class="row" data-sel="${p.id}">${glyph(p.icon, p.color)}<span class="nm"><span>${p.name}</span><small>${p.sub}</small></span><span class="right">${p.dist}</span></div>`;
+    if (state.sub === "mine") {
+      return `${search("장소 검색")}<div class="scroll">
+        ${sec("거점", 1)}<div class="rows">${row(PLACES[0])}</div>
+        ${sec("플레이어", 2)}<div class="rows">${row(PLACES[1])}${row(PLACES[2])}</div>
+        ${sec("근처 빠른 이동", 3)}<div class="rows">${D.markers.fast.slice(0, 3).map((m, i) => `<div class="row" data-sel="fast${i}">${himg(D.markers.icons.fast)}<span class="nm"><span>${m.n}</span><small>좌표 ${m.x}, ${m.y}</small></span><span class="right">${(i + 1) * 640}m</span></div>`).join("")}</div></div>`;
+    }
+    const layers = [["fast", "빠른 이동"], ["tower", "탑"], ["dungeon", "던전"], ["alpha", "알파 팰"]];
+    return `${search("장소 검색")}<div class="scroll">${layers.map(([k, label]) => `${sec(label, D.markers[k].length + "+")}<div class="rows">${D.markers[k].slice(0, 4).map((m, i) => `<div class="row" data-sel="${k}${i}">${himg(D.markers.icons[k])}<span class="nm"><span>${m.n || label}</span><small>${m.lv ? "Lv " + m.lv + " · " : ""}좌표 ${m.x}, ${m.y}</small></span><span></span></div>`).join("")}</div>`).join("")}</div>`;
+  },
+};
+
+// ---------------------------------------------------------------- HUD (mine only)
+const hud = {
+  items: () => RECENT.map(([id, d]) => `<div class="hud-row">${iimg(id)}<span>${iname(id)}</span>${d ? `<span class="delta ${d > 0 ? "up" : "down"}">${d > 0 ? "+" + d : d}</span>` : "<span></span>"}<b class="tabular">${(ITEMS.find((x) => x[0] === id) || [0, 0])[1]}</b></div>`).join(""),
+  pals: () => WORKERS.slice(0, 4).map((x) => { const p = pal(x.id); return `<div class="hud-row" data-sel="${p.id}">${himg(p.icon)}<span>${p.name}</span><small class="hs"><span class="dot ${x.s}"></span>${x.status.split(" · ")[0]}</small><span></span></div>`; }).join(""),
+  structs: () => BUILT[0].rows.map((r) => { const s = st(r.id); return `<div class="hud-row hud-wide" data-sel="${r.id}">${himg(s.icon)}<span>${r.job}<div class="bar"><i style="width:${r.pct}%"></i></div></span><b class="tabular" style="font-size:15px">${r.pct}%</b></div>`; }).join("")
+    + `<div class="hud-row hud-wide">${himg(st("Berry_Plantation").icon)}<span>열매 농원 ×2<div class="bar"><i style="width:70%"></i></div></span><b class="tabular" style="font-size:15px">70%</b></div>`,
+  places: () => [PLACES[0], PLACES[2]].map((p) => `<div class="hud-row" data-sel="${p.id}">${glyph(p.icon, p.color)}<span>${p.name}</span><span></span><b class="tabular" style="font-size:15px">${p.dist}</b></div>`).join("")
+    + `<div class="hud-row">${himg(D.markers.icons.fast)}<span>${D.markers.fast[0].n}</span><span></span><b class="tabular" style="font-size:15px">640m</b></div>`,
+};
+
+// ---------------------------------------------------------------- full (filters + grid)
+function fullBody() {
+  const t = state.tab;
+  let filters = [], tiles = "";
+  const tile = (img, name, n, extra = "", sel = "") => `<div class="ftile" ${sel ? `data-sel="${sel}"` : ""}><span class="tn">${name}</span>${img}${n !== "" ? `<span class="n tabular">${n}</span>` : ""}${extra}</div>`;
+  if (t === "items") {
+    filters = ["전체", "내 인벤토리", "나무 상자 1", "나무 상자 2", "원시적인 작업대"];
+    tiles = ITEMS.map(([id, n]) => tile(iimg(id), iname(id), n)).join("");
+  } else if (t === "pals") {
+    if (state.sub === "mine") {
+      filters = ["전체", "거점 일꾼", "파티", "팰 상자"];
+      tiles = [...WORKERS, ...PARTY, ...BOX].map((x) => { const p = pal(x.id); return tile(himg(p.icon), p.name, "Lv" + x.lv, x.s !== undefined ? `<span class="fdot dot ${x.s}"></span>` : "", p.id); }).join("");
+    } else {
+      filters = ["전체", "무속성", "풀", "화염", "물", "번개", "얼음", "땅", "어둠"];
+      tiles = D.pals.map((p) => tile(himg(p.icon), p.name, "", `<span class="no">${p.no}</span>`, p.id)).join("");
+    }
+  } else if (t === "structs") {
+    if (state.sub === "mine") {
+      filters = ["전체", ...BUILT.map((g) => g.cat)];
+      tiles = BUILT.flatMap((g) => g.rows).map((r) => { const s = st(r.id); return tile(himg(s.icon), s.name, r.n > 1 ? "×" + r.n : "", r.job ? `<div class="fbar"><i style="width:${r.pct}%"></i></div>` : "", r.id); }).join("");
+    } else {
+      filters = ["전체", ...new Set(D.structs.map((s) => s.cat))];
+      tiles = D.structs.map((s) => tile(himg(s.icon), s.name, "", "", s.id)).join("");
+    }
+  } else {
+    filters = state.sub === "mine" ? ["전체", "거점", "플레이어", "근처 빠른 이동"] : ["빠른 이동", "탑", "던전", "알파 팰"];
+    const list = state.sub === "mine"
+      ? PLACES.map((p) => `<div class="row" data-sel="${p.id}">${glyph(p.icon, p.color)}<span class="nm"><span>${p.name}</span><small>${p.sub}</small></span><span class="right">${p.dist}</span></div>`).join("")
+      : D.markers.fast.slice(0, 10).map((m, i) => `<div class="row" data-sel="fast${i}">${himg(D.markers.icons.fast)}<span class="nm"><span>${m.n}</span><small>좌표 ${m.x}, ${m.y}</small></span><span></span></div>`).join("");
+    return `<div class="full-body"><div class="filters">${filters.map((f, i) => `<div class="${i === 0 ? "on" : ""}">${f}</div>`).join("")}</div><div class="flist">${list}</div></div>`;
+  }
+  return `<div class="full-body"><div class="filters">${filters.map((f, i) => `<div class="${i === 0 ? "on" : ""}">${f}</div>`).join("")}</div><div class="tiles">${tiles}</div></div>`;
+}
+
+// ---------------------------------------------------------------- details
+function palDetail() {
+  const p = pal(state.sel || "Anubis");
+  const mine = state.sub === "mine";
+  const w = WORKERS.find((x) => x.id === p.id);
+  const els = p.elements.map((e) => `<img src="${HICON}${e.icon}" title="${e.name}">${e.name}`).join(" ");
+  const workBox = `<div class="box"><h4>작업 적성</h4><div class="chips">${p.works.map((x) => `<span class="chip"><img src="${HICON}${x.icon}">${x.name} ${x.lv}</span>`).join("")}</div></div>`;
+  const drops = (p.drops || []).slice(0, 4).map((d) => { const it = D.helperItems[d.id]; return it ? `<span class="chip"><img src="${HICON}${it.icon}">${it.name}</span>` : ""; }).join("");
+  const mineBox = mine ? `<div class="box"><h4>내 팰</h4><div class="kv"><span>레벨</span><span>${w ? w.lv : 23}</span><span>위치</span><span>거점 1 일꾼</span><span>상태</span><span><span class="dot ${w ? w.s : ""}"></span>${w ? w.status : "작업 중"}</span><span>HP</span><span><div class="bar" style="margin-top:8px"><i style="width:82%"></i></div></span></div></div>` : "";
+  const stats = p.stats ? `<div class="box"><h4>능력치</h4><div class="kv">${["HP", "공격", "방어", "작업 속도"].map((k) => `<span>${k}</span><span>${p.stats[k] ?? "-"}</span>`).join("")}</div></div>` : "";
+  return `<div class="dhead">${himg(p.icon)}<div><div class="dn">${p.name}</div><div class="dm">${p.no} · ${els}</div></div></div>
+    ${mineBox}${workBox}${mine ? "" : stats}${drops ? `<div class="box"><h4>드롭</h4><div class="chips">${drops}</div></div>` : ""}`;
+}
+function structDetail() {
+  const s = st(state.sel || "Primitive_Workbench");
+  const mine = state.sub === "mine";
+  const mats = (s.mats || []).map((m) => { const it = D.helperItems[m.id]; return it ? `<span class="chip"><img src="${HICON}${it.icon}">${it.name} ${m.qty}</span>` : ""; }).join("");
+  const job = BUILT.flatMap((g) => g.rows).find((r) => r.id === s.id);
+  const mineBox = mine ? `<div class="box"><h4>거점 1에 ${job ? job.n : 1}개</h4>${job && job.job ? `<div class="kv"><span>제작</span><span>${job.job}</span><span>진행</span><span><div class="bar" style="margin-top:8px"><i style="width:${job.pct}%"></i></div></span><span>일꾼</span><span>아누비스 (수작업 6)</span></div>` : `<div class="kv"><span>상태</span><span>${job && job.sub ? job.sub : "-"}</span></div>`}<span class="btn">미니맵에 표시</span></div>` : "";
+  return `<div class="dhead">${himg(s.icon)}<div><div class="dn">${s.name}</div><div class="dm">${s.cat} · 기술 Lv ${s.techLv ?? "-"}</div></div></div>
+    ${mineBox}${mats ? `<div class="box"><h4>재료</h4><div class="chips">${mats}</div></div>` : ""}
+    ${(s.works || []).length ? `<div class="box"><h4>필요 작업 적성</h4><div class="chips">${s.works.map((w) => `<span class="chip"><img src="${HICON}${w.icon}">Lv ${w.lv}</span>`).join("")}</div></div>` : ""}`;
+}
+function placeDetail() {
+  return `<div class="dhead"><span class="ph" style="width:76px;height:76px;display:grid;place-items:center;font-size:44px;background:rgba(0,0,0,.22);border-radius:12px">⌂</span><div><div class="dn">거점 1</div><div class="dm">무명 길드 · 120m</div></div></div>
+    <div class="box"><h4>요약</h4><div class="kv"><span>일꾼</span><span>5 / 15</span><span>상자</span><span>4 (아이템 214개)</span><span>제작 중</span><span>화살 ×50 (62%)</span><span>좌표</span><span>-354,871  259,974</span></div><span class="btn">미니맵에 표시</span></div>`;
+}
+const detailOf = { pals: palDetail, structs: structDetail, places: placeDetail };
+
+// ---------------------------------------------------------------- window
+function render() {
+  const layout = layoutOf();
+  const showModes = state.tab === "items" || state.scope === "all";
+  document.querySelectorAll(".group button").forEach((b) => {
+    const cur = b.dataset.k === "layout" ? layout : state[b.dataset.k];
+    b.classList.toggle("on", cur === b.dataset.v);
+    if (b.dataset.k === "layout") b.disabled = !showModes;
+  });
+  const detail = state.view === "detail" && state.tab !== "items" && layout !== "hud";
+  const subText = {
+    items: "무명 길드 · 거점 1 · 0초 전 갱신",
+    pals: state.sub === "mine" ? "거점 일꾼 5 · 파티 3 · 상자 4" : `도감 ${D.pals.length}종 (시안 일부)`,
+    structs: state.sub === "mine" ? "거점 1 · 건물 66개" : "도감 (시안 일부)",
+    places: state.sub === "mine" ? "거점 · 플레이어 · 근처" : "지도 마커",
+  }[state.tab];
+
+  let body;
+  if (layout === "hud") body = `<div class="hud">${hud[state.tab]()}</div>`;
+  else if (detail) body = `<div class="scroll">${detailOf[state.tab]()}</div>`;
+  else if (layout === "full") body = `${subTabs()}${search("검색")}${fullBody()}`;
+  else body = `${subTabs()}${side[state.tab]()}`;
+
+  const rail = Object.keys(ICONS).map((k) => `<div class="rb ${state.tab === k ? "on" : ""}" data-tab="${k}">${svg(k)}<span class="tip">${TITLES[k]}</span></div>`).join("");
+  const modes = showModes ? `<div class="modes">${[["hud", "▭", "컴팩트"], ["side", "≡", "일반"], ["full", "▦", "와이드"]].map(([m, g, label]) => `<span data-layout="${m}" title="${label}" class="${layout === m ? "on" : ""}">${g}</span>`).join("")}</div>` : "";
+  const back = detail ? `<span class="back" data-back="1">‹</span>` : "";
+  const html = `<div class="glass win lay-${layout}${detail ? " is-detail" : ""}"><div class="rail">${rail}</div><div class="main">
+      <div class="wtitle">${back}<div><div class="t">${TITLES[state.tab]}${layout === "hud" && state.tab !== "items" ? ' <span style="font-weight:400;font-size:13px;color:var(--glass-muted)">내 것</span>' : ""}</div><div class="sub">${subText}</div></div><div class="grow"></div>${modes}</div>
+      ${body}</div></div>`;
+  const anchor = document.getElementById("anchor");
+  // zoom an inner box so the anchor's own offsets stay in stage units
+  anchor.innerHTML = `<div style="zoom:${state.zoom === "real" ? 0.49 : 0.98}">${html}</div>`;
+  anchor.querySelectorAll("[data-tab]").forEach((el) => (el.onclick = () => { state.tab = el.dataset.tab; state.view = "list"; state.sel = null; render(); }));
+  anchor.querySelectorAll("[data-sel]").forEach((el) => (el.onclick = () => { state.sel = el.dataset.sel; state.view = "detail"; if (layoutOf() === "hud") state.layouts[state.tab] = "side"; render(); }));
+  anchor.querySelectorAll("[data-back]").forEach((el) => (el.onclick = () => { state.view = "list"; render(); }));
+  anchor.querySelectorAll("[data-sub]").forEach((el) => (el.onclick = () => { state.sub = el.dataset.sub; state.view = "list"; render(); }));
+  anchor.querySelectorAll("[data-layout]").forEach((el) => (el.onclick = () => { state.layouts[state.tab] = el.dataset.layout; render(); }));
+  fit();
+}
+function fit() {
+  const wrap = document.getElementById("wrap");
+  document.getElementById("stage").style.transform = `scale(${wrap.clientWidth / 1920})`;
+}
+window.addEventListener("resize", fit);
+render();
+</script>
+</body>
+</html>
