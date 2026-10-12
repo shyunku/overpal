@@ -67,7 +67,8 @@ export function placesOf(storages: Storage[]): Place[] {
     const base = key === "guildStorage" ? "길드 창고" : buildingName(key);
     // stable numbering: west to east, then north to south
     list.sort((a, b) => (a.location?.x ?? 0) - (b.location?.x ?? 0) || (a.location?.y ?? 0) - (b.location?.y ?? 0));
-    list.forEach((s, i) => places.push({ key: s.containerId, name: list.length > 1 ? `${base} ${i + 1}` : base, storages: [s] }));
+    // a name given in game wins; otherwise the building name, numbered when there are several
+    list.forEach((s, i) => places.push({ key: s.containerId, name: s.customName || (list.length > 1 ? `${base} ${i + 1}` : base), storages: [s] }));
   }
   if (dropped.length) places.push({ key: "dropped", name: "바닥 (버린 아이템)", storages: dropped });
   if (inventory) places.unshift({ key: "inventory", name: "내 인벤토리", storages: [inventory] });

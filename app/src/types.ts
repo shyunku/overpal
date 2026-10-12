@@ -28,6 +28,8 @@ export interface Storage {
   kind: StorageKind;
   modelClass?: string;
   buildObjectId?: string;
+  /** name the players gave the building in game, if any */
+  customName?: string;
   location?: { x: number; y: number; z: number };
   slotCount: number;
   items: StorageItem[];

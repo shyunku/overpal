@@ -123,6 +123,7 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
         }
         #[cfg(windows)]
         {
+            no_frame_painting(&w);
             ensure_popup(&w);
             // the minimap is a circle drawn inside a transparent square window
             window_corners(&w, v.label != "minimap");
@@ -131,6 +132,30 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
         let _ = (w, backdrop);
     }
     Ok(())
+}
+
+/// Stops Windows from painting a window frame. With the caption it had right after creation, the
+/// default handling of WM_NCPAINT / WM_NCACTIVATE (e.g. when a click activates the window) painted
+/// a "PalHelper" title bar that showed through the translucent panel.
+#[cfg(windows)]
+fn no_frame_painting(window: &tauri::WebviewWindow) {
+    use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{WM_NCACTIVATE, WM_NCPAINT};
+
+    unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, _data: usize) -> LRESULT {
+        match msg {
+            // the window has no frame to paint
+            WM_NCPAINT => 0,
+            // let activation go on, but lParam -1 tells the default handling not to repaint the frame
+            WM_NCACTIVATE => unsafe { DefSubclassProc(hwnd, msg, wparam, -1) },
+            _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
+        }
+    }
+
+    if let Ok(hwnd) = window.hwnd() {
+        unsafe { SetWindowSubclass(hwnd.0 as _, Some(proc), 0x5041_4C48, 0) };
+    }
 }
 
 /// Windows 11 rounded corners (8 px at 100%, DWMWCP_ROUND) or square ones, and no DWM border line.

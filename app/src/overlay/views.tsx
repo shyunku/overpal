@@ -141,8 +141,9 @@ function ItemDetail({ t, desc, placeOf }: { t: ItemTotal; desc: Record<string, s
         {url ? <img className="dx-ico" src={url} alt="" draggable={false} /> : <span className="dx-ico" />}
         <div>
           <div className="dn">{itemName(t.item)}</div>
-          <div className="dm">합계 {t.count}개</div>
+          <div className="dm">합계</div>
         </div>
+        <b className="dx-total tabular">{t.count}</b>
       </div>
       {desc[t.item] && (
         <div className="dx-box">
@@ -422,9 +423,16 @@ function distanceText(a: { x: number; y: number } | null, b: { x: number; y: num
 }
 
 /** Drop-down under the base name: follow the player ("현재 위치") or look at one base. */
+/** width of .basemenu in overlay.css */
+const MENU_WIDTH = 250;
+
 function BaseMenu(props: {
   /** the base button; the menu opens right below it so it never covers it */
   anchor: HTMLElement | null;
+  /** item whose page is open: each base then shows how many of it it has */
+  item: string | null;
+  /** what "현재 위치" counts (the base the player is in with the inventory) */
+  hereBase: BaseView | null;
   bases: BaseView[];
   me: { x: number; y: number } | null;
   hereIndex: number;
@@ -433,23 +441,29 @@ function BaseMenu(props: {
   onPick: (campId: string | null) => void;
   onClose: () => void;
 }) {
-  const { anchor, bases, me, hereIndex, pickedIndex, hereLabel, onPick, onClose } = props;
-  // offsets are relative to .mainbody (the button's offset parent)
-  const pos = anchor ? { left: anchor.offsetLeft, top: anchor.offsetTop + anchor.offsetHeight + 6 } : undefined;
+  const { anchor, item, hereBase, bases, me, hereIndex, pickedIndex, hereLabel, onPick, onClose } = props;
+  const count = (b: BaseView | null) => (item ? (b?.totals.find((t) => t.item === item)?.count ?? 0) : (b?.totals.reduce((a, t) => a + t.count, 0) ?? 0));
+  // offsets are relative to .mainbody (the button's offset parent); keep the menu inside the window
+  const body = anchor?.offsetParent as HTMLElement | null;
+  const left = anchor ? Math.max(8, Math.min(anchor.offsetLeft, (body?.clientWidth ?? 0) - MENU_WIDTH - 8)) : 0;
+  const pos = anchor ? { left, top: anchor.offsetTop + anchor.offsetHeight + 6 } : undefined;
   return (
     <>
       <div className="menu-backdrop" onMouseDown={onClose} />
       <div className="basemenu" style={pos}>
         <div className={pickedIndex < 0 ? "on" : ""} onClick={() => onPick(null)}>
           <span>현재 위치 (자동)</span>
-          <small>{hereLabel}</small>
+          <small>
+            {hereLabel}
+            {item ? ` · ${count(hereBase)}개` : ""}
+          </small>
         </div>
         <div className="sep" />
         {bases.map((b, i) => (
           <div key={b.campId} className={pickedIndex === i ? "on" : ""} onClick={() => onPick(b.campId)}>
             <span>거점 {i + 1}</span>
             <small>
-              {i === hereIndex ? "여기" : distanceText(me, b.worldPos)} · {b.totals.reduce((a, t) => a + t.count, 0)}개
+              {i === hereIndex ? "여기" : distanceText(me, b.worldPos)} · {count(b)}개
             </small>
           </div>
         ))}
@@ -532,14 +546,15 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
       </nav>
       <div className="mainbody">
         <div className="wtitle">
-          {detail && (
-            <button className="back" title="목록으로" onClick={() => setDetail(null)}>
-              ‹
-            </button>
-          )}
           <div className="ttl">
-            {/* the layout buttons sit on the title's line */}
+            {/* the back button and the layout buttons sit on the title's line, so the line
+                below starts at the left edge */}
             <div className="tline">
+              {detail && (
+                <button className="back" title="목록으로" onClick={() => setDetail(null)}>
+                  ‹
+                </button>
+              )}
               <div className="t">{label}</div>
               <div className="modes">
                 {modeBtn("hud", "mini", "컴팩트")}
@@ -551,7 +566,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
           </div>
         </div>
         {tab === "items" && menuOpen && mode !== "hud" && (
-          <BaseMenu anchor={baseBtn.current} bases={bases} me={data.me?.worldPos ?? null} hereIndex={data.baseIndex} pickedIndex={pickedIndex} hereLabel={hereLabel} onPick={pick} onClose={() => setMenuOpen(false)} />
+          <BaseMenu anchor={baseBtn.current} item={detail} hereBase={data.base} bases={bases} me={data.me?.worldPos ?? null} hereIndex={data.baseIndex} pickedIndex={pickedIndex} hereLabel={hereLabel} onPick={pick} onClose={() => setMenuOpen(false)} />
         )}
         {tab === "items" ? (
           <ItemsTab data={data} mode={mode} base={mode === "hud" ? data.base : shownBase} notice={notice} detail={detail} onOpen={setDetail} />

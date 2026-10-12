@@ -158,7 +158,7 @@ local function collect_modules()
     return by_container
 end
 
--- map object model instance id -> { location, buildObjectId }
+-- map object model instance id -> { location, buildObjectId, customName }
 -- Actor classes whose location is looked up: buildings and items dropped on the ground.
 local LOCATED_ACTOR_CLASSES = { "PalBuildObject", "PalMapObjectCommonDropItem3D" }
 
@@ -173,6 +173,9 @@ local function collect_actor_locations()
                     local entry = { location = { x = loc.X, y = loc.Y, z = loc.Z } }
                     if class_name == "PalBuildObject" then
                         entry.buildObjectId = try("build object id", function() return a.BuildObjectId:ToString() end)
+                        -- the name players give a building (e.g. a chest) in game, empty if none
+                        local name = try("custom name", function() return a.MapObjectModel.CustomName:ToString() end)
+                        if name and name ~= "" then entry.customName = name end
                     end
                     by_model[id] = entry
                 end
@@ -209,6 +212,7 @@ local function collect_storages(modules, buildings)
                     if b then
                         entry.location = b.location
                         entry.buildObjectId = b.buildObjectId
+                        entry.customName = b.customName
                     end
                 else
                     -- the guild-wide storage has no owning map object
