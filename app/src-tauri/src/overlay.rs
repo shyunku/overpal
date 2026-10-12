@@ -167,6 +167,21 @@ pub fn set_click_through(window: &tauri::WebviewWindow, on: bool) {
     }
 }
 
+/// Shows (without activating) or hides an overlay window. tao's show/hide rewrite the whole window
+/// style like set_ignore_cursor_events does, bringing back the caption (see set_click_through).
+#[tauri::command]
+pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNOACTIVATE, ShowWindow};
+        if let Ok(hwnd) = window.hwnd() {
+            unsafe { ShowWindow(hwnd.0 as _, if on { SW_SHOWNOACTIVATE } else { SW_HIDE }) };
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = if on { window.show() } else { window.hide() };
+}
+
 /// Click-through for the windows that manage it themselves (minimap, tooltip).
 #[tauri::command]
 pub fn click_through(window: tauri::WebviewWindow, on: bool) {

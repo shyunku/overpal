@@ -42,7 +42,7 @@ export function TooltipWindow() {
     const native = getCurrentWindow();
     const el = ref.current;
     if (!tip || !el || !screen) {
-      native.hide();
+      invoke("set_shown", { on: false });
       return;
     }
     const r = el.getBoundingClientRect();
@@ -52,7 +52,7 @@ export function TooltipWindow() {
     Promise.all([native.setSize(new PhysicalSize(w, h)), native.setPosition(new PhysicalPosition(Math.round(tip.x), Math.round(y)))]).then(() => {
       const radius = getComputedStyle(el).borderTopLeftRadius;
       if (radius.endsWith("px")) invoke("round_corners", { radius: parseFloat(radius) * cssZoom(screen, tip.scale) * screen.dpr });
-      native.show();
+      invoke("set_shown", { on: true });
     });
   }, [tip, screen]);
 

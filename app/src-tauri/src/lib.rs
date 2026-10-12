@@ -75,7 +75,7 @@ pub fn run() {
     let always_show = args.always_show;
     tauri::Builder::default()
         .manage(ClientState(client))
-        .invoke_handler(tauri::generate_handler![client_config, overlay::layout_get, overlay::layout_set, overlay::round_corners, overlay::click_through, overlay_watch::overlay_state])
+        .invoke_handler(tauri::generate_handler![client_config, overlay::layout_get, overlay::layout_set, overlay::round_corners, overlay::click_through, overlay::set_shown, overlay_watch::overlay_state])
         .setup(move |app| {
             if let Some(s) = server_cfg {
                 tauri::async_runtime::spawn(async move {

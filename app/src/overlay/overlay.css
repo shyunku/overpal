@@ -957,10 +957,17 @@ img.item-icon {
 .items.mode-side .base-notice + .scroll {
   height: calc(var(--list-h) - 40px);
 }
-/* main window rows 4 px shorter at top and bottom than elsewhere */
+/* main window rows 6 px shorter at top and bottom than elsewhere; icons at 90%. The count column
+   has a fixed width (fits 100,000 at 16 px) so long names end with an ellipsis instead. */
 .items .row {
-  padding-top: 3px;
-  padding-bottom: 3px;
+  grid-template-columns: 36px minmax(0, 1fr) 68px;
+  align-items: center;
+  padding-top: 1px;
+  padding-bottom: 1px;
+}
+.items .row .item-icon {
+  width: 36px;
+  height: 36px;
 }
 
 /* ---------------------------------------------------------------- main window: spacing and type
@@ -1029,10 +1036,10 @@ img.item-icon {
   font-weight: 500;
 }
 .items .row .name {
-  font-size: 16px;
+  font-size: 14px;
 }
 .items .row .count {
-  font-size: 18px;
+  font-size: 16px;
 }
 .tip-win p,
 .items .tile .tt p {
@@ -1058,4 +1065,15 @@ img.item-icon {
 }
 .tip-win b {
   font-weight: 700;
+}
+/* icon, name and count centered on one line: plain line boxes for both texts (the cap trim used
+   for other rows put the count on a different center than the name) */
+.items .row .name,
+.items .row .count {
+  text-box: normal;
+  line-height: 1.3;
+}
+.items .row .count {
+  text-align: right;
+  white-space: nowrap;
 }

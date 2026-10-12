@@ -86,10 +86,10 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
 
   useLayoutEffect(() => {
     const el = ref.current;
-    const native = getCurrentWindow();
     if (!el || !screen) return;
     if (!shown) {
-      native.hide();
+      // not native.hide()/show(): they bring back the window caption (overlay.rs, set_shown)
+      invoke("set_shown", { on: false });
       return;
     }
     let revealed = false;
@@ -105,7 +105,7 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
         }
         if (!revealed) {
           revealed = true;
-          native.show();
+          invoke("set_shown", { on: true });
         }
       });
     };
