@@ -215,6 +215,8 @@ svg.ic {
    Widths per layout are the content widths plus the 56 px rail (before the window scale). */
 .win.items {
   flex-direction: row;
+  /* 5 screen px at QHD (the window scale is 0.8167 screen px per px); the window region follows it */
+  border-radius: 6.1px;
 }
 /* 0.92 of the earlier widths (392 / 296 / 936): with the larger window scale the window is
    25% taller but only 15% wider */
@@ -365,9 +367,9 @@ img.item-icon {
   max-height: 640px;
 }
 /* fixed list height so searching or changes never resize the window: 7 rows (54 px each + list
-   padding) plus 31 px (25 screen px at QHD) asked for in game */
+   padding) plus 68 px (55 screen px at QHD) asked for in game */
 .items {
-  --list-h: 423px;
+  --list-h: 459px;
 }
 .items.mode-side .scroll {
   height: var(--list-h);

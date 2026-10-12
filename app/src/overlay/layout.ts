@@ -45,8 +45,8 @@ export const DEFAULT_LAYOUT: Layout = {
   version: 3,
   windows: {
     menubar: { open: true, ax: "right", dx: 4, ay: "top", dy: 4 },
-    // 361.25: 25 screen px (QHD) lower than 380 so the top stays put after the list grew by that much
-    items: { open: true, ax: "left", dx: 40, ay: "bottom", dy: 361.25 },
+    // 338.75: 55 screen px (QHD) lower than 380 so the top stays put after the list grew by that much
+    items: { open: true, ax: "left", dx: 40, ay: "bottom", dy: 338.75 },
     // lower right, left of the weapon panel
     minimap: { open: true, ax: "right", dx: 400, ay: "bottom", dy: 26 },
     settings: { open: false, ax: "left", dx: 760, ay: "top", dy: 200 },
