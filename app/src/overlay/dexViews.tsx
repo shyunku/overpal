@@ -12,7 +12,7 @@ const MARKER_KEYS: MarkerKey[] = ["fast", "tower", "dungeon", "alpha"];
 
 /** captures that still give a bonus, per pal (the game counts up to this many) */
 export const CAPTURE_BONUS_MAX = 5;
-const CAPTURE_POLL_MS = 15000;
+const CAPTURE_POLL_MS = 3000;
 
 /**
  * Capture bonus count per pal for the player (PalDefender progression), keyed by the pal's
