@@ -27,7 +27,8 @@ const ICONS = {
     </>
   ),
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
-  mini: <path d="M6 4h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 18h8" />,
+  // centered in the 24 px box (spans y 5..19)
+  mini: <path d="M6 5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM8 19h8" />,
   grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />,
   bag: <path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" />,
   chevron: <path d="m6 9 6 6 6-6" />,
@@ -113,23 +114,76 @@ function useItemDesc(): Record<string, string> {
   return desc;
 }
 
-/** Shows the item's tooltip to the right of the main window, level with the row. */
-async function showTip(row: HTMLElement, item: string, desc: Record<string, string>) {
+/** Where an item is stored: place name and count, places merged by name, most first. */
+function whereStored(t: ItemTotal, placeOf: (containerId: string) => string): { label: string; count: number }[] {
+  const m = new Map<string, number>();
+  for (const s of t.sources) m.set(placeOf(s.containerId), (m.get(placeOf(s.containerId)) ?? 0) + s.count);
+  return [...m].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count);
+}
+
+/** Shows the item's tooltip (where it is stored) to the right of the main window, level with the row. */
+async function showTip(row: HTMLElement, t: ItemTotal, placeOf: (containerId: string) => string) {
   const win = getCurrentWindow();
   const [pos, size] = await Promise.all([win.innerPosition(), win.innerSize()]);
   const dpr = window.devicePixelRatio || 1;
   // client rects already include the window's CSS zoom
   const top = row.getBoundingClientRect().top * dpr;
-  emitTip({ name: itemName(item), desc: desc[item] ?? null, x: pos.x + size.width + 8, y: pos.y + top, scale: ITEM_SCALE });
+  emitTip({ name: itemName(t.item), lines: whereStored(t, placeOf), x: pos.x + size.width + 8, y: pos.y + top, scale: ITEM_SCALE });
+}
+
+/** An item's page: name, total, description and where it is stored. */
+function ItemDetail({ t, desc, placeOf }: { t: ItemTotal; desc: Record<string, string>; placeOf: (containerId: string) => string }) {
+  const url = itemIconUrl(t.item);
+  const where = whereStored(t, placeOf);
+  return (
+    <div className="scroll dx-detail">
+      <div className="dx-head">
+        {url ? <img className="dx-ico" src={url} alt="" draggable={false} /> : <span className="dx-ico" />}
+        <div>
+          <div className="dn">{itemName(t.item)}</div>
+          <div className="dm">합계 {t.count}개</div>
+        </div>
+      </div>
+      {desc[t.item] && (
+        <div className="dx-box">
+          <h4>설명</h4>
+          <p className="dx-desc">{desc[t.item]}</p>
+        </div>
+      )}
+      <div className="dx-box">
+        <h4>보관 위치</h4>
+        {where.length ? (
+          <div className="dx-kv">
+            {where.map((w) => (
+              <span key={w.label} className="dx-kvrow">
+                <span>{w.label}</span>
+                <span className="tabular">{w.count}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="dx-desc">이 거점에 없음</p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 const byName = (a: { item: string }, b: { item: string }) => itemName(a.item).localeCompare(itemName(b.item), "ko");
 
 /** `base`: the storages shown (current base + inventory, or a base picked from the menu); `notice` goes under the search box. */
-function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemMode; base: BaseView | null; notice?: ReactNode }) {
+function ItemsTab(props: {
+  data: OverlayData;
+  mode: ItemMode;
+  base: BaseView | null;
+  notice?: ReactNode;
+  /** item whose page is shown instead of the list */
+  detail: string | null;
+  onOpen: (item: string) => void;
+}) {
+  const { data, mode, base, notice, detail, onOpen } = props;
   const [tab, setTab] = useState<"total" | "where">("total");
   const [query, setQuery] = useState("");
-  const [openRow, setOpenRow] = useState<string | null>(null);
   const [place, setPlace] = useState("all");
   const desc = useItemDesc();
   // hide the tooltip when this view goes away
@@ -144,7 +198,10 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
   ];
 
   let body;
-  if (data.conn === "down" && !data.snapshot) {
+  const opened = detail ? (totals.find((x) => x.item === detail) ?? { item: detail, count: 0, sources: [] }) : null;
+  if (opened && mode !== "hud") {
+    body = <ItemDetail t={opened} desc={desc} placeOf={placeOf} />;
+  } else if (data.conn === "down" && !data.snapshot) {
     body = <div className="empty">앱 서버에 연결할 수 없음 · 재시도 중</div>;
   } else if (mode === "hud") {
     const rows = [...data.recent.map((r) => ({ item: r.item, delta: r.delta }))];
@@ -260,23 +317,17 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
               {found.map((t) => (
                 <div
                   key={t.item}
-                  className={`row ${openRow === t.item ? "open" : ""}`}
-                  onClick={() => setOpenRow(openRow === t.item ? null : t.item)}
-                  onMouseEnter={(e) => showTip(e.currentTarget, t.item, desc)}
+                  className="row"
+                  onClick={() => {
+                    emitTip(null);
+                    onOpen(t.item);
+                  }}
+                  onMouseEnter={(e) => showTip(e.currentTarget, t, placeOf)}
                   onMouseLeave={() => emitTip(null)}
                 >
                   <ItemIcon id={t.item} />
                   <span className="name">{itemName(t.item)}</span>
                   <span className={`count tabular ${t.count ? "" : "none"}`}>{t.count}</span>
-                  {openRow === t.item && (
-                    <div className="sources">
-                      {t.sources.map((s) => (
-                        <span key={s.containerId}>
-                          {placeOf(s.containerId)} · {s.count}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 </div>
               ))}
               {!found.length && <div className="empty">{query ? "검색 결과 없음" : "보관 중인 아이템 없음"}</div>}
@@ -503,7 +554,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
           <BaseMenu anchor={baseBtn.current} bases={bases} me={data.me?.worldPos ?? null} hereIndex={data.baseIndex} pickedIndex={pickedIndex} hereLabel={hereLabel} onPick={pick} onClose={() => setMenuOpen(false)} />
         )}
         {tab === "items" ? (
-          <ItemsTab data={data} mode={mode} base={mode === "hud" ? data.base : shownBase} notice={notice} />
+          <ItemsTab data={data} mode={mode} base={mode === "hud" ? data.base : shownBase} notice={notice} detail={detail} onOpen={setDetail} />
         ) : (
           <OtherTab
             tab={tab}

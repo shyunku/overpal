@@ -10,7 +10,8 @@ const ITEM_TIP = "item-tip";
 
 export interface TipPayload {
   name: string;
-  desc: string | null;
+  /** where the item is stored: place and count */
+  lines: { label: string; count: number }[];
   /** physical px: left edge and the top of the hovered row */
   x: number;
   y: number;
@@ -62,7 +63,12 @@ export function TooltipWindow() {
       {tip && (
         <>
           <b>{tip.name}</b>
-          {tip.desc && <p>{tip.desc}</p>}
+          {tip.lines.map((l) => (
+            <div className="tip-line" key={l.label}>
+              <span>{l.label}</span>
+              <span className="tabular">{l.count}</span>
+            </div>
+          ))}
         </>
       )}
     </div>

@@ -183,11 +183,28 @@ pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
         let _ = window.run_on_main_thread(move || {
             if let Ok(hwnd) = w.hwnd() {
                 unsafe { ShowWindow(hwnd.0 as _, if on { SW_SHOWNOACTIVATE } else { SW_HIDE }) };
+                if on {
+                    redraw_frame(hwnd.0 as isize);
+                }
             }
         });
     }
     #[cfg(not(windows))]
     let _ = if on { window.show() } else { window.hide() };
+}
+
+/// Recomputes and repaints the window frame. Windows keeps the frame it drew while the window
+/// still had a caption (right after creation) and shows it through the translucent panel as a
+/// "PalHelper" bar until the frame is redrawn.
+#[cfg(windows)]
+fn redraw_frame(hwnd: isize) {
+    use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowPos};
+    let h = hwnd as _;
+    unsafe {
+        SetWindowPos(h, std::ptr::null_mut(), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        RedrawWindow(h, std::ptr::null(), std::ptr::null_mut(), RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+    }
 }
 
 /// Click-through for the windows that manage it themselves (minimap, tooltip).
@@ -232,6 +249,7 @@ pub fn ensure_popup(window: &tauri::WebviewWindow) {
         SetWindowLongPtrW(h, GWL_STYLE, ((style & !FRAME) | WS_POPUP) as isize);
         SetWindowPos(h, std::ptr::null_mut(), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
     }
+    redraw_frame(hwnd.0 as isize);
 }
 
 /// Clips the window to a rounded rectangle (radius in physical px) so the blur behind it, which

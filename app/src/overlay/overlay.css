@@ -370,7 +370,7 @@ img.item-icon {
    padding) plus 68 px (55 screen px at QHD) asked for in game */
 .items {
   /* 455: the tidied spacing above the list added 8 px, the smaller tab text took 4 back */
-  --list-h: 455px;
+  --list-h: 454px;
 }
 .items.mode-side .scroll {
   height: var(--list-h);
@@ -838,7 +838,7 @@ img.item-icon {
 }
 /* a detail has no sub tabs or search, so its scroll area takes their height to keep the window size */
 .items.is-detail .scroll.dx-detail {
-  height: calc(var(--list-h) + var(--dx-detail-extra, 90px));
+  height: calc(var(--list-h) + var(--dx-detail-extra, 85px));
 }
 .dx-tiles,
 .dx-list,
@@ -975,7 +975,7 @@ img.item-icon {
    10 px gap between the title, tabs, search box and list. */
 .items .wtitle {
   align-items: flex-start;
-  padding: 16px 12px 12px 16px;
+  padding: 16px 16px 12px 16px;
 }
 .items .wtitle .tline {
   display: flex;
@@ -1002,8 +1002,13 @@ img.item-icon {
   padding: 0 12px;
   line-height: normal;
 }
+/* the scrollbar (about 12 px) sits in the right inset, so rows end 4 px before it to line up
+   with the search box and the title */
 .items .rows {
-  padding: 0 8px 10px;
+  padding: 0 0 10px 8px;
+}
+.items .row {
+  padding-right: 4px;
 }
 /* layout buttons at 75% (icons and padding) */
 .items .modes {
@@ -1013,12 +1018,14 @@ img.item-icon {
 }
 .items .modes button {
   width: 24px;
-  height: 21px;
+  height: 22px;
+  padding: 0;
   border-radius: 6px;
 }
 .items .modes svg.ic {
-  width: 13.5px;
-  height: 13.5px;
+  display: block;
+  width: 14px;
+  height: 14px;
 }
 /* long names end with an ellipsis */
 .items .row .name {
@@ -1076,4 +1083,16 @@ img.item-icon {
 .items .row .count {
   text-align: right;
   white-space: nowrap;
+}
+.tip-win .tip-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 3px;
+  font-size: 13px;
+  color: var(--glass-muted);
+}
+.tip-win .tip-line span:last-child {
+  color: var(--glass-fg);
+  font-weight: 500;
 }
