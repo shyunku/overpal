@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { PdGuilds, PdPlayers } from "./data/paldefender";
+import type { PdGuilds, PdInventory, PdPlayers } from "./data/paldefender";
 import type { BaseStorage, ClientConfig, ModStatus } from "./types";
 
 export function loadClientConfig(): Promise<ClientConfig> {
@@ -23,3 +23,6 @@ export const fetchModStatus = (cfg: ClientConfig) => get<ModStatus>(cfg, "/api/m
 export const fetchPlayers = (cfg: ClientConfig) => get<PdPlayers>(cfg, "/api/players");
 /** PalDefender /guilds, passed through unchanged */
 export const fetchGuilds = (cfg: ClientConfig) => get<PdGuilds>(cfg, "/api/guilds");
+/** PalDefender /items/{PlayerUID}: the player's inventory, passed through unchanged */
+export const fetchInventory = (cfg: ClientConfig, playerUid: string) =>
+  get<PdInventory>(cfg, `/api/items/${encodeURIComponent(playerUid)}`);

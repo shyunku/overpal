@@ -44,3 +44,24 @@ export interface PdGuilds {
   Meta: { GuildCount: number };
   Guilds: Record<string, PdGuild>;
 }
+
+export interface PdContainer {
+  Available: boolean;
+  ContainerID: string;
+  UsedSlots: number;
+  MaxSlots: number;
+  /** occupied slots keyed by slot index */
+  Slots: Record<string, { ItemID: string; Count: number }>;
+}
+
+export interface PdInventory {
+  Meta: { PlayerUID: string; Player: string };
+  Inventory: {
+    Items: PdContainer;
+    KeyItems: PdContainer;
+    Weapons: PdContainer;
+    Armor: PdContainer;
+    Food: PdContainer;
+    DropSlot: PdContainer;
+  };
+}

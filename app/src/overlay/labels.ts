@@ -14,6 +14,21 @@ const BUILDING_NAMES: Record<string, string> = {
 
 export const itemName = (id: string): string => ITEMS[id]?.[0] ?? id;
 
+/** Whether the search text matches the item's name or id. */
+export const matchesItem = (id: string, query: string): boolean =>
+  !query || itemName(id).includes(query) || id.toLowerCase().includes(query.toLowerCase());
+
+/**
+ * Items matching the search that are not in `have`, sorted by name. Items without a Korean name
+ * (old ids the game no longer names) are left out.
+ */
+export function missingItems(query: string, have: Set<string>): string[] {
+  if (!query) return [];
+  return Object.keys(ITEMS)
+    .filter((id) => !have.has(id) && ITEMS[id][0] !== id && matchesItem(id, query))
+    .sort((a, b) => itemName(a).localeCompare(itemName(b), "ko"));
+}
+
 /** URL of the item icon, or null when the item has none */
 export function itemIconUrl(id: string): string | null {
   const icon = ITEMS[id]?.[1];
@@ -34,8 +49,13 @@ export function placesOf(storages: Storage[]): Place[] {
   const places: Place[] = [];
   const dropped: Storage[] = [];
   const byBuilding = new Map<string, Storage[]>();
+  let inventory: Storage | null = null;
   for (const s of storages) {
     if (s.kind === "pickup") continue;
+    if (s.kind === "inventory") {
+      inventory = s;
+      continue;
+    }
     if (s.kind === "dropped") {
       dropped.push(s);
       continue;
@@ -50,5 +70,6 @@ export function placesOf(storages: Storage[]): Place[] {
     list.forEach((s, i) => places.push({ key: s.containerId, name: list.length > 1 ? `${base} ${i + 1}` : base, storages: [s] }));
   }
   if (dropped.length) places.push({ key: "dropped", name: "바닥 (버린 아이템)", storages: dropped });
+  if (inventory) places.unshift({ key: "inventory", name: "내 인벤토리", storages: [inventory] });
   return places;
 }

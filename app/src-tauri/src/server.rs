@@ -7,17 +7,29 @@ use axum::{
     extract::{Path, Request, State},
     http::{HeaderValue, StatusCode, header},
     middleware::{self, Next},
-    response::{IntoResponse, Response},
+    response::{
+        IntoResponse, Response,
+        sse::{Event, KeepAlive, Sse},
+    },
     routing::get,
 };
+use std::convert::Infallible;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
+use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
+
+const STORAGE_FILE: &str = "base_storage.json";
+/// how often the mod output file is checked for a new version
+const WATCH_EVERY: Duration = Duration::from_millis(150);
 
 #[derive(Clone)]
 struct AppState {
     cfg: Arc<ServerConfig>,
     http: reqwest::Client,
     pd_token: Option<String>,
+    /// new contents of the mod output, for /api/events
+    storage_tx: broadcast::Sender<String>,
 }
 
 pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
@@ -33,14 +45,18 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
     }
 
     let listen = cfg.listen.clone();
-    let state = AppState { cfg: Arc::new(cfg), http: reqwest::Client::new(), pd_token };
+    let (storage_tx, _) = broadcast::channel(16);
+    spawn_storage_watcher(cfg.mod_output_dir.join(STORAGE_FILE), storage_tx.clone());
+    let state = AppState { cfg: Arc::new(cfg), http: reqwest::Client::new(), pd_token, storage_tx };
 
     let protected = Router::new()
         .route("/api/base-storage", get(base_storage))
+        .route("/api/events", get(events))
         .route("/api/mod-status", get(mod_status))
         .route("/api/players", get(pd_players))
         .route("/api/guilds", get(pd_guilds))
         .route("/api/guild/{id}", get(pd_guild))
+        .route("/api/items/{player}", get(pd_items))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_token));
 
     let app = Router::new()
@@ -100,7 +116,47 @@ async fn read_mod_file(s: &AppState, name: &str) -> Response {
 }
 
 async fn base_storage(State(s): State<AppState>) -> Response {
-    read_mod_file(&s, "base_storage.json").await
+    read_mod_file(&s, STORAGE_FILE).await
+}
+
+/// Sends the mod output whenever the mod writes a new version.
+fn spawn_storage_watcher(path: std::path::PathBuf, tx: broadcast::Sender<String>) {
+    tokio::spawn(async move {
+        let mut last: Option<SystemTime> = None;
+        loop {
+            if let Ok(modified) = tokio::fs::metadata(&path).await.and_then(|m| m.modified()) {
+                if last != Some(modified) {
+                    // the mod replaces the file by delete + rename, so a read can miss it briefly
+                    if let Ok(text) = tokio::fs::read_to_string(&path).await {
+                        last = Some(modified);
+                        if tx.receiver_count() > 0 {
+                            let _ = tx.send(text);
+                        }
+                    }
+                }
+            }
+            tokio::time::sleep(WATCH_EVERY).await;
+        }
+    });
+}
+
+/// Server-sent events: `storage` with the current mod output, then every new version.
+async fn events(State(s): State<AppState>) -> Response {
+    let rx = s.storage_tx.subscribe();
+    let first = tokio::fs::read_to_string(s.cfg.mod_output_dir.join(STORAGE_FILE)).await.ok();
+    let stream = futures_util::stream::unfold((first, rx), |(first, mut rx)| async move {
+        if let Some(text) = first {
+            return Some((Ok::<_, Infallible>(Event::default().event("storage").data(text)), (None, rx)));
+        }
+        loop {
+            match rx.recv().await {
+                Ok(text) => return Some((Ok(Event::default().event("storage").data(text)), (None, rx))),
+                Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                Err(broadcast::error::RecvError::Closed) => return None,
+            }
+        }
+    });
+    Sse::new(stream).keep_alive(KeepAlive::default()).into_response()
 }
 
 async fn mod_status(State(s): State<AppState>) -> Response {
@@ -138,4 +194,12 @@ async fn pd_guild(State(s): State<AppState>, Path(id): Path<String>) -> Response
         return json_error(StatusCode::BAD_REQUEST, "invalid guild id");
     }
     pal_defender_get(&s, &format!("guild/{id}")).await
+}
+
+/// A player's inventory (PalDefender /items/{PlayerUID}).
+async fn pd_items(State(s): State<AppState>, Path(player): Path<String>) -> Response {
+    if player.is_empty() || player.len() > 64 || !player.chars().all(|c| c.is_ascii_hexdigit() || c == '-') {
+        return json_error(StatusCode::BAD_REQUEST, "invalid player id");
+    }
+    pal_defender_get(&s, &format!("items/{player}")).await
 }

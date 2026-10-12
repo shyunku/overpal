@@ -51,6 +51,11 @@ interface Props {
   /** content size relative to the stage design (the item window is drawn smaller) */
   scale?: number;
   className?: string;
+  /**
+   * Never takes the mouse and is hidden while the game shows a cursor (the minimap).
+   * In edit mode it shows and takes the mouse so it can be moved.
+   */
+  passive?: boolean;
   children: ReactNode;
 }
 
@@ -58,15 +63,21 @@ interface Props {
  * Hosts one overlay window: zooms the content to the screen, fits the native window around it,
  * keeps it at its anchored place, shows/hides it, and lets the user drag it in edit mode.
  */
-export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "", children }: Props) {
+export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "", passive = false, children }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<ScreenInfo | null>(null);
   const dragging = useRef(false);
   const latest = useRef(layout);
   latest.current = layout;
   const win = layout.windows[view];
-  const { visible, monitor } = useOverlayState();
-  const shown = win.open && visible;
+  const { visible, interactive, monitor } = useOverlayState();
+  const shown = win.open && visible && !(passive && interactive && !layout.editMode);
+  const takesMouse = layout.editMode && interactive;
+
+  // overlay_watch.rs leaves passive windows alone
+  useEffect(() => {
+    if (passive) getCurrentWindow().setIgnoreCursorEvents(!takesMouse);
+  }, [passive, takesMouse]);
 
   useEffect(() => {
     getScreen(monitor).then(setScreen);

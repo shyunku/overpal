@@ -9,7 +9,9 @@ use tauri::window::Effect;
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 pub const LAYOUT_CHANGED: &str = "layout-changed";
-pub const LABELS: [&str; 4] = ["menubar", "items", "minimap", "settings"];
+/// Windows that take the mouse while the game shows a cursor. The minimap never does; its page
+/// handles that itself (it only takes the mouse in edit mode).
+pub const FOLLOW_CURSOR: [&str; 3] = ["menubar", "items", "settings"];
 
 struct OverlayView {
     label: &'static str,

@@ -1,10 +1,11 @@
 //! Decides when and where the overlay is shown and when it takes the mouse.
-//! - shown while the game (or the overlay) is in front; hidden when the game is minimized or
-//!   closed, or when another window is in front on the game's monitor (a window in front on
-//!   another monitor keeps the overlay up)
+//! - shown while the game window can be seen; hidden when the game is minimized or closed, or
+//!   when other windows cover 10% or more of it (on any monitor; focus does not matter)
 //! - placed on the game's monitor
 //! - click-through unless the game shows a cursor (ESC menu, inventory), so moving the
-//!   hidden in-game cursor over an overlay window does not make an arrow appear
+//!   hidden in-game cursor over an overlay window does not make an arrow appear; while another
+//!   app is in front the overlay always takes the mouse (that app hiding the cursor while typing
+//!   is not the game's camera control)
 
 use serde::Serialize;
 use std::sync::Mutex;
@@ -14,6 +15,8 @@ use tauri::{AppHandle, Emitter, Manager};
 pub const OVERLAY_STATE: &str = "overlay-state";
 const GAME_EXE: &str = "palworld-win64-shipping.exe";
 const POLL: Duration = Duration::from_millis(80);
+/// share of the game window other windows may cover before the overlay hides
+const MAX_COVERED: f32 = 0.10;
 /// the state is re-sent this often so a window that missed the change event catches up
 const RESEND_EVERY: u32 = 12;
 
@@ -107,21 +110,9 @@ fn sample(always_show: bool, game: &mut GameWindow) -> OverlayState {
         return OverlayState { visible: always_show, interactive: always_show && win::cursor_showing(), monitor: None };
     };
     let monitor = win::monitor_rect(hwnd);
-    let visible = always_show || (!win::is_minimized(hwnd) && game_or_other_monitor_in_front(hwnd, game_pid));
-    OverlayState { visible, interactive: visible && win::cursor_showing(), monitor }
-}
-
-#[cfg(windows)]
-fn game_or_other_monitor_in_front(game: isize, game_pid: u32) -> bool {
-    let Some(fg) = win::foreground() else {
-        // nothing in front for a moment (e.g. while switching windows): keep the overlay
-        return true;
-    };
-    let pid = win::pid_of(fg);
-    if fg == game || pid == game_pid || pid == std::process::id() {
-        return true;
-    }
-    win::monitor_of(fg) != win::monitor_of(game)
+    let visible = always_show || (!win::is_minimized(hwnd) && win::covered_fraction(hwnd, game_pid) < MAX_COVERED);
+    let interactive = visible && (!win::game_or_self_in_front(game_pid) || win::cursor_showing());
+    OverlayState { visible, interactive, monitor }
 }
 
 #[cfg(not(windows))]
@@ -134,11 +125,12 @@ mod win {
     use windows_sys::Win32::Foundation::CloseHandle;
     use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW};
     use super::MonitorRect;
-    use windows_sys::Win32::Foundation::{HWND, LPARAM};
+    use windows_sys::Win32::Foundation::{HWND, LPARAM, RECT};
+    use windows_sys::Win32::Graphics::Dwm::{DWMWA_CLOAKED, DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute};
     use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        CURSOR_SHOWING, CURSORINFO, EnumWindows, GetCursorInfo, GetForegroundWindow, GetWindowThreadProcessId, IsIconic, IsWindow,
-        IsWindowVisible,
+        CURSOR_SHOWING, CURSORINFO, EnumWindows, GW_HWNDPREV, GWL_EXSTYLE, GetCursorInfo, GetForegroundWindow, GetWindow, GetWindowLongPtrW,
+        GetWindowThreadProcessId, IsIconic, IsWindow, IsWindowVisible, WS_EX_TRANSPARENT,
     };
 
     /// False while the window under the cursor hides it (in-game camera control).
@@ -161,20 +153,92 @@ mod win {
         unsafe { IsIconic(h as HWND) != 0 }
     }
 
-    pub fn foreground() -> Option<isize> {
-        let h = unsafe { GetForegroundWindow() };
-        (!h.is_null()).then_some(h as isize)
+    /// The game or one of this app's windows is the foreground window.
+    pub fn game_or_self_in_front(game_pid: u32) -> bool {
+        let fg = unsafe { GetForegroundWindow() };
+        if fg.is_null() {
+            // nothing in front for a moment (e.g. while switching windows)
+            return true;
+        }
+        let pid = pid_of(fg);
+        pid == game_pid || pid == std::process::id()
     }
 
-    pub fn pid_of(h: isize) -> u32 {
+    fn pid_of(h: HWND) -> u32 {
         let mut pid = 0u32;
-        unsafe { GetWindowThreadProcessId(h as HWND, &mut pid) };
+        unsafe { GetWindowThreadProcessId(h, &mut pid) };
         pid
     }
 
-    /// Monitor handle the window is (mostly) on.
-    pub fn monitor_of(h: isize) -> isize {
-        unsafe { MonitorFromWindow(h as HWND, MONITOR_DEFAULTTONEAREST) as isize }
+    /// Visible bounds of a window, without the invisible resize border.
+    fn frame_rect(h: HWND) -> Option<RECT> {
+        let mut r: RECT = unsafe { std::mem::zeroed() };
+        let ok = unsafe { DwmGetWindowAttribute(h, DWMWA_EXTENDED_FRAME_BOUNDS as u32, &mut r as *mut RECT as *mut _, size_of::<RECT>() as u32) };
+        (ok == 0 && r.right > r.left && r.bottom > r.top).then_some(r)
+    }
+
+    /// Area of a window above the game that hides part of it, if it can hide anything.
+    /// The game's own windows, this app's overlay windows and click-through windows
+    /// (other overlays) are skipped.
+    fn cover_rect(h: HWND, game_pid: u32) -> Option<RECT> {
+        unsafe {
+            if IsWindowVisible(h) == 0 || IsIconic(h) != 0 {
+                return None;
+            }
+            if GetWindowLongPtrW(h, GWL_EXSTYLE) as u32 & WS_EX_TRANSPARENT != 0 {
+                return None;
+            }
+            // windows on other virtual desktops or suspended UWP apps are "visible" but cloaked
+            let mut cloaked = 0u32;
+            if DwmGetWindowAttribute(h, DWMWA_CLOAKED as u32, &mut cloaked as *mut u32 as *mut _, 4) == 0 && cloaked != 0 {
+                return None;
+            }
+        }
+        let pid = pid_of(h);
+        if pid == game_pid || pid == std::process::id() {
+            return None;
+        }
+        frame_rect(h)
+    }
+
+    /// Share (0..1) of the game window hidden by windows above it in the z-order.
+    pub fn covered_fraction(game: isize, game_pid: u32) -> f32 {
+        let Some(g) = frame_rect(game as HWND) else {
+            return 0.0;
+        };
+        let mut covers: Vec<RECT> = Vec::new();
+        let mut h = unsafe { GetWindow(game as HWND, GW_HWNDPREV) };
+        // the z-order can change while walking it; cap the walk
+        for _ in 0..2000 {
+            if h.is_null() {
+                break;
+            }
+            if let Some(r) = cover_rect(h, game_pid) {
+                let i = RECT { left: r.left.max(g.left), top: r.top.max(g.top), right: r.right.min(g.right), bottom: r.bottom.min(g.bottom) };
+                if i.right > i.left && i.bottom > i.top {
+                    covers.push(i);
+                }
+            }
+            h = unsafe { GetWindow(h, GW_HWNDPREV) };
+        }
+        if covers.is_empty() {
+            return 0.0;
+        }
+        // overlapping windows would be counted twice by summing areas; sample a grid instead
+        const NX: i64 = 64;
+        const NY: i64 = 36;
+        let (w, ht) = ((g.right - g.left) as i64, (g.bottom - g.top) as i64);
+        let mut hit = 0;
+        for iy in 0..NY {
+            let y = (g.top as i64 + ht * (2 * iy + 1) / (2 * NY)) as i32;
+            for ix in 0..NX {
+                let x = (g.left as i64 + w * (2 * ix + 1) / (2 * NX)) as i32;
+                if covers.iter().any(|r| x >= r.left && x < r.right && y >= r.top && y < r.bottom) {
+                    hit += 1;
+                }
+            }
+        }
+        hit as f32 / (NX * NY) as f32
     }
 
     pub fn monitor_rect(h: isize) -> Option<MonitorRect> {

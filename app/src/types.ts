@@ -17,8 +17,9 @@ export interface StorageItem {
 /**
  * "dropped": items a player dropped on the ground (counted).
  * "pickup": stones, branches, berry bushes placed on the map, not something players stored (not counted).
+ * "inventory": the viewing player's own inventory, added by the app (not from the mod).
  */
-export type StorageKind = "chest" | "guildChest" | "production" | "dropped" | "pickup" | "guildStorage" | "other";
+export type StorageKind = "chest" | "guildChest" | "production" | "dropped" | "pickup" | "guildStorage" | "inventory" | "other";
 
 export interface Storage {
   containerId: string;
@@ -36,6 +37,8 @@ export interface BaseStorage {
   version: number;
   /** unix seconds */
   updatedAt: number;
+  /** increases with every write of the mod output */
+  seq?: number;
   storages: Storage[];
 }
 
@@ -43,5 +46,7 @@ export interface ModStatus {
   updatedAt: number;
   ok: boolean;
   elapsedMs: number;
+  /** the container update hook is registered (changes are pushed right away) */
+  hooked?: boolean;
   errors: string[];
 }

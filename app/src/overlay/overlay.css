@@ -284,6 +284,13 @@ img.item-icon {
   min-height: 0;
   max-height: 640px;
 }
+/* fixed height of 7 rows (54 px each + list padding) so searching or changes never resize the window */
+.items.mode-side .scroll {
+  height: 392px;
+  max-height: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
 .rows {
   padding: 2px 10px 12px;
 }
@@ -305,6 +312,11 @@ img.item-icon {
 .row .count {
   font-size: 19px;
   font-weight: 700;
+}
+/* searched items the base does not have */
+.count.none,
+.tile .n.none {
+  color: var(--bad);
 }
 .sources {
   grid-column: 2 / 4;
@@ -526,22 +538,6 @@ img.item-icon {
 }
 .mk.friend {
   border-bottom-color: #7ee787;
-}
-.minimap-win .wclose {
-  position: absolute;
-  right: 13%;
-  top: 13%;
-  transform: translate(50%, -50%);
-  width: 24px;
-  height: 24px;
-  font-size: 16px;
-  background: rgba(0, 0, 0, 0.55);
-  opacity: 0;
-  transition: opacity 0.15s;
-  z-index: 3;
-}
-.minimap-win:hover .wclose {
-  opacity: 1;
 }
 .minimap .empty {
   position: absolute;

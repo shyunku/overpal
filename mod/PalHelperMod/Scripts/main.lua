@@ -5,7 +5,12 @@
 -- How the objects are linked is documented in docs/game-internals.md.
 
 local FIRST_DELAY_MS = 30000
+-- full rescan: new/removed containers (dropped items), locations
 local REFRESH_MS = 10000
+-- containers flagged by the update hook are re-read this often
+local FAST_MS = 250
+-- called whenever a building's storage updates (also once a second for chests with timers)
+local UPDATE_HOOK = "/Script/Pal.PalMapObjectItemContainerModule:OnUpdateContents"
 -- also write the raw containers/modules/buildings lists (for investigation)
 local DEBUG_DUMP = false
 
@@ -167,6 +172,7 @@ end
 local function collect_storages(modules, buildings)
     local storages = {}
     local raw = {}
+    local objects = {}
     for _, c in ipairs(FindAllOf("PalItemContainer") or {}) do
         if c:IsValid() then
             local id = try("container id", function() return guid_of(c.ID.ID) end)
@@ -196,10 +202,62 @@ local function collect_storages(modules, buildings)
                     entry.kind = "guildStorage"
                 end
                 storages[#storages + 1] = entry
+                objects[id] = c
             end
         end
     end
-    return storages, raw
+    return storages, raw, objects
+end
+
+-- ---------------------------------------------------------------- change push
+-- The last full scan, kept so a single container can be refreshed without scanning again.
+local current = { storages = {}, byId = {}, objects = {} }
+-- container ids flagged by the update hook since the last fast tick
+local dirty = {}
+local hooked = false
+local seq = 0
+
+local function write_storage()
+    seq = seq + 1
+    write_file("base_storage.json", to_json({ version = 1, updatedAt = os.time(), seq = seq, storages = current.storages }))
+end
+
+local function set_current(storages, objects)
+    local by_id = {}
+    for _, s in ipairs(storages) do by_id[s.containerId] = s end
+    current = { storages = storages, byId = by_id, objects = objects }
+end
+
+local function try_hook()
+    if hooked then return end
+    local ok, err = pcall(function()
+        RegisterHook(UPDATE_HOOK, function(self)
+            pcall(function()
+                local id = guid_of(self:get().TargetContainer.ID.ID)
+                if id then dirty[id] = true end
+            end)
+        end)
+    end)
+    hooked = ok
+    if not ok then log_error("hook", err) end
+end
+
+-- re-read the flagged containers and write the file only when something actually changed
+local function fast_tick()
+    if next(dirty) == nil then return end
+    local changed = false
+    for id in pairs(dirty) do
+        local entry, obj = current.byId[id], current.objects[id]
+        if entry and obj and obj:IsValid() then
+            local ok, items = pcall(read_items, obj)
+            if ok and to_json(items) ~= to_json(entry.items) then
+                entry.items = items
+                changed = true
+            end
+        end
+    end
+    dirty = {}
+    if changed then write_storage() end
 end
 
 -- ---------------------------------------------------------------- development probe
@@ -264,8 +322,12 @@ local function tick()
     local ok, err = pcall(function()
         local modules = collect_modules()
         local buildings = collect_actor_locations()
-        local storages, raw = collect_storages(modules, buildings)
-        write_file("base_storage.json", to_json({ version = 1, updatedAt = os.time(), storages = storages }))
+        local storages, raw, objects = collect_storages(modules, buildings)
+        set_current(storages, objects)
+        dirty = {}
+        write_storage()
+        -- the hooked class exists once the world is loaded
+        try_hook()
         if DEBUG_DUMP then
             write_file("debug_containers.json", to_json({ containers = raw }))
         end
@@ -275,14 +337,19 @@ local function tick()
         updatedAt = os.time(),
         ok = ok and #errors == 0,
         elapsedMs = math.floor((os.clock() - started) * 1000),
+        hooked = hooked,
         errors = errors,
     }))
 end
 
 print("[PalHelperMod] loaded, output: " .. DIR)
-ExecuteWithDelay(FIRST_DELAY_MS, function()
-    LoopAsync(REFRESH_MS, function()
-        ExecuteInGameThread(tick)
-        return false
+-- Everything runs on the game thread. LoopAsync callbacks run on another thread and touch the
+-- same Lua state as the update hook (game thread); at 250 ms that race corrupted the state
+-- ("Ref was not function") and crashed the server.
+ExecuteInGameThreadWithDelay(FIRST_DELAY_MS, function()
+    LoopInGameThreadWithDelay(REFRESH_MS, tick)
+    LoopInGameThreadWithDelay(FAST_MS, function()
+        local ok, err = pcall(fast_tick)
+        if not ok then print("[PalHelperMod] fast tick failed: " .. tostring(err)) end
     end)
 end)

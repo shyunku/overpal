@@ -1,12 +1,20 @@
-import { useEffect, useRef, useState } from "react";
-import { fetchBaseStorage, fetchGuilds, fetchModStatus, fetchPlayers, loadClientConfig } from "../api";
-import { buildSnapshot, type BaseView, type GuildView, type PlayerView, type Snapshot } from "../data/snapshot";
-import type { ClientConfig, ModStatus } from "../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fetchGuilds, fetchInventory, fetchModStatus, fetchPlayers, loadClientConfig } from "../api";
+import type { PdGuilds, PdInventory, PdPlayers } from "../data/paldefender";
+import { buildSnapshot, inventoryStorage, withInventory, type BaseView, type GuildView, type PlayerView, type Snapshot } from "../data/snapshot";
+import type { BaseStorage, ClientConfig, ModStatus } from "../types";
+import { streamStorage } from "./storageStream";
 
-const REFRESH_MS = 5000;
+/** player positions (minimap) */
+const PLAYERS_MS = 2000;
+/** own inventory (PalDefender has no push) */
+const INVENTORY_MS = 2000;
+/** guilds and camps change rarely */
+const GUILDS_MS = 15000;
+const STATUS_MS = 10000;
 /** a change stays in the "recent" list this long */
 const RECENT_MS = 120_000;
-/** the mod writes every 10 s; older output means the mod or the server stopped */
+/** the mod writes its status every 10 s; older status means the mod or the server stopped */
 const STALE_AFTER_S = 30;
 
 export type ConnState = "ok" | "stale" | "down";
@@ -19,7 +27,7 @@ export interface RecentChange {
 
 export interface OverlayData {
   conn: ConnState;
-  /** seconds since the mod last wrote its output */
+  /** seconds since the mod last reported its status */
   ageSeconds: number | null;
   error: string | null;
   snapshot: Snapshot | null;
@@ -34,78 +42,125 @@ function pickMe(players: PlayerView[], cfg: ClientConfig | null): PlayerView | n
   return players.find((p) => p.online) ?? players[0] ?? null;
 }
 
-export function useOverlayData(): OverlayData {
-  const [state, setState] = useState<OverlayData>({
-    conn: "ok", ageSeconds: null, error: null, snapshot: null, guild: null, base: null, me: null, recent: [],
-  });
-  const prevTotals = useRef<Map<string, number> | null>(null);
-  const recent = useRef<RecentChange[]>([]);
-
-  useEffect(() => {
-    let timer: number | undefined;
-    let cancelled = false;
-    let cfg: ClientConfig | null = null;
-
-    async function refresh() {
-      try {
-        cfg ??= await loadClientConfig();
-        const [storage, status] = await Promise.all([fetchBaseStorage(cfg), fetchModStatus(cfg)]);
-        // PalDefender is optional
-        const [guilds, players] = await Promise.all([fetchGuilds(cfg).catch(() => null), fetchPlayers(cfg).catch(() => null)]);
-        if (cancelled) return;
-
-        const snapshot = buildSnapshot(storage, guilds, players);
-        const me = pickMe(snapshot.players, cfg);
-        const guild = snapshot.guilds.find((g) => g.guildId === me?.guildId) ?? snapshot.guilds[0] ?? null;
-        const base = guild?.bases[0] ?? null;
-
-        trackChanges(base, prevTotals, recent);
-        const ageSeconds = Math.max(0, Math.round(Date.now() / 1000 - (status as ModStatus).updatedAt));
-        setState({
-          conn: ageSeconds > STALE_AFTER_S || !status.ok ? "stale" : "ok",
-          ageSeconds,
-          error: null,
-          snapshot,
-          guild,
-          base,
-          me,
-          recent: [...recent.current],
-        });
-      } catch (e) {
-        if (!cancelled) setState((s) => ({ ...s, conn: "down", error: String(e) }));
-      } finally {
-        if (!cancelled) timer = window.setTimeout(refresh, REFRESH_MS);
-      }
-    }
-
-    refresh();
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, []);
-
-  return state;
+/** Repeats `fn` every `ms` until the returned cleanup runs. */
+function every(ms: number, fn: () => Promise<void>): () => void {
+  let timer: number | undefined;
+  let stopped = false;
+  const run = async () => {
+    await fn().catch(() => {});
+    if (!stopped) timer = window.setTimeout(run, ms);
+  };
+  run();
+  return () => {
+    stopped = true;
+    window.clearTimeout(timer);
+  };
 }
 
-function trackChanges(
-  base: BaseView | null,
-  prevTotals: { current: Map<string, number> | null },
-  recent: { current: RecentChange[] },
-) {
-  const now = Date.now();
-  const totals = new Map((base?.totals ?? []).map((t) => [t.item, t.count]));
-  const prev = prevTotals.current;
-  if (prev) {
-    for (const item of new Set([...prev.keys(), ...totals.keys()])) {
-      const delta = (totals.get(item) ?? 0) - (prev.get(item) ?? 0);
-      if (delta !== 0) {
-        const old = recent.current.find((r) => r.item === item && now - r.at < RECENT_MS);
-        recent.current = recent.current.filter((r) => r.item !== item);
-        recent.current.unshift({ item, delta: delta + (old?.delta ?? 0), at: now });
+export function useOverlayData(): OverlayData {
+  const [cfg, setCfg] = useState<ClientConfig | null>(null);
+  const [storage, setStorage] = useState<BaseStorage | null>(null);
+  const [status, setStatus] = useState<ModStatus | null>(null);
+  const [guilds, setGuilds] = useState<PdGuilds | null>(null);
+  const [players, setPlayers] = useState<PdPlayers | null>(null);
+  const [inventory, setInventory] = useState<PdInventory | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [streamDown, setStreamDown] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  /** the viewing player's uid, read by the stream callback */
+  const meUidRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    loadClientConfig().then(setCfg, (e) => setError(String(e)));
+  }, []);
+
+  useEffect(() => {
+    if (!cfg) return;
+    const abort = new AbortController();
+    let latest = 0;
+    streamStorage(
+      cfg,
+      async (s) => {
+        // a chest change is often a move to or from the inventory; fetch the inventory now and apply
+        // both together, otherwise the moved items vanish from the totals until the next inventory poll
+        const n = ++latest;
+        const uid = meUidRef.current;
+        const inv = uid ? await fetchInventory(cfg, uid).catch(() => null) : null;
+        // a newer version arrived while waiting
+        if (abort.signal.aborted || n !== latest) return;
+        if (inv) setInventory(inv);
+        setStorage(s);
+        setStreamDown(false);
+        setError(null);
+      },
+      (e) => {
+        setStreamDown(true);
+        setError(String(e));
+      },
+      abort.signal,
+    );
+    const stops = [
+      // PalDefender is optional
+      every(PLAYERS_MS, () => fetchPlayers(cfg).then(setPlayers)),
+      every(GUILDS_MS, () => fetchGuilds(cfg).then(setGuilds)),
+      every(STATUS_MS, () => fetchModStatus(cfg).then(setStatus)),
+      // keeps the "n seconds ago" text and the stale check moving
+      every(1000, async () => setNow(Date.now())),
+    ];
+    return () => {
+      abort.abort();
+      stops.forEach((f) => f());
+    };
+  }, [cfg]);
+
+  const snapshot = useMemo(() => (storage ? buildSnapshot(storage, guilds, players) : null), [storage, guilds, players]);
+  const me = snapshot ? pickMe(snapshot.players, cfg) : null;
+  const guild = snapshot ? (snapshot.guilds.find((g) => g.guildId === me?.guildId) ?? snapshot.guilds[0] ?? null) : null;
+  const meUid = me?.uid;
+  meUidRef.current = meUid;
+
+  useEffect(() => {
+    if (!cfg || !meUid) return;
+    return every(INVENTORY_MS, () => fetchInventory(cfg, meUid).then(setInventory));
+  }, [cfg, meUid]);
+
+  // the player's own items count with the base
+  const base = useMemo(() => {
+    const b = guild?.bases[0] ?? null;
+    if (!b || !guild || !inventory || inventory.Meta.PlayerUID !== meUid) return b;
+    return withInventory(b, inventoryStorage(inventory, guild.guildId));
+  }, [guild, inventory, meUid]);
+
+  const recent = useRecentChanges(base);
+
+  // "updated n seconds ago" follows the last storage version; staleness follows the mod status
+  const ageSeconds = storage ? Math.max(0, Math.round(now / 1000 - storage.updatedAt)) : null;
+  const statusAge = status ? now / 1000 - status.updatedAt : null;
+  const conn: ConnState = streamDown || (!storage && error) ? "down" : statusAge !== null && (statusAge > STALE_AFTER_S || !status?.ok) ? "stale" : "ok";
+
+  return { conn, ageSeconds, error, snapshot, guild, base, me, recent };
+}
+
+function useRecentChanges(base: BaseView | null): RecentChange[] {
+  const prev = useRef<Map<string, number> | null>(null);
+  const [recent, setRecent] = useState<RecentChange[]>([]);
+  useEffect(() => {
+    const now = Date.now();
+    const totals = new Map((base?.totals ?? []).map((t) => [t.item, t.count]));
+    const before = prev.current;
+    prev.current = totals;
+    setRecent((cur) => {
+      let next = cur.filter((r) => now - r.at < RECENT_MS);
+      if (before) {
+        for (const item of new Set([...before.keys(), ...totals.keys()])) {
+          const delta = (totals.get(item) ?? 0) - (before.get(item) ?? 0);
+          if (delta === 0) continue;
+          const old = next.find((r) => r.item === item);
+          next = [{ item, delta: delta + (old?.delta ?? 0), at: now }, ...next.filter((r) => r.item !== item)];
+        }
       }
-    }
-  }
-  recent.current = recent.current.filter((r) => now - r.at < RECENT_MS);
-  prevTotals.current = totals;
+      return next;
+    });
+  }, [base]);
+  return recent;
 }

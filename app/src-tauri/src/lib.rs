@@ -87,7 +87,7 @@ pub fn run() {
             app.manage(overlay::LayoutStore::load(app.handle()));
             overlay_watch::init(app.handle(), always_show);
             overlay::create_windows(app.handle())?;
-            overlay_watch::spawn(app.handle(), &overlay::LABELS, always_show);
+            overlay_watch::spawn(app.handle(), &overlay::FOLLOW_CURSOR, always_show);
             Ok(())
         })
         .run(tauri::generate_context!())

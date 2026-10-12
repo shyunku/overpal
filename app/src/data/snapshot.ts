@@ -2,7 +2,7 @@
 // per-guild item totals. Pure functions; fetching lives in api.ts.
 
 import type { BaseStorage, Storage, StorageKind } from "../types";
-import type { PdGuilds, PdPlayers, Vec3 } from "./paldefender";
+import type { PdGuilds, PdInventory, PdPlayers, Vec3 } from "./paldefender";
 
 /**
  * Max horizontal distance (world units, 100 = 1 m) between a storage and a camp
@@ -81,6 +81,23 @@ export function aggregate(storages: Storage[]): ItemTotal[] {
 
 function distance2d(a: Vec3, b: Vec3): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+/** The player's carried items as a storage; equipped gear and key items are left out. */
+export function inventoryStorage(inv: PdInventory, group: string): Storage {
+  const items: Storage["items"] = [];
+  let index = 0;
+  for (const c of [inv.Inventory.Items, inv.Inventory.Food]) {
+    if (!c?.Available) continue;
+    for (const slot of Object.values(c.Slots)) items.push({ index: index++, item: slot.ItemID, count: slot.Count });
+  }
+  return { containerId: "inventory", group, kind: "inventory", slotCount: index, items };
+}
+
+/** The base with the player's inventory added to its storages and totals. */
+export function withInventory(base: BaseView, inv: Storage): BaseView {
+  const storages = [...base.storages, inv];
+  return { ...base, storages, totals: aggregate(storages) };
 }
 
 export function buildSnapshot(storage: BaseStorage, guilds: PdGuilds | null, players: PdPlayers | null): Snapshot {

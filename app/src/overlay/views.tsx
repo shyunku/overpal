@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ItemTotal } from "../data/snapshot";
-import { itemIconUrl, itemName, placesOf } from "./labels";
+import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
 import { resetPositions, type ItemMode, type Layout, type ViewId } from "./layout";
 import { MAP_SIZE, mapPx } from "./mapcoords";
 import type { OverlayData } from "./useOverlayData";
@@ -90,7 +90,11 @@ export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
   const places = placesOf(data.base?.storages ?? []);
   const totals = data.base?.totals ?? [];
   const placeOf = (containerId: string) => places.find((p) => p.storages.some((s) => s.containerId === containerId))?.name ?? "?";
-  const match = (t: ItemTotal) => !query || itemName(t.item).includes(query) || t.item.toLowerCase().includes(query.toLowerCase());
+  // while searching, items the base does not have are listed too, with a count of 0
+  const found: ItemTotal[] = [
+    ...totals.filter((t) => matchesItem(t.item, query)),
+    ...missingItems(query, new Set(totals.map((t) => t.item))).map((item) => ({ item, count: 0, sources: [] })),
+  ];
 
   const setMode = (m: ItemMode) => onLayout({ ...layout, itemMode: m });
   const title = data.guild ? `${data.guild.name || "길드"} · 거점 1` : "거점 없음";
@@ -127,7 +131,10 @@ export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
           else e.sources.push([p.name, it.count]);
           t.set(it.item, e);
         }
-    const list = [...t.values()].sort((a, b) => b.count - a.count).filter((x) => !query || itemName(x.item).includes(query));
+    const list = [
+      ...[...t.values()].sort((a, b) => b.count - a.count).filter((x) => matchesItem(x.item, query)),
+      ...missingItems(query, new Set(t.keys())).map((item) => ({ item, count: 0, sources: [] as [string, number][] })),
+    ];
     body = (
       <>
         <input className="search" placeholder="아이템 검색" value={query} onChange={(e) => setQuery(e.target.value.trim())} />
@@ -144,7 +151,7 @@ export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
               <div className="tile" key={x.item}>
                 <span className="tn">{itemName(x.item)}</span>
                 <ItemIcon id={x.item} />
-                <span className="n tabular">{x.count}</span>
+                <span className={`n tabular ${x.count ? "" : "none"}`}>{x.count}</span>
                 <div className="tt">
                   <b>
                     {itemName(x.item)} {x.count}
@@ -203,11 +210,11 @@ export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
             </div>
           ) : (
             <div className="rows">
-              {totals.filter(match).map((t) => (
+              {found.map((t) => (
                 <div key={t.item} className={`row ${openRow === t.item ? "open" : ""}`} onClick={() => setOpenRow(openRow === t.item ? null : t.item)}>
                   <ItemIcon id={t.item} />
                   <span>{itemName(t.item)}</span>
-                  <span className="count tabular">{t.count}</span>
+                  <span className={`count tabular ${t.count ? "" : "none"}`}>{t.count}</span>
                   {openRow === t.item && (
                     <div className="sources">
                       {t.sources.map((s) => (
@@ -219,7 +226,7 @@ export function ItemsWindow({ layout, onLayout, data }: ViewProps) {
                   )}
                 </div>
               ))}
-              {!totals.length && <div className="empty">보관 중인 아이템 없음</div>}
+              {!found.length && <div className="empty">{query ? "검색 결과 없음" : "보관 중인 아이템 없음"}</div>}
             </div>
           )}
         </div>
@@ -265,8 +272,7 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
   const toView = ([x, y]: [number, number]) => center && { left: (x - center[0]) * k + MINIMAP_SIZE / 2, top: (y - center[1]) * k + MINIMAP_SIZE / 2 };
 
   return (
-    <OverlayWindow view="minimap" layout={layout} onLayout={onLayout} className="glass round minimap-win">
-      <CloseButton view="minimap" layout={layout} onLayout={onLayout} />
+    <OverlayWindow view="minimap" layout={layout} onLayout={onLayout} passive className="glass round minimap-win">
       <div className={`minimap ${data.conn !== "ok" ? "dim" : ""}`}>
         {center ? (
           <>

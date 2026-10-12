@@ -32,11 +32,17 @@
   - 창 그림자(`shadow`)를 켜면 투명 처리가 깨질 수 있어 끈다. 그래서 Windows가 창 모서리를 둥글게 처리하지 않는다.
 - 비교용 환경 변수: `PALHELPER_EFFECT=none|blur|acrylic`(기본은 예전 Acrylic), `PALHELPER_FORCE_CLICK_THROUGH=1`(플레이 중처럼 항상 클릭 통과). `.local/try-effect.ps1`이 이 값들로 앱을 띄워 `.local/capture-overlay.ps1`로 창 영역을 캡처한다.
 - 클릭 통과는 창을 `WS_EX_LAYERED | WS_EX_TRANSPARENT`로 바꾸는 방식(tao)이다. 이 상태에서도 예전 Acrylic 블러는 유지된다.
-- 표시 규칙: 팰월드(`Palworld-Win64-Shipping.exe`)가 앞에 있으면 표시, 최소화되거나 꺼지면 숨김, 다른 창이 앞에 있으면 그 창이 팰월드와 같은 모니터일 때만 숨김. 오버레이는 팰월드가 있는 모니터에 뜬다. 개발 중 게임 없이 보려면 `--always-show`.
+- 표시 규칙: 팰월드(`Palworld-Win64-Shipping.exe`) 창보다 z-order가 위인 창들의 영역(DWM 확장 프레임 기준)을 64×36 격자로 샘플링해 10% 이상 가려지면 숨긴다. 보이지 않거나 최소화되거나 cloaked(다른 가상 데스크톱 등)인 창, 팰월드와 이 앱의 창, `WS_EX_TRANSPARENT` 창은 제외한다. 오버레이는 팰월드가 있는 모니터에 뜬다.
 
 ## 모드 성능
 
 - 모드는 10초마다 게임 스레드에서 실행된다. 한 번 실행 시간이 2026-10-12 기준 60~70ms였고, 바닥 아이템 좌표 조회를 추가한 뒤 131ms가 됐다(`status.json`의 `elapsedMs`). 이 동안 서버 프레임이 멈출 수 있다. 거점과 컨테이너가 많아지면 최적화가 필요하다.
+
+- 모드의 루프에 `LoopAsync`(+ `ExecuteInGameThread`)를 쓰면 안 된다. `LoopAsync` 콜백은 다른 스레드에서 돌면서 게임 스레드의 훅 콜백과 같은 Lua 상태를 건드린다. 250ms 루프로 바꾼 뒤 `Ref was not function` 같은 Lua 오류가 몇 분마다 찍히다가 서버가 UE4SS 안에서 접근 위반으로 죽었다(2026-10-12 10:39 KST). `LoopInGameThreadWithDelay`로 바꾼 뒤로는 오류가 없다.
+
+## 화면 개발
+
+- 패치 스크립트로 파일을 여러 번 나눠 쓰면 vite가 중간 상태를 핫 리로드해 창이 오류 상태로 남을 수 있다(예: `match is not defined`). 앱만 재시작해서는 풀리지 않았고 vite를 다시 띄워야 했다.
 
 ## 관찰했지만 원인을 모르는 것
 

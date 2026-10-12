@@ -48,6 +48,13 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 
 - 모듈 없이 길드 소속인 컨테이너가 하나 있다(54칸). 길드 단위 공용 창고로 보이며 PalDefender `/guild`의 `items` 컨테이너와 ID가 같다. 모드는 `guildStorage`로 표시한다.
 
+## 변경 감지 훅
+
+- `/Script/Pal.PalMapObjectItemContainerModule:OnUpdateContents`에 `RegisterHook`을 걸면 컨테이너 내용이 바뀔 때 호출된다. `self:get().TargetContainer.ID.ID`로 바뀐 컨테이너를 알 수 있다.
+- 상자는 내용이 그대로여도 약 1초마다 한 번씩 호출된다. 그래서 모드는 훅을 "다시 읽을 후보" 표시로만 쓰고, 다시 읽은 내용이 이전과 같으면 파일을 쓰지 않는다.
+- `OnUpdateSlotContent`는 훅을 걸어도 호출되지 않았다.
+- 훅 대상 클래스는 월드가 로드된 뒤에 생기므로, 첫 전체 스캔 때 훅을 건다.
+
 ## 검증 기록
 
 - 2026-10-12 03:42 KST: 사용자가 알려준 상자 내용(돌 81, 팰지움 파편 58, 빨간 열매 15, 나무 12, 열매 씨앗 10, 팰스피어 2)과 모드 출력이 일치했다. 빨간 열매는 부패로 14, 13으로 줄어드는 것이 반영됐다.

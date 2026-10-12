@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BaseStorage, Storage } from "../types";
-import type { PdGuilds, PdPlayers } from "./paldefender";
-import { BASE_RADIUS, aggregate, buildSnapshot } from "./snapshot";
+import type { PdGuilds, PdInventory, PdPlayers } from "./paldefender";
+import { BASE_RADIUS, aggregate, buildSnapshot, inventoryStorage, withInventory } from "./snapshot";
 import baseStorageFixture from "./__fixtures__/base_storage.json";
 import guildsFixture from "./__fixtures__/guilds.json";
 import playersFixture from "./__fixtures__/players.json";
@@ -86,6 +86,42 @@ describe("aggregate", () => {
   it("sorts by count, then by item id", () => {
     const t = aggregate([storageAt("A", "G", 0, [["Wood", 5], ["Stone", 5], ["Wool", 9]])]);
     expect(t.map((x) => x.item)).toEqual(["Wool", "Stone", "Wood"]);
+  });
+});
+
+describe("inventory", () => {
+  const container = (slots: Record<string, [string, number]>) => ({
+    Available: true,
+    ContainerID: "c",
+    UsedSlots: Object.keys(slots).length,
+    MaxSlots: 42,
+    Slots: Object.fromEntries(Object.entries(slots).map(([k, [ItemID, Count]]) => [k, { ItemID, Count }])),
+  });
+  const inv: PdInventory = {
+    Meta: { PlayerUID: "P", Player: "P" },
+    Inventory: {
+      Items: container({ "0": ["Wood", 30], "3": ["Stone", 5] }),
+      KeyItems: container({ "0": ["Relic", 1] }),
+      Weapons: container({ "0": ["Bow", 1] }),
+      Armor: container({}),
+      Food: container({ "1": ["Berries", 10] }),
+      DropSlot: container({}),
+    },
+  };
+
+  it("takes carried items and food, not equipment or key items", () => {
+    const s = inventoryStorage(inv, "G");
+    expect(s.kind).toBe("inventory");
+    expect(s.items.map((i) => [i.item, i.count])).toEqual([["Wood", 30], ["Stone", 5], ["Berries", 10]]);
+  });
+
+  it("adds the inventory to the base totals", () => {
+    const base = buildSnapshot(storage, guilds, players).guilds[0].bases[0];
+    const merged = withInventory(base, inventoryStorage(inv, GUILD));
+    expect(totalsOf(merged.totals).Wood).toBe(24 + 30);
+    expect(merged.totals.find((t) => t.item === "Wood")!.sources.map((s) => s.containerId)).toContain("inventory");
+    // the original base is left as it was
+    expect(totalsOf(base.totals).Wood).toBe(24);
   });
 });
 
