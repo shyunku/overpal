@@ -10,7 +10,6 @@ export interface Vec3 {
 export interface PdPlayer {
   Name: string;
   PlayerUID: string;
-  UserId: string;
   GuildName: string;
   GuildUUID: string;
   /** "Online" | "Offline" */

@@ -182,8 +182,30 @@ async fn pal_defender_get(s: &AppState, path: &str) -> Response {
     }
 }
 
+/// fields of a PalDefender player that other players must not see
+const PRIVATE_PLAYER_FIELDS: [&str; 2] = ["IP", "UserId"];
+
 async fn pd_players(State(s): State<AppState>) -> Response {
-    pal_defender_get(&s, "players").await
+    let res = pal_defender_get(&s, "players").await;
+    if !res.status().is_success() {
+        return res;
+    }
+    let status = res.status();
+    let Ok(bytes) = axum::body::to_bytes(res.into_body(), 4 << 20).await else {
+        return json_error(StatusCode::BAD_GATEWAY, "PalDefender response could not be read");
+    };
+    let Ok(mut v) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return json_error(StatusCode::BAD_GATEWAY, "PalDefender response is not JSON");
+    };
+    // friends reach this server too: leave out IP addresses and platform ids
+    if let Some(list) = v.get_mut("Players").and_then(|p| p.as_array_mut()) {
+        for p in list.iter_mut().filter_map(|p| p.as_object_mut()) {
+            for f in PRIVATE_PLAYER_FIELDS {
+                p.remove(f);
+            }
+        }
+    }
+    json_response(status, v.to_string())
 }
 
 async fn pd_guilds(State(s): State<AppState>) -> Response {
