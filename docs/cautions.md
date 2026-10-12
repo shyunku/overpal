@@ -43,6 +43,13 @@
 - 팰월드 서버를 REST로 끄면 프로세스는 종료되지만 콘솔 창(Windows Terminal)이 열려 있는 동안 프로세스 목록에 남는다(`HasExited`=True). `redeploy.ps1`은 종료된 프로세스를 무시한다. 남은 창은 닫으면 된다.
 - 모드의 `BUILD_NET_UPDATE_HZ`는 서버 시작 때만 효과가 있다. 값을 바꾸면 서버를 재시작해야 한다.
 
+## 실제 월드 이전 (#12)
+
+- 협동 월드를 전용 서버로 옮길 때 원본(`%LOCALAPPDATA%\Pal\Saved\SaveGames\<SteamID>\<월드>`)은 읽기만 한다. 복사본을 `.local/backups`와 서버 `SaveGames/0/<월드>`에 두고 `GameUserSettings.ini`의 `DedicatedServerName`을 바꾼다.
+- 전용 서버는 월드 폴더에 `WorldOption.sav`가 있으면 `PalWorldSettings.ini` 대신 그것을 쓴다. 협동 월드의 것은 REST가 꺼져 있고 관리자 비밀번호가 비어 있다. `scripts/world_option_to_ini.py`로 게임 규칙만 ini에 옮기고(서버 이름·비밀번호·포트·REST·RCON·인증·크로스플레이는 서버 값 유지) 서버 쪽 복사본에서 `WorldOption.sav`를 지운다. 적용 값은 REST `/v1/api/settings`로 확인한다.
+- 협동 호스트는 항상 `00000000-…-00000001`이다. 전용 서버에서 한 번 접속해 임시 캐릭터를 만든 뒤 서버를 끄고, Palworld Save Pal(v1.4.3, `.local/tools/palworld-save-pal`)의 Player UID Swap으로 `…0001`과 내 ID(`E5EEB250…`)를 맞바꾼다. 친구 ID는 협동과 전용 서버가 같아서 그대로 이어진다.
+- 친구와 할 때는 그 시점의 A로 위 과정을 다시 한다. 그 뒤로 A를 플레이하면 두 월드가 갈라진다.
+
 ## 화면 개발
 
 - 패치 스크립트로 파일을 여러 번 나눠 쓰면 vite가 중간 상태를 핫 리로드해 창이 오류 상태로 남을 수 있다(예: `match is not defined`). 앱만 재시작해서는 풀리지 않았고 vite를 다시 띄워야 했다.
