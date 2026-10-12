@@ -1,0 +1,578 @@
+/* Overlay windows. Sizes are stage units (1920x1080 design); OverlayWindow zooms them to the screen.
+   Ported from docs/designs/overlay-mock.html. */
+
+:root {
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+  --glass-line: rgba(255, 255, 255, 0.14);
+  --glass-fg: #f2f5f9;
+  --glass-muted: rgba(242, 245, 249, 0.62);
+  --chip: rgba(255, 255, 255, 0.08);
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  font-family: "Oxanium", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  color: var(--glass-fg);
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.ow {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.ow.editing {
+  outline: 2px dashed rgba(88, 166, 255, 0.9);
+  outline-offset: -2px;
+  cursor: move;
+}
+
+.glass {
+  /* the window itself carries the acrylic blur; this is the tint on top */
+  background: rgba(16, 20, 28, var(--glass-alpha, 0.52));
+  border: 1px solid var(--glass-line);
+  font-size: 17px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.row > span,
+.chipitem > span,
+.chipitem > b,
+.hud-row > span,
+.hud-row > b,
+.wtitle .t {
+  text-box: trim-both cap alphabetic;
+}
+
+svg.ic {
+  width: 26px;
+  height: 26px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 8px var(--ok);
+  flex: none;
+}
+.dot.warn {
+  background: var(--warn);
+  box-shadow: 0 0 8px var(--warn);
+}
+.dot.bad {
+  background: var(--bad);
+  box-shadow: 0 0 8px var(--bad);
+}
+
+.empty {
+  padding: 30px 18px;
+  color: var(--glass-muted);
+  text-align: center;
+  font-size: 15px;
+}
+.dim {
+  opacity: 0.45;
+}
+
+/* ---------------------------------------------------------------- menu bar */
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px 3px 6px;
+  /* Windows 11 rounds the window corners itself; match that radius */
+  border-radius: 8px;
+}
+.menubar .dot {
+  width: 7.5px;
+  height: 7.5px;
+  margin: 0 3px 0 2px;
+  box-shadow: 0 0 4px var(--ok);
+}
+.mbtn {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--glass-muted);
+}
+.mbtn:hover {
+  background: var(--chip);
+  color: var(--glass-fg);
+}
+.mbtn.on {
+  background: rgba(88, 166, 255, 0.28);
+  color: #dbe9ff;
+}
+.mbtn svg.ic {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.4;
+}
+/* the native window is only as big as the bar, so the label is a title tooltip instead */
+.mbtn .tip {
+  display: none;
+}
+.sep {
+  width: 1px;
+  height: 11px;
+  background: var(--glass-line);
+  margin: 0 2px;
+}
+
+/* ---------------------------------------------------------------- windows */
+.win {
+  display: flex;
+  flex-direction: column;
+}
+.wtitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 10px 10px 16px;
+}
+.wtitle .t {
+  font-weight: 700;
+  font-size: 18px;
+}
+.wtitle .sub {
+  color: var(--glass-muted);
+  font-size: 13px;
+}
+.wtitle .grow {
+  flex: 1;
+}
+.wclose {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--glass-muted);
+  font-size: 22px;
+  line-height: 1;
+}
+.wclose:hover {
+  background: rgba(248, 81, 73, 0.3);
+  color: #fff;
+}
+
+.modes {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+}
+.modes button {
+  width: 32px;
+  height: 28px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  color: var(--glass-muted);
+}
+.modes button:hover {
+  color: var(--glass-fg);
+}
+.modes button.on {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--glass-fg);
+}
+.modes svg.ic {
+  width: 18px;
+  height: 18px;
+}
+
+/* item window widths per mode (before the 60% scale) */
+.items.mode-side {
+  width: 336px;
+  max-height: 900px;
+}
+.items.mode-hud {
+  width: 240px;
+}
+.items.mode-full {
+  width: 880px;
+}
+.items .wtitle {
+  padding-top: 20px;
+}
+.items .wtitle .sub {
+  margin-top: 6px;
+}
+
+.item-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 10px;
+}
+.tabs b {
+  font-weight: 500;
+  font-size: 15px;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: var(--chip);
+  color: var(--glass-muted);
+  cursor: pointer;
+}
+.tabs b.on {
+  background: rgba(255, 255, 255, 0.18);
+  color: var(--glass-fg);
+}
+.search {
+  margin: 0 16px 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--glass-line);
+  color: var(--glass-fg);
+  font: inherit;
+  font-size: 15px;
+  outline: none;
+  width: calc(100% - 32px);
+  box-sizing: border-box;
+  user-select: text;
+}
+.search:focus {
+  border-color: rgba(88, 166, 255, 0.7);
+}
+.scroll {
+  overflow: auto;
+  min-height: 0;
+  max-height: 640px;
+}
+.rows {
+  padding: 2px 10px 12px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.row.open {
+  background: rgba(255, 255, 255, 0.08);
+}
+.row .count {
+  font-size: 19px;
+  font-weight: 700;
+}
+.sources {
+  grid-column: 2 / 4;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+}
+.sources span {
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--chip);
+  color: var(--glass-muted);
+}
+.groups {
+  padding: 0 14px 14px;
+  display: grid;
+  gap: 10px;
+}
+.gbox {
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.gbox .gname {
+  font-size: 15px;
+  color: var(--glass-muted);
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+}
+.gbox .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chipitem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--chip);
+  border-radius: 8px;
+  padding: 3px 8px 3px 4px;
+  font-size: 15px;
+}
+.chipitem .item-icon {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  border-radius: 7px;
+}
+
+.hud-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 14px;
+}
+.hud-row .item-icon {
+  width: 34px;
+  height: 34px;
+  font-size: 15px;
+}
+.delta {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+.delta.up {
+  color: #7ee787;
+  background: rgba(63, 185, 80, 0.18);
+}
+.delta.down {
+  color: #ffa198;
+  background: rgba(248, 81, 73, 0.18);
+}
+
+.full-body {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  min-height: 0;
+  height: 450px;
+}
+.filters {
+  padding: 4px 10px 14px 14px;
+  border-right: 1px solid var(--glass-line);
+  overflow: auto;
+}
+.filters div {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 16px;
+  color: var(--glass-muted);
+  cursor: pointer;
+}
+.filters div.on {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--glass-fg);
+}
+.tiles {
+  padding: 4px 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 108px);
+  gap: 12px;
+  align-content: start;
+  overflow: auto;
+}
+.tile {
+  position: relative;
+  height: 108px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--glass-line);
+  display: grid;
+  place-items: center;
+}
+.tile .item-icon {
+  width: 60px;
+  height: 60px;
+  font-size: 26px;
+}
+.tile .n {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  font-weight: 700;
+  font-size: 18px;
+  text-shadow: 0 1px 3px #000;
+}
+.tile .tn {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--glass-muted);
+}
+.tile .tt {
+  display: none;
+  position: absolute;
+  z-index: 3;
+  left: 40%;
+  top: 60%;
+  width: 220px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(16, 20, 28, 0.92);
+  border: 1px solid var(--glass-line);
+  font-size: 14px;
+}
+.tile .tt div {
+  display: flex;
+  justify-content: space-between;
+  color: var(--glass-muted);
+}
+.tile:hover {
+  border-color: rgba(88, 166, 255, 0.8);
+}
+.tile:hover .tt {
+  display: block;
+}
+
+/* ---------------------------------------------------------------- minimap */
+.minimap-win {
+  width: 169px;
+  height: 169px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.minimap {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.minimap .map-img {
+  position: absolute;
+  inset: 0;
+  background-image: url("/map/palpagos.webp");
+  background-repeat: no-repeat;
+  /* the game shows through a little; markers stay fully opaque */
+  opacity: 0.8;
+}
+.minimap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 18px 2px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 1;
+}
+.mk {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+}
+.mk.base {
+  width: 11px;
+  height: 11px;
+  border-radius: 4px;
+  background: #f0b429;
+  border: 2px solid #fff;
+  box-shadow: 0 0 4px #000;
+}
+.mk.me,
+.mk.friend {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 11px solid #58a6ff;
+  filter: drop-shadow(0 0 2px #000);
+}
+.mk.friend {
+  border-bottom-color: #7ee787;
+}
+.minimap-win .wclose {
+  position: absolute;
+  right: 13%;
+  top: 13%;
+  transform: translate(50%, -50%);
+  width: 24px;
+  height: 24px;
+  font-size: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 3;
+}
+.minimap-win:hover .wclose {
+  opacity: 1;
+}
+.minimap .empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* ---------------------------------------------------------------- settings */
+.settings {
+  width: 400px;
+}
+.set {
+  padding: 0 16px 14px;
+  display: grid;
+  gap: 12px;
+}
+.set .r {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+.set .r > span:first-child {
+  color: var(--glass-muted);
+}
+.set .btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--chip);
+  border: 1px solid var(--glass-line);
+  font-size: 14px;
+}
+.set .btn.on {
+  background: rgba(88, 166, 255, 0.3);
+  border-color: rgba(88, 166, 255, 0.7);
+}

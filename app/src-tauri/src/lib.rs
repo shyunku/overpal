@@ -1,18 +1,22 @@
 mod config;
+mod overlay;
+mod overlay_watch;
 mod server;
 
 use config::{ClientConfig, Config, Mode};
-use tauri::{WebviewUrl, WebviewWindowBuilder};
+use tauri::Manager;
 
 struct Args {
     mode: Option<Mode>,
     config: Option<String>,
+    /// show the overlay even when the game is not in front (development)
+    always_show: bool,
 }
 
-/// Accepts `--mode <server|client|both>` and `--config <path>` (also `--key=value`).
+/// Accepts `--mode <server|client|both>`, `--config <path>` (also `--key=value`) and `--always-show`.
 /// Unknown arguments are ignored so dev tooling can pass its own.
 fn parse_args() -> Result<Args, String> {
-    let mut args = Args { mode: None, config: None };
+    let mut args = Args { mode: None, config: None, always_show: false };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         let (key, inline) = match a.split_once('=') {
@@ -27,6 +31,7 @@ fn parse_args() -> Result<Args, String> {
             "--config" => {
                 args.config = Some(inline.or_else(|| it.next()).ok_or("--config needs a value")?);
             }
+            "--always-show" => args.always_show = true,
             _ => {}
         }
     }
@@ -67,9 +72,10 @@ pub fn run() {
     }
 
     let client = cfg.effective_client(mode);
+    let always_show = args.always_show;
     tauri::Builder::default()
         .manage(ClientState(client))
-        .invoke_handler(tauri::generate_handler![client_config])
+        .invoke_handler(tauri::generate_handler![client_config, overlay::layout_get, overlay::layout_set, overlay_watch::overlay_state])
         .setup(move |app| {
             if let Some(s) = server_cfg {
                 tauri::async_runtime::spawn(async move {
@@ -78,10 +84,10 @@ pub fn run() {
                     }
                 });
             }
-            WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
-                .title("PalHelper")
-                .inner_size(420.0, 640.0)
-                .build()?;
+            app.manage(overlay::LayoutStore::load(app.handle()));
+            overlay_watch::init(app.handle(), always_show);
+            overlay::create_windows(app.handle())?;
+            overlay_watch::spawn(app.handle(), &overlay::LABELS, always_show);
             Ok(())
         })
         .run(tauri::generate_context!())

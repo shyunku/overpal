@@ -57,6 +57,9 @@ pub struct ClientConfig {
     /// e.g. http://127.0.0.1:17994
     pub server_url: String,
     pub token: String,
+    /// whose position the minimap follows; the first online player when missing
+    #[serde(default)]
+    pub player_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -78,6 +81,7 @@ impl Config {
             return Some(ClientConfig {
                 server_url: format!("http://{}", s.listen),
                 token: s.access_tokens.first()?.clone(),
+                player_name: None,
             });
         }
         None

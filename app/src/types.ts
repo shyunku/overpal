@@ -3,6 +3,8 @@
 export interface ClientConfig {
   serverUrl: string;
   token: string;
+  /** whose position the minimap follows; the first online player when missing */
+  playerName?: string | null;
 }
 
 export interface StorageItem {

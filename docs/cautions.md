@@ -24,6 +24,16 @@
 - 서버가 켜져 있는 동안 내장 REST(8212)는 `0.0.0.0`으로 열려 LAN에서 접근 가능하다(관리자 비밀번호 필요). PalDefender REST(17993)와 앱 서버 부분(17994)은 `127.0.0.1`만 연다.
 - UE4SS 설치 전 월드 백업: `.local/backup_world_before_ue4ss/`
 
+## 오버레이 창
+
+- 패널 배경 블러는 Windows의 예전 Acrylic(`SetWindowCompositionAttribute`, accent 4)로 건다. Windows 11 빌드 26200에서 확인한 결과:
+  - Tauri `Acrylic`(DWM 시스템 배경)은 창이 비활성이면 단색이 되는데, 오버레이 창은 늘 비활성이라 항상 불투명했다.
+  - Tauri `Blur`는 웹뷰 아래에서 검은 단색으로 그려졌다.
+  - 창 그림자(`shadow`)를 켜면 투명 처리가 깨질 수 있어 끈다. 그래서 Windows가 창 모서리를 둥글게 처리하지 않는다.
+- 비교용 환경 변수: `PALHELPER_EFFECT=none|blur|acrylic`(기본은 예전 Acrylic), `PALHELPER_FORCE_CLICK_THROUGH=1`(플레이 중처럼 항상 클릭 통과). `.local/try-effect.ps1`이 이 값들로 앱을 띄워 `.local/capture-overlay.ps1`로 창 영역을 캡처한다.
+- 클릭 통과는 창을 `WS_EX_LAYERED | WS_EX_TRANSPARENT`로 바꾸는 방식(tao)이다. 이 상태에서도 예전 Acrylic 블러는 유지된다.
+- 표시 규칙: 팰월드(`Palworld-Win64-Shipping.exe`)가 앞에 있으면 표시, 최소화되거나 꺼지면 숨김, 다른 창이 앞에 있으면 그 창이 팰월드와 같은 모니터일 때만 숨김. 오버레이는 팰월드가 있는 모니터에 뜬다. 개발 중 게임 없이 보려면 `--always-show`.
+
 ## 모드 성능
 
 - 모드는 10초마다 게임 스레드에서 실행된다. 한 번 실행 시간이 2026-10-12 기준 60~70ms였고, 바닥 아이템 좌표 조회를 추가한 뒤 131ms가 됐다(`status.json`의 `elapsedMs`). 이 동안 서버 프레임이 멈출 수 있다. 거점과 컨테이너가 많아지면 최적화가 필요하다.
