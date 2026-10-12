@@ -12,6 +12,8 @@ pub const LAYOUT_CHANGED: &str = "layout-changed";
 /// Windows that take the mouse while the game shows a cursor. The minimap never does; its page
 /// handles that itself (it only takes the mouse in edit mode).
 pub const FOLLOW_CURSOR: [&str; 3] = ["menubar", "items", "settings"];
+/// Every overlay window.
+pub const ALL: [&str; 4] = ["menubar", "items", "minimap", "settings"];
 
 struct OverlayView {
     label: &'static str,
@@ -118,29 +120,39 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
             legacy_acrylic(&w);
         }
         #[cfg(windows)]
-        popup_style(&w);
+        ensure_popup(&w);
         #[cfg(not(windows))]
         let _ = (w, backdrop);
     }
     Ok(())
 }
 
-/// Makes the window a plain popup. An undecorated window keeps the caption and frame styles and
-/// only hides them; on focus changes Windows sometimes drew that caption ("PalHelper ×") and its
-/// square frame over the overlay.
+/// Keeps the window a plain popup with Windows 11 rounded corners.
+///
+/// An undecorated window keeps the caption and frame styles and only hides them, and tao writes
+/// them back whenever it changes the window (e.g. every click-through toggle). Windows then
+/// sometimes drew that caption ("PalHelper ×") over the overlay. The watcher calls this every tick;
+/// it only writes when the caption came back. The rounded corners also clip the acrylic blur,
+/// which ignores window regions and otherwise shows as a square around the rounded panel.
 #[cfg(windows)]
-fn popup_style(window: &tauri::WebviewWindow) {
+pub fn ensure_popup(window: &tauri::WebviewWindow) {
+    use windows_sys::Win32::Graphics::Dwm::{DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos,
         WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
     };
+    const FRAME: u32 = WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
     let Ok(hwnd) = window.hwnd() else { return };
     let h = hwnd.0 as _;
     unsafe {
         let style = GetWindowLongPtrW(h, GWL_STYLE) as u32;
-        let style = (style & !(WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)) | WS_POPUP;
-        SetWindowLongPtrW(h, GWL_STYLE, style as isize);
+        if style & FRAME == 0 && style & WS_POPUP != 0 {
+            return;
+        }
+        SetWindowLongPtrW(h, GWL_STYLE, ((style & !FRAME) | WS_POPUP) as isize);
         SetWindowPos(h, std::ptr::null_mut(), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        let round = DWMWCP_ROUND;
+        DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &round as *const _ as *const _, size_of_val(&round) as u32);
     }
 }
 

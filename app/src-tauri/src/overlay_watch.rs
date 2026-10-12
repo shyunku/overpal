@@ -74,6 +74,13 @@ pub fn spawn(app: &AppHandle, labels: &'static [&'static str], always_show: bool
                 last = Some(s);
                 ticks = RESEND_EVERY;
             }
+            // tao writes the caption styles back on window changes; take them out again
+            #[cfg(windows)]
+            for label in crate::overlay::ALL {
+                if let Some(w) = app.get_webview_window(label) {
+                    crate::overlay::ensure_popup(&w);
+                }
+            }
             if ticks >= RESEND_EVERY {
                 let _ = app.emit(OVERLAY_STATE, s);
                 ticks = 0;
