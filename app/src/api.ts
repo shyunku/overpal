@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { PdGuilds, PdInventory, PdPlayers } from "./data/paldefender";
+import type { PdGuilds, PdInventory, PdPlayerPals, PdPlayers } from "./data/paldefender";
 import type { BaseStorage, ClientConfig, ModStatus } from "./types";
 
 export function loadClientConfig(): Promise<ClientConfig> {
@@ -29,3 +29,5 @@ export const fetchInventory = (cfg: ClientConfig, playerUid: string) =>
 /** PalDefender /progression/{PlayerUID}: only the capture bonus counts are typed */
 export const fetchProgression = (cfg: ClientConfig, playerUid: string) =>
   get<{ Progression?: { Captures?: { palCaptureBonusCounts?: Record<string, number | string> } } }>(cfg, `/api/progression/${encodeURIComponent(playerUid)}`);
+/** PalDefender /pals/{PlayerUID}: party, pal box and base workers (large, about 400 KB) */
+export const fetchPlayerPals = (cfg: ClientConfig, playerUid: string) => get<PdPlayerPals>(cfg, `/api/pals/${encodeURIComponent(playerUid)}`);

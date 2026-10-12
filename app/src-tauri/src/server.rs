@@ -58,6 +58,7 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
         .route("/api/guild/{id}", get(pd_guild))
         .route("/api/items/{player}", get(pd_items))
         .route("/api/progression/{player}", get(pd_progression))
+        .route("/api/pals/{player}", get(pd_pals))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_token));
 
     let app = Router::new()
@@ -203,6 +204,14 @@ async fn pd_progression(State(s): State<AppState>, Path(player): Path<String>) -
         return json_error(StatusCode::BAD_REQUEST, "invalid player id");
     }
     pal_defender_get(&s, &format!("progression/{player}")).await
+}
+
+/// A player's pals: party, pal box and base workers (PalDefender /pals/{PlayerUID}).
+async fn pd_pals(State(s): State<AppState>, Path(player): Path<String>) -> Response {
+    if !valid_player_id(&player) {
+        return json_error(StatusCode::BAD_REQUEST, "invalid player id");
+    }
+    pal_defender_get(&s, &format!("pals/{player}")).await
 }
 
 fn valid_player_id(player: &str) -> bool {

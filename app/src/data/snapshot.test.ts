@@ -145,6 +145,21 @@ describe("buildSnapshot edge cases", () => {
     expect(g.elsewhere.map((x) => x.containerId)).toEqual(["far"]);
   });
 
+  it("puts the guild's buildings into the nearest base", () => {
+    const s: BaseStorage = {
+      version: 1,
+      updatedAt: 0,
+      storages: [],
+      buildings: [
+        { buildObjectId: "Workbench", group: "G", location: { x: 100, y: 0, z: 0 } },
+        { buildObjectId: "ItemChest", group: "G", location: { x: BASE_RADIUS + 1, y: 0, z: 0 } },
+        { buildObjectId: "CampFire", group: "OTHER", location: { x: 0, y: 0, z: 0 } },
+      ],
+    };
+    const base = buildSnapshot(s, pdGuilds, null).guilds.find((g) => g.guildId === "G")!.bases[0];
+    expect(base.buildings.map((b) => b.buildObjectId)).toEqual(["Workbench"]);
+  });
+
   it("still shows guilds when PalDefender is unavailable", () => {
     const s: BaseStorage = { version: 1, updatedAt: 0, storages: [storageAt("a", "G", 0, [["Stone", 3]])] };
     const snap = buildSnapshot(s, null, null);
@@ -156,7 +171,7 @@ describe("buildSnapshot edge cases", () => {
 });
 
 describe("baseAt", () => {
-  const camp = (id: string, x: number): BaseView => ({ campId: id, worldPos: { x, y: 0, z: 0 }, mapPos: { x: 0, y: 0, z: 0 }, storages: [], totals: [] });
+  const camp = (id: string, x: number): BaseView => ({ campId: id, worldPos: { x, y: 0, z: 0 }, mapPos: { x: 0, y: 0, z: 0 }, storages: [], totals: [], buildings: [] });
   const bases = [camp("A", 0), camp("B", 100000)];
 
   it("picks the base the player stands in", () => {

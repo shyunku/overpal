@@ -42,6 +42,29 @@ export interface BaseStorage {
   /** increases with every write of the mod output */
   seq?: number;
   storages: Storage[];
+  /** every guild building (refreshed on the full scan, every 10 s) */
+  buildings?: Building[];
+}
+
+export interface Building {
+  /** e.g. ItemChest_02, BlastFurnace3 */
+  buildObjectId: string;
+  /** guild id */
+  group: string;
+  location: { x: number; y: number; z: number };
+  /** name the players gave the building in game */
+  customName?: string;
+  /** production buildings with an order */
+  production?: {
+    /** item being made (game item id) */
+    recipe: string;
+    requested: number;
+    /** still to make; 0 when the order is done */
+    remain: number;
+    /** progress of the current item */
+    work: number;
+    workRequired: number;
+  };
 }
 
 export interface ModStatus {

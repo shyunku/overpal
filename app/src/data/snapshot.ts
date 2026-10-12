@@ -1,7 +1,7 @@
 // Joins the mod's base storage with PalDefender guilds/players into per-base and
 // per-guild item totals. Pure functions; fetching lives in api.ts.
 
-import type { BaseStorage, Storage, StorageKind } from "../types";
+import type { BaseStorage, Building, Storage, StorageKind } from "../types";
 import type { PdGuilds, PdInventory, PdPlayers, Vec3 } from "./paldefender";
 
 /**
@@ -29,6 +29,8 @@ export interface BaseView {
   mapPos: Vec3;
   storages: Storage[];
   totals: ItemTotal[];
+  /** buildings inside the base */
+  buildings: Building[];
 }
 
 export interface GuildView {
@@ -100,6 +102,11 @@ export function withInventory(base: BaseView, inv: Storage): BaseView {
   return { ...base, storages, totals: aggregate(storages) };
 }
 
+/** The nearest base within BASE_RADIUS of a position, or null. */
+function nearestBase(bases: BaseView[], pos: { x: number; y: number }): BaseView | null {
+  return baseAt(bases, pos as Vec3);
+}
+
 /** The base the player is in: the nearest camp within BASE_RADIUS, or null outside every base. */
 export function baseAt(bases: BaseView[], pos: Vec3 | null | undefined): BaseView | null {
   if (!pos) return null;
@@ -118,7 +125,7 @@ export function baseAt(bases: BaseView[], pos: Vec3 | null | undefined): BaseVie
 /** Outside every base only the player's own inventory counts; campId is empty. */
 export function inventoryOnly(inv: Storage): BaseView {
   const zero = { x: 0, y: 0, z: 0 };
-  return { campId: "", worldPos: zero, mapPos: zero, storages: [inv], totals: aggregate([inv]) };
+  return { campId: "", worldPos: zero, mapPos: zero, storages: [inv], totals: aggregate([inv]), buildings: [] };
 }
 
 export function buildSnapshot(storage: BaseStorage, guilds: PdGuilds | null, players: PdPlayers | null): Snapshot {
@@ -140,6 +147,7 @@ export function buildSnapshot(storage: BaseStorage, guilds: PdGuilds | null, pla
       mapPos: c.map_pos,
       storages: [],
       totals: [],
+      buildings: [],
     }));
     const elsewhere: Storage[] = [];
 
@@ -160,6 +168,12 @@ export function buildSnapshot(storage: BaseStorage, guilds: PdGuilds | null, pla
     }
 
     for (const b of bases) b.totals = aggregate(b.storages);
+    // buildings belong to the nearest base within the radius, like storages
+    for (const bld of storage.buildings ?? []) {
+      if (bld.group !== guildId) continue;
+      const near = nearestBase(bases, bld.location);
+      if (near) near.buildings.push(bld);
+    }
 
     return {
       guildId,

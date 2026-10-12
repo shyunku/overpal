@@ -158,12 +158,48 @@ local function collect_modules()
     return by_container
 end
 
+-- Building entry for the main window's "mine" structures: id, name given in game, location,
+-- guild, and for production buildings what they make and how far along it is.
+-- `progress`: work progress by concrete model address (work_progress_by_model).
+local function building_entry(a, id, model, location, custom_name, progress)
+    local entry = { buildObjectId = id, group = guid_of(model.GroupIdBelongTo), location = location, customName = custom_name }
+    local concrete = model.ConcreteModel
+    if concrete and concrete:IsValid() and concrete:GetClass():GetFName():ToString() == "PalMapObjectConvertItemModel" then
+        local recipe = concrete.CurrentRecipeId:ToString()
+        if recipe ~= "None" then
+            local w = progress[concrete:GetAddress()]
+            entry.production = {
+                recipe = recipe,
+                requested = concrete.RequestedProductNum,
+                remain = concrete.RemainProductNum,
+                work = w and w.CurrentWorkAmount or 0,
+                workRequired = w and w.RequiredWorkAmount or 0,
+            }
+        end
+    end
+    return entry
+end
+
+local function work_progress_by_model()
+    local progress = {}
+    for _, w in ipairs(FindAllOf("PalWorkProgress") or {}) do
+        pcall(function()
+            local m = w.CachedOwnerMapObjectConcreteModel
+            if m and m:IsValid() then progress[m:GetAddress()] = w end
+        end)
+    end
+    return progress
+end
+
 -- map object model instance id -> { location, buildObjectId, customName }
 -- Actor classes whose location is looked up: buildings and items dropped on the ground.
 local LOCATED_ACTOR_CLASSES = { "PalBuildObject", "PalMapObjectCommonDropItem3D" }
 
+-- Also returns the guild buildings (building_entry), read in the same pass over the actors.
 local function collect_actor_locations()
     local by_model = {}
+    local buildings = {}
+    local progress = work_progress_by_model()
     for _, class_name in ipairs(LOCATED_ACTOR_CLASSES) do
         for _, a in ipairs(FindAllOf(class_name) or {}) do
             if a:IsValid() then
@@ -174,15 +210,22 @@ local function collect_actor_locations()
                     if class_name == "PalBuildObject" then
                         entry.buildObjectId = try("build object id", function() return a.BuildObjectId:ToString() end)
                         -- the name players give a building (e.g. a chest) in game, empty if none
-                        local name = try("custom name", function() return a.MapObjectModel.CustomName:ToString() end)
+                        local model = a.MapObjectModel
+                        local name = try("custom name", function() return model.CustomName:ToString() end)
                         if name and name ~= "" then entry.customName = name end
+                        if entry.buildObjectId and entry.buildObjectId ~= "None" then
+                            local b = try("building", function()
+                                return building_entry(a, entry.buildObjectId, model, entry.location, entry.customName, progress)
+                            end)
+                            if b then buildings[#buildings + 1] = b end
+                        end
                     end
                     by_model[id] = entry
                 end
             end
         end
     end
-    return by_model
+    return by_model, buildings
 end
 
 local function collect_storages(modules, buildings)
@@ -228,7 +271,7 @@ end
 
 -- ---------------------------------------------------------------- change push
 -- The last full scan, kept so a single container can be refreshed without scanning again.
-local current = { storages = {}, byId = {}, objects = {} }
+local current = { storages = {}, byId = {}, objects = {}, buildings = {} }
 -- container ids flagged by the update hook since the last fast tick
 local dirty = {}
 local hooked = false
@@ -236,13 +279,13 @@ local seq = 0
 
 local function write_storage()
     seq = seq + 1
-    write_file("base_storage.json", to_json({ version = 1, updatedAt = os.time(), seq = seq, storages = current.storages }))
+    write_file("base_storage.json", to_json({ version = 1, updatedAt = os.time(), seq = seq, storages = current.storages, buildings = current.buildings }))
 end
 
-local function set_current(storages, objects)
+local function set_current(storages, objects, buildings)
     local by_id = {}
     for _, s in ipairs(storages) do by_id[s.containerId] = s end
-    current = { storages = storages, byId = by_id, objects = objects }
+    current = { storages = storages, byId = by_id, objects = objects, buildings = buildings }
 end
 
 local function try_hook()
@@ -354,9 +397,9 @@ local function tick()
     local started = os.clock()
     local ok, err = pcall(function()
         local modules = collect_modules()
-        local buildings = collect_actor_locations()
-        local storages, raw, objects = collect_storages(modules, buildings)
-        set_current(storages, objects)
+        local located, buildings = collect_actor_locations()
+        local storages, raw, objects = collect_storages(modules, located)
+        set_current(storages, objects, buildings)
         dirty = {}
         write_storage()
         -- the hooked class exists once the world is loaded

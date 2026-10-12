@@ -28,6 +28,46 @@ export interface PdCamp {
   id: string;
   world_pos: Vec3;
   map_pos: Vec3;
+  /** base workers (only in /guild/{id}, not in /guilds) */
+  pals?: Record<string, PdCampPal>;
+}
+
+export interface PdCampPal {
+  nickname: string;
+  pal_id: string;
+  gender: string;
+  level: string;
+  /** "Healthful" etc. (PalDefender's spelling) */
+  phisical_health: string;
+  worker_sick: string;
+  san: string;
+}
+
+/**
+ * A pal of the player, /pals/{PlayerUID}. Numbers come as strings for the party and pal box
+ * and as numbers for base workers.
+ */
+export interface PdPal {
+  PalID: string;
+  Nickname: string;
+  Gender: string;
+  Level: string | number;
+  PhysicalHealth: string;
+  WorkerSick: string;
+  HP: string | number;
+  Hunger: string | number;
+  MaxHunger: string | number;
+  SAN: string | number;
+}
+
+export interface PdPlayerPals {
+  Meta: { PlayerUID: string; TeamCount: string; PalboxCount: string };
+  Pals: {
+    Team: Record<string, PdPal>;
+    Palbox?: Record<string, PdPal>;
+    /** the guild's bases with their workers */
+    BaseCamps?: { id: string; world_pos: Vec3; map_pos: Vec3; pals: Record<string, PdPal> }[];
+  };
 }
 
 export interface PdGuild {
