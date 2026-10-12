@@ -1127,3 +1127,10 @@ img.item-icon {
 .tip-win .tip-line.tone-production span {
   color: #ffb84c;
 }
+/* label (Noto Sans KR) and count (Oxanium) have different vertical metrics: sit both on one
+   baseline, as text on a line does */
+.dx-kvrow,
+.tip-win .tip-line {
+  align-items: baseline;
+  line-height: 1.5;
+}
