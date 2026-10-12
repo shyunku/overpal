@@ -26,3 +26,6 @@ export const fetchGuilds = (cfg: ClientConfig) => get<PdGuilds>(cfg, "/api/guild
 /** PalDefender /items/{PlayerUID}: the player's inventory, passed through unchanged */
 export const fetchInventory = (cfg: ClientConfig, playerUid: string) =>
   get<PdInventory>(cfg, `/api/items/${encodeURIComponent(playerUid)}`);
+/** PalDefender /progression/{PlayerUID}: only the capture bonus counts are typed */
+export const fetchProgression = (cfg: ClientConfig, playerUid: string) =>
+  get<{ Progression?: { Captures?: { palCaptureBonusCounts?: Record<string, number | string> } } }>(cfg, `/api/progression/${encodeURIComponent(playerUid)}`);

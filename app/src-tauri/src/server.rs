@@ -57,6 +57,7 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
         .route("/api/guilds", get(pd_guilds))
         .route("/api/guild/{id}", get(pd_guild))
         .route("/api/items/{player}", get(pd_items))
+        .route("/api/progression/{player}", get(pd_progression))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_token));
 
     let app = Router::new()
@@ -196,9 +197,21 @@ async fn pd_guild(State(s): State<AppState>, Path(id): Path<String>) -> Response
     pal_defender_get(&s, &format!("guild/{id}")).await
 }
 
+/// A player's progression, including capture counts per pal (PalDefender /progression/{PlayerUID}).
+async fn pd_progression(State(s): State<AppState>, Path(player): Path<String>) -> Response {
+    if !valid_player_id(&player) {
+        return json_error(StatusCode::BAD_REQUEST, "invalid player id");
+    }
+    pal_defender_get(&s, &format!("progression/{player}")).await
+}
+
+fn valid_player_id(player: &str) -> bool {
+    !player.is_empty() && player.len() <= 64 && player.chars().all(|c| c.is_ascii_hexdigit() || c == '-')
+}
+
 /// A player's inventory (PalDefender /items/{PlayerUID}).
 async fn pd_items(State(s): State<AppState>, Path(player): Path<String>) -> Response {
-    if player.is_empty() || player.len() > 64 || !player.chars().all(|c| c.is_ascii_hexdigit() || c == '-') {
+    if !valid_player_id(&player) {
         return json_error(StatusCode::BAD_REQUEST, "invalid player id");
     }
     pal_defender_get(&s, &format!("items/{player}")).await

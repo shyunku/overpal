@@ -7,7 +7,7 @@ import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId }
 import { MAP_SIZE, mapPx } from "./mapcoords";
 import type { OverlayData } from "./useOverlayData";
 import { OverlayWindow } from "./OverlayWindow";
-import { DexDetail, DexList, dexSummary, useDex, type DexTab } from "./dexViews";
+import { DexDetail, DexList, dexSummary, useCaptureBonus, useDex, type DexTab } from "./dexViews";
 import { loadItemDesc, type Dex } from "../data/dex";
 
 interface ViewProps {
@@ -134,10 +134,20 @@ function whereStored(t: ItemTotal, placeOf: (containerId: string) => string): { 
   return [...m].map(([label, e]) => ({ label, ...e })).sort((a, b) => b.count - a.count);
 }
 
+// the latest hover; a show that finishes after the pointer left (or moved on) is dropped
+let hoverSeq = 0;
+
+function hideTip() {
+  hoverSeq++;
+  emitTip(null);
+}
+
 /** Shows the item's tooltip (where it is stored) to the right of the main window, level with the row. */
 async function showTip(row: HTMLElement, t: ItemTotal, placeOf: (containerId: string) => string) {
+  const seq = ++hoverSeq;
   const win = getCurrentWindow();
   const [pos, size] = await Promise.all([win.innerPosition(), win.innerSize()]);
+  if (seq !== hoverSeq) return;
   const dpr = window.devicePixelRatio || 1;
   // client rects already include the window's CSS zoom
   const top = row.getBoundingClientRect().top * dpr;
@@ -154,9 +164,7 @@ function ItemDetail({ t, desc, placeOf }: { t: ItemTotal; desc: Record<string, s
         {url ? <img className="dx-ico" src={url} alt="" draggable={false} /> : <span className="dx-ico" />}
         <div>
           <div className="dn">{itemName(t.item)}</div>
-          <div className="dm">합계</div>
         </div>
-        <b className="dx-total tabular">{t.count}</b>
       </div>
       {desc[t.item] && (
         <div className="dx-box">
@@ -168,6 +176,10 @@ function ItemDetail({ t, desc, placeOf }: { t: ItemTotal; desc: Record<string, s
         <h4>보관 위치</h4>
         {where.length ? (
           <div className="dx-kv">
+            <span className="dx-kvrow total">
+              <span>합계</span>
+              <span className="tabular">{t.count}</span>
+            </span>
             {where.map((w) => (
               <span key={w.label} className={`dx-kvrow ${w.tone ? `tone-${w.tone}` : ""}`}>
                 <span>{w.label}</span>
@@ -200,8 +212,20 @@ function ItemsTab(props: {
   const [query, setQuery] = useState("");
   const [place, setPlace] = useState("all");
   const desc = useItemDesc();
-  // hide the tooltip when this view goes away
-  useEffect(() => () => emitTip(null), []);
+  // hide the tooltip when this view goes away, the pointer leaves the window or the list scrolls
+  // (a fast exit can skip the row's mouseleave)
+  useEffect(() => {
+    const leave = () => hideTip();
+    document.documentElement.addEventListener("mouseleave", leave);
+    window.addEventListener("blur", leave);
+    document.addEventListener("scroll", leave, true);
+    return () => {
+      hideTip();
+      document.documentElement.removeEventListener("mouseleave", leave);
+      window.removeEventListener("blur", leave);
+      document.removeEventListener("scroll", leave, true);
+    };
+  }, []);
   const places = placesOf(base?.storages ?? []);
   const totals = base?.totals ?? [];
   const placeOf = (containerId: string) => places.find((p) => p.storages.some((s) => s.containerId === containerId))?.name ?? "?";
@@ -225,8 +249,7 @@ function ItemsTab(props: {
         {rows.slice(0, 4).map((r) => (
           <div className="hud-row" key={r.item}>
             <ItemIcon id={r.item} />
-            <span>{itemName(r.item)}</span>
-            {r.delta ? <span className={`delta ${r.delta > 0 ? "up" : "down"}`}>{r.delta > 0 ? `+${r.delta}` : r.delta}</span> : <span />}
+            <span className="name">{itemName(r.item)}</span>
             <b className="tabular">{totals.find((t) => t.item === r.item)?.count ?? 0}</b>
           </div>
         ))}
@@ -333,11 +356,11 @@ function ItemsTab(props: {
                   key={t.item}
                   className="row"
                   onClick={() => {
-                    emitTip(null);
+                    hideTip();
                     onOpen(t.item);
                   }}
                   onMouseEnter={(e) => showTip(e.currentTarget, t, placeOf)}
-                  onMouseLeave={() => emitTip(null)}
+                  onMouseLeave={hideTip}
                 >
                   <ItemIcon id={t.item} />
                   <span className="name">{itemName(t.item)}</span>
@@ -372,6 +395,7 @@ interface OtherTabProps {
   query: string;
   onQuery: (q: string) => void;
   dex: Dex | null;
+  captures: Map<string, number>;
   detail: string | null;
   onOpen: (id: string) => void;
 }
@@ -380,7 +404,7 @@ interface OtherTabProps {
  * Pals, structures and places: "mine" (this server) or "dex" (game data).
  * "mine" is filled in by 19.5 of #19; the compact layout shows only "mine".
  */
-function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, detail, onOpen }: OtherTabProps) {
+function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, captures, detail, onOpen }: OtherTabProps) {
   if (mode === "hud") return <div className="empty">준비 중</div>;
   if (detail && sub === "dex" && dex) return <DexDetail dex={dex} tab={tab} id={detail} />;
   const subTabs = (
@@ -399,7 +423,7 @@ function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, detail, onOpen }
       <>
         {subTabs}
         {search}
-        {dex ? <DexList dex={dex} tab={tab} mode={mode} query={query} onOpen={onOpen} /> : <div className="empty">도감 불러오는 중</div>}
+        {dex ? <DexList dex={dex} captures={captures} tab={tab} mode={mode} query={query} onOpen={onOpen} /> : <div className="empty">도감 불러오는 중</div>}
       </>
     );
   }
@@ -497,6 +521,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const baseBtn = useRef<HTMLButtonElement>(null);
   const dex = useDex();
+  const captures = useCaptureBonus(data.me?.uid);
   const bases = data.guild?.bases ?? [];
   const pickedIndex = picked ? bases.findIndex((b) => b.campId === picked) : -1;
   const shownBase = pickedIndex >= 0 ? bases[pickedIndex] : data.base;
@@ -597,6 +622,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
             query={queries[tab]}
             onQuery={(q) => setQueries({ ...queries, [tab]: q })}
             dex={dex}
+            captures={captures}
             detail={detail}
             onOpen={setDetail}
           />

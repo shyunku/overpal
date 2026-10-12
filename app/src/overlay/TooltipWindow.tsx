@@ -46,15 +46,21 @@ export function TooltipWindow() {
       invoke("set_shown", { on: false });
       return;
     }
+    // a newer tip (or a hide) while this one was being placed cancels its show
+    let cancelled = false;
     const r = el.getBoundingClientRect();
     const w = Math.ceil(r.width * screen.dpr);
     const h = Math.ceil(r.height * screen.dpr);
     const y = Math.min(tip.y, screen.y + screen.h - h - 8);
     Promise.all([native.setSize(new PhysicalSize(w, h)), native.setPosition(new PhysicalPosition(Math.round(tip.x), Math.round(y)))]).then(() => {
+      if (cancelled) return;
       const radius = getComputedStyle(el).borderTopLeftRadius;
       if (radius.endsWith("px")) invoke("round_corners", { radius: parseFloat(radius) * cssZoom(screen, tip.scale) * screen.dpr });
       invoke("set_shown", { on: true });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [tip, screen]);
 
   const zoom = screen && tip ? cssZoom(screen, tip.scale) : 1;

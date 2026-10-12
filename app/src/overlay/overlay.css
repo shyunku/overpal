@@ -1134,3 +1134,81 @@ img.item-icon {
   align-items: baseline;
   line-height: 1.5;
 }
+
+/* ---------------------------------------------------------------- main window: consistency pass */
+/* every scrolling area uses the thin bar; tile grids never scroll sideways */
+.items,
+.items * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.items .tiles,
+.items .dx-tiles,
+.items .dx-list,
+.items .scroll {
+  overflow-x: hidden;
+}
+/* compact layout: icon, name (ellipsis), count */
+.items .hud-row {
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+}
+.items .hud-row .name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-box: normal;
+}
+/* item page: the total heads the place list, in the muted color */
+.dx-kv .dx-kvrow.total span {
+  color: var(--glass-muted);
+}
+/* pal cards: capture bonus count in the top right, like the dex number on the left */
+.dx-tile .cap {
+  position: absolute;
+  right: 7px;
+  top: 4px;
+  font-size: 11px;
+  color: var(--glass-muted);
+}
+.dx-tile.cap-full .cap {
+  color: #ffd640;
+}
+/* dex lists match the item list: same icon size, text sizes and ellipsis */
+.items .row.dx-row {
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+}
+.items .row.dx-row .dx-ico {
+  width: 36px;
+  height: 36px;
+}
+.items .row.dx-row .nm > span:first-child {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-box: normal;
+  line-height: 1.3;
+}
+.items .row.dx-row .nm small {
+  font-size: 12px;
+}
+.items .dx-tile .tn,
+.items .tile .tn {
+  font-size: 12px;
+}
+.items .dx-sec {
+  font-size: 12px;
+}
+/* structure list: tech level in the item list's count column */
+.items .row.dx-row.lv {
+  grid-template-columns: 36px minmax(0, 1fr) 68px;
+}
+.items .row.dx-row.lv .count {
+  font-size: 14px;
+  color: var(--glass-muted);
+}
+/* the line under the title is as tall as the base button on every tab, so all tabs keep one height */
+.items .wtitle .ttl .sub {
+  min-height: 23.5px;
+}

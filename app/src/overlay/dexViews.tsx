@@ -2,12 +2,47 @@
 // and wide layouts, and the detail shown in place of the list. Mock: docs/designs/main-window-mock.html
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { dexIconUrl, loadDex, type Dex, type DexPal, type DexStruct, type DexWork } from "../data/dex";
+import { fetchProgression, loadClientConfig } from "../api";
 import { itemIconUrl, itemName } from "./labels";
 import type { ItemMode, MainTab } from "./layout";
 
 export type DexTab = Exclude<MainTab, "items">;
 type MarkerKey = keyof Dex["markers"];
 const MARKER_KEYS: MarkerKey[] = ["fast", "tower", "dungeon", "alpha"];
+
+/** captures that still give a bonus, per pal (the game counts up to this many) */
+export const CAPTURE_BONUS_MAX = 5;
+const CAPTURE_POLL_MS = 15000;
+
+/**
+ * Capture bonus count per pal for the player (PalDefender progression), keyed by the pal's
+ * internal name in lower case (PalDefender writes e.g. "Sheepball" for SheepBall).
+ */
+export function useCaptureBonus(playerUid: string | undefined): Map<string, number> {
+  const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    if (!playerUid) return;
+    let stopped = false;
+    let timer: number | undefined;
+    const run = async () => {
+      try {
+        const cfg = await loadClientConfig();
+        const r = await fetchProgression(cfg, playerUid);
+        const raw = r.Progression?.Captures?.palCaptureBonusCounts ?? {};
+        if (!stopped) setCounts(new Map(Object.entries(raw).map(([k, v]) => [k.toLowerCase(), Number(v) || 0])));
+      } catch {
+        // PalDefender is optional; keep what we had
+      }
+      if (!stopped) timer = window.setTimeout(run, CAPTURE_POLL_MS);
+    };
+    run();
+    return () => {
+      stopped = true;
+      window.clearTimeout(timer);
+    };
+  }, [playerUid]);
+  return counts;
+}
 
 export function useDex(): Dex | null {
   const [dex, setDex] = useState<Dex | null>(null);
@@ -79,6 +114,8 @@ const structMatches = (s: DexStruct, q: string) => !q || s.name.includes(q) || (
 
 interface ListProps {
   dex: Dex;
+  /** capture bonus per pal (useCaptureBonus) */
+  captures: Map<string, number>;
   tab: DexTab;
   mode: ItemMode;
   query: string;
@@ -98,7 +135,29 @@ function Filters({ items, value, onChange }: { items: string[]; value: string; o
   );
 }
 
-export function DexList({ dex, tab, mode, query, onOpen }: ListProps) {
+/** Pal card: the capture bonus fills it from the bottom, N/5 in the top right once captured. */
+function PalTile({ p, captures, onOpen }: { p: DexPal; captures: Map<string, number>; onOpen: (id: string) => void }) {
+  const n = Math.min(captures.get(p.code.toLowerCase()) ?? 0, CAPTURE_BONUS_MAX);
+  const fill = (n / CAPTURE_BONUS_MAX) * 100;
+  return (
+    <div
+      className={`dx-tile ${n >= CAPTURE_BONUS_MAX ? "cap-full" : ""}`}
+      style={n ? { background: `linear-gradient(to top, rgba(255, 214, 64, 0.28) ${fill}%, rgba(0, 0, 0, 0.22) ${fill}%)` } : undefined}
+      onClick={() => onOpen(p.id)}
+    >
+      <span className="no">{p.no}</span>
+      {n > 0 && (
+        <span className="cap">
+          {n}/{CAPTURE_BONUS_MAX}
+        </span>
+      )}
+      <DexIcon name={p.icon} />
+      <span className="tn">{p.name}</span>
+    </div>
+  );
+}
+
+export function DexList({ dex, captures, tab, mode, query, onOpen }: ListProps) {
   const [filter, setFilter] = useState("전체");
   useEffect(() => setFilter("전체"), [tab]);
   const wide = mode === "full";
@@ -109,11 +168,7 @@ export function DexList({ dex, tab, mode, query, onOpen }: ListProps) {
     const grid = (
       <div className={wide ? "dx-tiles" : "dx-grid"}>
         {list.map((p) => (
-          <div className="dx-tile" key={p.id} onClick={() => onOpen(p.id)}>
-            <span className="no">{p.no}</span>
-            <DexIcon name={p.icon} />
-            <span className="tn">{p.name}</span>
-          </div>
+          <PalTile key={p.id} p={p} captures={captures} onOpen={onOpen} />
         ))}
         {!list.length && <div className="empty">검색 결과 없음</div>}
       </div>
@@ -153,13 +208,11 @@ export function DexList({ dex, tab, mode, query, onOpen }: ListProps) {
           <Section key={cat} label={cat} count={rows.length}>
             <div className="rows">
               {rows.map((s) => (
-                <div className="row dx-row" key={s.id} onClick={() => onOpen(s.id)}>
+                <div className="row dx-row lv" key={s.id} onClick={() => onOpen(s.id)}>
                   <DexIcon name={s.icon} />
-                  <span className="nm">
-                    <span>{s.name}</span>
-                    <small>기술 Lv {s.techLv ?? "-"}</small>
-                  </span>
-                  <span />
+                  {/* name and tech level on one line, like the item name and count */}
+                  <span className="name">{s.name}</span>
+                  <span className="count tabular">Lv {s.techLv ?? "-"}</span>
                 </div>
               ))}
             </div>
