@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { BaseView, ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
 import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId } from "./layout";
@@ -340,6 +340,8 @@ function distanceText(a: { x: number; y: number } | null, b: { x: number; y: num
 
 /** Drop-down under the base name: follow the player ("현재 위치") or look at one base. */
 function BaseMenu(props: {
+  /** the base button; the menu opens right below it so it never covers it */
+  anchor: HTMLElement | null;
   bases: BaseView[];
   me: { x: number; y: number } | null;
   hereIndex: number;
@@ -348,11 +350,13 @@ function BaseMenu(props: {
   onPick: (campId: string | null) => void;
   onClose: () => void;
 }) {
-  const { bases, me, hereIndex, pickedIndex, hereLabel, onPick, onClose } = props;
+  const { anchor, bases, me, hereIndex, pickedIndex, hereLabel, onPick, onClose } = props;
+  // offsets are relative to .mainbody (the button's offset parent)
+  const pos = anchor ? { left: anchor.offsetLeft, top: anchor.offsetTop + anchor.offsetHeight + 6 } : undefined;
   return (
     <>
       <div className="menu-backdrop" onMouseDown={onClose} />
-      <div className="basemenu">
+      <div className="basemenu" style={pos}>
         <div className={pickedIndex < 0 ? "on" : ""} onClick={() => onPick(null)}>
           <span>현재 위치 (자동)</span>
           <small>{hereLabel}</small>
@@ -381,6 +385,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   // without the inventory until "현재로"
   const [picked, setPicked] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const baseBtn = useRef<HTMLButtonElement>(null);
   const dex = useDex();
   const bases = data.guild?.bases ?? [];
   const pickedIndex = picked ? bases.findIndex((b) => b.campId === picked) : -1;
@@ -400,7 +405,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
         statusText(data)
       ) : (
         <>
-          <button className={`basebtn ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
+          <button ref={baseBtn} className={`basebtn ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
             {baseLabel}
             <Icon name="chevron" />
           </button>
@@ -462,7 +467,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
           </div>
         </div>
         {tab === "items" && menuOpen && mode !== "hud" && (
-          <BaseMenu bases={bases} me={data.me?.worldPos ?? null} hereIndex={data.baseIndex} pickedIndex={pickedIndex} hereLabel={hereLabel} onPick={pick} onClose={() => setMenuOpen(false)} />
+          <BaseMenu anchor={baseBtn.current} bases={bases} me={data.me?.worldPos ?? null} hereIndex={data.baseIndex} pickedIndex={pickedIndex} hereLabel={hereLabel} onPick={pick} onClose={() => setMenuOpen(false)} />
         )}
         {tab === "items" ? (
           <ItemsTab data={data} mode={mode} base={mode === "hud" ? data.base : shownBase} notice={notice} />
