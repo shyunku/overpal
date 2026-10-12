@@ -42,6 +42,8 @@
   .mk.nav { width:22px; height:22px; z-index:4; filter:drop-shadow(0 0 2px #000); }
   .mk.nav svg { width:100%; height:100%; display:block; }
   .mk.nav.cone { width:44px; height:44px; }
+  .mk.fan { z-index:1; pointer-events:none; }
+  .mk.fan svg { width:100%; height:100%; display:block; overflow:visible; }
   .mk.ico img { width:100%; height:100%; filter:drop-shadow(0 0 2px #000); }
   .mk.edge { width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-bottom:11px solid #7ee787; filter:drop-shadow(0 0 2px #000); z-index:4; }
   .mk.edge + .mk.edgename { font-size:10px; color:#d6ffd6; text-shadow:0 0 3px #000; white-space:nowrap; transform:translate(-50%,-50%); z-index:4; }
@@ -62,7 +64,7 @@
     </div>
     <div class="controls">
       <div class="group" id="g-base"><span>거점 아이콘</span><button data-base="a">A 지금(네모)</button><button data-base="b">B 집 배지</button><button data-base="c">C 팰 상자</button></div>
-      <div class="group" id="g-me"><span>내 위치 아이콘</span><button data-me="a">A 지금(삼각형)</button><button data-me="b">B 내비 화살표</button><button data-me="c">C 화살표 + 시야</button></div>
+      <div class="group" id="g-me"><span>내 위치 아이콘</span><button data-me="a">A 지금(삼각형)</button><button data-me="b">B 내비 화살표</button><button data-me="c">C 화살표 + 시야</button><button data-me="d">D 내비 화살표 + 부채꼴</button></div>
     </div>
     <div class="controls"><div class="group" id="g-opt"><span>표시 (비교용으로 켜고 끄기)</span></div></div>
     <div class="hint">거점·내 위치·친구 3 위치는 실제 서버 데이터(2026-10-12). 친구 1·2는 지금 멀리 있어서 가장자리에 방향과 거리로 보임. 내 방향은 예시로 북동쪽. 아이콘 비교하려고 내 위치만 거점에서 조금 옮겼음.</div>
@@ -94,9 +96,10 @@ const SIZE = 225;          // QHD px of the 169 css px window
 const BASE_SPAN = 160;     // map px across at ×1 (current)
 const LEVELS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2];
 const WORLD_PER_PX = 459 / 1.3;
+const FAN = Math.PI / 2; // 90° fan up to the minimap edge
 const mapPx = (x, y) => [1442 + (x + 814) * 1.3, 2413 - (y + 824) * 1.3];
 const OPTS = [["ring", "거점 범위"], ["edge", "화면 밖 친구"], ["fast", "빠른 이동"], ["tower", "탑"], ["alpha", "알파 팰"]];
-const st = { z: 4, on: new Set(["ring", "edge", "fast", "tower", "alpha"]), base: "b", me: "b" };
+const st = { z: 4, on: new Set(["ring", "edge", "fast", "tower", "alpha"]), base: "b", me: "d" };
 const g = document.getElementById("g-opt");
 for (const [k, l] of OPTS) { const b = document.createElement("button"); b.textContent = l; b.dataset.k = k; b.onclick = () => { st.on.has(k) ? st.on.delete(k) : st.on.add(k); render(); }; g.appendChild(b); }
 let tagTimer;
@@ -162,6 +165,7 @@ function render() {
   out.push(
     st.me === "a" ? `<span class="mk me" style="${at(c)};${rot}"></span>`
     : st.me === "b" ? `<span class="mk nav" style="${at(c)};${rot}"><svg viewBox="0 0 24 24"><path d="M12 2.5 19.5 20 12 16 4.5 20Z" fill="#58a6ff" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>`
+    : st.me === "d" ? `<span class="mk fan" style="${at(c)};width:${SIZE}px;height:${SIZE}px;${rot}"><svg viewBox="-1 -1 2 2"><path d="M0 0 L${Math.sin(-FAN / 2)} ${-Math.cos(FAN / 2)} A1 1 0 0 1 ${Math.sin(FAN / 2)} ${-Math.cos(FAN / 2)} Z" fill="url(#fang)"/><defs><radialGradient id="fang" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="rgba(88,166,255,.32)"/><stop offset="1" stop-color="rgba(88,166,255,.08)"/></radialGradient></defs></svg></span><span class="mk nav" style="${at(c)};${rot}"><svg viewBox="0 0 24 24"><path d="M12 2.5 19.5 20 12 16 4.5 20Z" fill="#58a6ff" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg></span>`
     : `<span class="mk nav cone" style="${at(c)};${rot}"><svg viewBox="0 0 48 48"><path d="M24 24 L10 0 A28 28 0 0 1 38 0 Z" fill="rgba(88,166,255,.28)"/><circle cx="24" cy="24" r="7.5" fill="#58a6ff" stroke="#fff" stroke-width="2.2"/><path d="M24 12.5 28 19.5 20 19.5Z" fill="#fff"/></svg></span>`);
   const mm = document.getElementById("mm");
   mm.querySelectorAll(".mk").forEach((x) => x.remove());
