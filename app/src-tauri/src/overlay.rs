@@ -13,7 +13,7 @@ pub const LAYOUT_CHANGED: &str = "layout-changed";
 /// handles that itself (it only takes the mouse in edit mode).
 pub const FOLLOW_CURSOR: [&str; 3] = ["menubar", "items", "settings"];
 /// Every overlay window.
-pub const ALL: [&str; 4] = ["menubar", "items", "minimap", "settings"];
+pub const ALL: [&str; 5] = ["menubar", "items", "minimap", "settings", "tooltip"];
 
 struct OverlayView {
     label: &'static str,
@@ -23,11 +23,13 @@ struct OverlayView {
     focusable: bool,
 }
 
-const VIEWS: [OverlayView; 4] = [
+const VIEWS: [OverlayView; 5] = [
     OverlayView { label: "menubar", blur: true, focusable: false },
     OverlayView { label: "items", blur: true, focusable: true },
     OverlayView { label: "minimap", blur: false, focusable: false },
     OverlayView { label: "settings", blur: true, focusable: true },
+    // item tooltip shown to the right of the main window; never takes the mouse
+    OverlayView { label: "tooltip", blur: true, focusable: false },
 ];
 
 pub struct LayoutStore {
@@ -136,7 +138,7 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
 /// which ignores window regions and otherwise shows as a square around the rounded panel.
 #[cfg(windows)]
 pub fn ensure_popup(window: &tauri::WebviewWindow) {
-    use windows_sys::Win32::Graphics::Dwm::{DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND, DwmSetWindowAttribute};
+    use windows_sys::Win32::Graphics::Dwm::{DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUNDSMALL, DwmSetWindowAttribute};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos,
         WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
@@ -151,7 +153,8 @@ pub fn ensure_popup(window: &tauri::WebviewWindow) {
         }
         SetWindowLongPtrW(h, GWL_STYLE, ((style & !FRAME) | WS_POPUP) as isize);
         SetWindowPos(h, std::ptr::null_mut(), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-        let round = DWMWCP_ROUND;
+        // small: 4 px at 100% scaling; the panels' CSS radius matches it (--win-radius)
+        let round = DWMWCP_ROUNDSMALL;
         DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &round as *const _ as *const _, size_of_val(&round) as u32);
     }
 }

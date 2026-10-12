@@ -105,8 +105,8 @@ svg.ic {
   align-items: center;
   gap: 3px;
   padding: 3px 5px 3px 6px;
-  /* Windows 11 rounds the window corners itself; match that radius */
-  border-radius: 8px;
+  /* Windows rounds the window corners itself; match that radius */
+  border-radius: var(--win-radius);
 }
 .menubar .dot {
   width: 7.5px;
@@ -215,8 +215,8 @@ svg.ic {
    Widths per layout are the content widths plus the 56 px rail (before the window scale). */
 .win.items {
   flex-direction: row;
-  /* 20 screen px at QHD (the window scale is 0.8167 screen px per px); the window region follows it */
-  border-radius: 24.5px;
+  /* Windows rounds the window corners itself; match that radius */
+  border-radius: var(--win-radius);
 }
 /* 0.92 of the earlier widths (392 / 296 / 936): with the larger window scale the window is
    25% taller but only 15% wider */
@@ -1025,27 +1025,28 @@ img.item-icon {
 .items .hud-row b {
   font-weight: 500;
 }
-.item-tip {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  z-index: 6;
-  padding: 8px 10px;
-  border-radius: 10px;
-  background: rgba(16, 20, 28, 0.94);
-  border: 1px solid var(--glass-line);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-  pointer-events: none;
-  font-size: 14px;
-}
-.item-tip b {
-  font-weight: 700;
-}
-.item-tip p,
+.tip-win p,
 .items .tile .tt p {
   margin: 4px 0 0;
   color: var(--glass-muted);
   font-size: 13px;
   line-height: 1.45;
   white-space: normal;
+}
+.win.settings {
+  border-radius: var(--win-radius);
+}
+/* the tooltip window (TooltipWindow.tsx); sized to this box */
+.tip-win {
+  display: inline-block;
+  /* sized by its text, not by the (small) window it starts in */
+  width: max-content;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: var(--win-radius);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.tip-win b {
+  font-weight: 700;
 }

@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { emitTip } from "./TooltipWindow";
 import type { BaseView, ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
 import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId } from "./layout";
@@ -111,34 +113,14 @@ function useItemDesc(): Record<string, string> {
   return desc;
 }
 
-interface Hover {
-  item: string;
-  /** in .mainbody px: below the row, or above it for rows in the lower half */
-  top?: number;
-  bottom?: number;
-}
-
-/** Where to show the tooltip for a hovered row, relative to the main window body. */
-function hoverAt(e: ReactMouseEvent<HTMLElement>, item: string): Hover | null {
-  const row = e.currentTarget;
-  const body = row.closest(".mainbody") as HTMLElement | null;
-  if (!body) return null;
-  const b = body.getBoundingClientRect();
-  const r = row.getBoundingClientRect();
-  // client rects are zoomed; positions inside the body are not
-  const k = body.offsetHeight / b.height;
-  const top = (r.top - b.top) * k;
-  const bottom = (r.bottom - b.top) * k;
-  return top + bottom > body.offsetHeight ? { item, bottom: body.offsetHeight - top + 4 } : { item, top: bottom + 4 };
-}
-
-function ItemTooltip({ hover, desc }: { hover: Hover; desc: Record<string, string> }) {
-  return (
-    <div className="item-tip" style={{ top: hover.top, bottom: hover.bottom }}>
-      <b>{itemName(hover.item)}</b>
-      {desc[hover.item] && <p>{desc[hover.item]}</p>}
-    </div>
-  );
+/** Shows the item's tooltip to the right of the main window, level with the row. */
+async function showTip(row: HTMLElement, item: string, desc: Record<string, string>) {
+  const win = getCurrentWindow();
+  const [pos, size] = await Promise.all([win.innerPosition(), win.innerSize()]);
+  const dpr = window.devicePixelRatio || 1;
+  // client rects already include the window's CSS zoom
+  const top = row.getBoundingClientRect().top * dpr;
+  emitTip({ name: itemName(item), desc: desc[item] ?? null, x: pos.x + size.width + 8, y: pos.y + top, scale: ITEM_SCALE });
 }
 
 const byName = (a: { item: string }, b: { item: string }) => itemName(a.item).localeCompare(itemName(b.item), "ko");
@@ -149,8 +131,9 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
   const [query, setQuery] = useState("");
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [place, setPlace] = useState("all");
-  const [hover, setHover] = useState<Hover | null>(null);
   const desc = useItemDesc();
+  // hide the tooltip when this view goes away
+  useEffect(() => () => emitTip(null), []);
   const places = placesOf(base?.storages ?? []);
   const totals = base?.totals ?? [];
   const placeOf = (containerId: string) => places.find((p) => p.storages.some((s) => s.containerId === containerId))?.name ?? "?";
@@ -279,8 +262,8 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
                   key={t.item}
                   className={`row ${openRow === t.item ? "open" : ""}`}
                   onClick={() => setOpenRow(openRow === t.item ? null : t.item)}
-                  onMouseEnter={(e) => setHover(hoverAt(e, t.item))}
-                  onMouseLeave={() => setHover(null)}
+                  onMouseEnter={(e) => showTip(e.currentTarget, t.item, desc)}
+                  onMouseLeave={() => emitTip(null)}
                 >
                   <ItemIcon id={t.item} />
                   <span className="name">{itemName(t.item)}</span>
@@ -304,12 +287,7 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
     );
   }
 
-  return (
-    <>
-      {body}
-      {hover && mode === "side" && <ItemTooltip hover={hover} desc={desc} />}
-    </>
-  );
+  return body;
 }
 
 // ---------------------------------------------------------------- main window

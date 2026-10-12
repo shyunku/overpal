@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 
-const VIEWS = ["menubar", "items", "minimap", "settings"] as const;
+const VIEWS = ["menubar", "items", "minimap", "settings", "tooltip"] as const;
 type View = (typeof VIEWS)[number];
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);

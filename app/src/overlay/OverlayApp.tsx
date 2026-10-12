@@ -1,4 +1,5 @@
 import type { ViewId } from "./layout";
+import { TooltipWindow } from "./TooltipWindow";
 import { useSharedLayout } from "./OverlayWindow";
 import { useOverlayData } from "./useOverlayData";
 import { MainWindow, MenuBar, MinimapWindow, SettingsWindow } from "./views";
@@ -11,7 +12,12 @@ import "@fontsource/noto-sans-kr/500.css";
 import "@fontsource/noto-sans-kr/700.css";
 import "./overlay.css";
 
-export function OverlayApp({ view }: { view: ViewId }) {
+export function OverlayApp({ view }: { view: ViewId | "tooltip" }) {
+  // the tooltip window only shows what the main window sends; it loads no data
+  return view === "tooltip" ? <TooltipWindow /> : <Panel view={view} />;
+}
+
+function Panel({ view }: { view: ViewId }) {
   const [layout, setLayout] = useSharedLayout();
   const data = useOverlayData();
   if (!layout) return null;
