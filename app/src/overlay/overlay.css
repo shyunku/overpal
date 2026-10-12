@@ -840,3 +840,113 @@ img.item-icon {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
+
+/* ---------------------------------------------------------------- main window: base menu */
+.wtitle .ttl {
+  flex: 1;
+  min-width: 0;
+}
+.wtitle .ttl .sub {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.wtitle .ttl .sub .rest {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.basebtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px 2px 6px;
+  border-radius: 7px;
+  background: var(--chip);
+  color: var(--glass-fg);
+  font: inherit;
+  font-size: 13px;
+}
+.basebtn:hover,
+.basebtn.open {
+  background: rgba(255, 255, 255, 0.16);
+}
+.basebtn svg.ic {
+  width: 14px;
+  height: 14px;
+  color: var(--glass-muted);
+  transition: transform 0.15s;
+}
+.basebtn.open svg.ic {
+  transform: rotate(180deg);
+}
+.mainbody {
+  position: relative;
+}
+.menu-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+}
+.basemenu {
+  position: absolute;
+  left: 12px;
+  top: 64px;
+  width: 250px;
+  z-index: 5;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(16, 20, 28, 0.94);
+  border: 1px solid var(--glass-line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-size: 14px;
+}
+.basemenu > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.basemenu > div:hover {
+  background: var(--chip);
+}
+.basemenu > div.on {
+  background: rgba(255, 184, 76, 0.18);
+}
+.basemenu small {
+  color: var(--glass-muted);
+}
+.basemenu .sep {
+  height: 1px;
+  padding: 0;
+  margin: 4px 6px;
+  background: var(--glass-line);
+  cursor: default;
+}
+.base-notice {
+  margin: 0 16px 10px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 184, 76, 0.14);
+  border: 1px solid rgba(255, 184, 76, 0.4);
+  color: #ffd99a;
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.base-notice button {
+  color: var(--glass-fg);
+  font: inherit;
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* the notice takes its height from the list so the window keeps its size */
+.items.mode-side .base-notice + .scroll {
+  height: calc(392px - 40px);
+}

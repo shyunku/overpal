@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { ItemTotal } from "../data/snapshot";
+import { useState, type ReactNode } from "react";
+import type { BaseView, ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
 import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId } from "./layout";
 import { MAP_SIZE, mapPx } from "./mapcoords";
@@ -28,6 +28,7 @@ const ICONS = {
   mini: <path d="M6 4h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM8 18h8" />,
   grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />,
   bag: <path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" />,
+  chevron: <path d="m6 9 6 6 6-6" />,
   paw: (
     <>
       <circle cx="8" cy="7" r="2" />
@@ -102,13 +103,14 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
 // in overlay.css so the window grows 25% in height but only 15% in width
 const ITEM_SCALE = 0.6125;
 
-function ItemsTab({ data, mode }: { data: OverlayData; mode: ItemMode }) {
+/** `base`: the storages shown (current base + inventory, or a base picked from the menu); `notice` goes under the search box. */
+function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemMode; base: BaseView | null; notice?: ReactNode }) {
   const [tab, setTab] = useState<"total" | "where">("total");
   const [query, setQuery] = useState("");
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [place, setPlace] = useState("all");
-  const places = placesOf(data.base?.storages ?? []);
-  const totals = data.base?.totals ?? [];
+  const places = placesOf(base?.storages ?? []);
+  const totals = base?.totals ?? [];
   const placeOf = (containerId: string) => places.find((p) => p.storages.some((s) => s.containerId === containerId))?.name ?? "?";
   // while searching, items the base does not have are listed too, with a count of 0
   const found: ItemTotal[] = [
@@ -155,6 +157,7 @@ function ItemsTab({ data, mode }: { data: OverlayData; mode: ItemMode }) {
     body = (
       <>
         <input className="search" placeholder="아이템 검색" value={query} onChange={(e) => setQuery(e.target.value.trim())} />
+        {notice}
         <div className={`full-body ${data.conn === "stale" ? "dim" : ""}`}>
           <div className="filters">
             {[{ key: "all", name: "전체" }, ...places].map((p) => (
@@ -198,6 +201,7 @@ function ItemsTab({ data, mode }: { data: OverlayData; mode: ItemMode }) {
           </b>
         </div>
         {tab === "total" && <input className="search" placeholder="아이템 검색" value={query} onChange={(e) => setQuery(e.target.value.trim())} />}
+        {notice}
         <div className={`scroll ${data.conn === "stale" ? "dim" : ""}`}>
           {tab === "where" ? (
             <div className="groups">
@@ -327,22 +331,100 @@ function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, detail, onOpen }
   );
 }
 
+function distanceText(a: { x: number; y: number } | null, b: { x: number; y: number }): string {
+  if (!a) return "";
+  // world units are cm
+  const m = Math.hypot(a.x - b.x, a.y - b.y) / 100;
+  return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
+}
+
+/** Drop-down under the base name: follow the player ("현재 위치") or look at one base. */
+function BaseMenu(props: {
+  bases: BaseView[];
+  me: { x: number; y: number } | null;
+  hereIndex: number;
+  pickedIndex: number;
+  hereLabel: string;
+  onPick: (campId: string | null) => void;
+  onClose: () => void;
+}) {
+  const { bases, me, hereIndex, pickedIndex, hereLabel, onPick, onClose } = props;
+  return (
+    <>
+      <div className="menu-backdrop" onMouseDown={onClose} />
+      <div className="basemenu">
+        <div className={pickedIndex < 0 ? "on" : ""} onClick={() => onPick(null)}>
+          <span>현재 위치 (자동)</span>
+          <small>{hereLabel}</small>
+        </div>
+        <div className="sep" />
+        {bases.map((b, i) => (
+          <div key={b.campId} className={pickedIndex === i ? "on" : ""} onClick={() => onPick(b.campId)}>
+            <span>거점 {i + 1}</span>
+            <small>
+              {i === hereIndex ? "여기" : distanceText(me, b.worldPos)} · {b.totals.reduce((a, t) => a + t.count, 0)}개
+            </small>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function MainWindow({ layout, onLayout, data }: ViewProps) {
   const tab = layout.mainTab;
   const mode = layout.modes[tab];
   const [queries, setQueries] = useState<Record<DexTab, string>>({ pals: "", structs: "", places: "" });
   // item shown in place of the list (opened from a list row); cleared when the tab changes
   const [detail, setDetail] = useState<string | null>(null);
+  // a base picked from the menu instead of the one the player is in (campId); its items are shown
+  // without the inventory until "현재로"
+  const [picked, setPicked] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const dex = useDex();
+  const bases = data.guild?.bases ?? [];
+  const pickedIndex = picked ? bases.findIndex((b) => b.campId === picked) : -1;
+  const shownBase = pickedIndex >= 0 ? bases[pickedIndex] : data.base;
   const setTab = (t: MainTab) => {
     setDetail(null);
     onLayout({ ...layout, mainTab: t });
   };
   const setMode = (m: ItemMode) => onLayout({ ...layout, modes: { ...layout.modes, [tab]: m } });
   const label = TABS.find((x) => x.id === tab)!.label;
-  const base = data.baseIndex >= 0 ? `${data.guild?.name || "길드"} · 거점 ${data.baseIndex + 1}` : "거점 밖 · 내 인벤토리";
+  const hereLabel = data.baseIndex >= 0 ? `거점 ${data.baseIndex + 1}` : "거점 밖";
+  const baseLabel = pickedIndex >= 0 ? `거점 ${pickedIndex + 1}` : hereLabel;
+  const baseNote = pickedIndex >= 0 ? "보는 중" : data.baseIndex >= 0 ? "+ 내 인벤토리" : "내 인벤토리만";
   const subText =
-    tab === "items" ? (mode === "hud" ? statusText(data) : `${base} · ${statusText(data)}`) : layout.subs[tab] === "dex" && mode !== "hud" ? dexSummary(dex, tab) : "준비 중";
+    tab === "items" ? (
+      mode === "hud" ? (
+        statusText(data)
+      ) : (
+        <>
+          <button className={`basebtn ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
+            {baseLabel}
+            <Icon name="chevron" />
+          </button>
+          <span className="rest">
+            · {baseNote} · {statusText(data)}
+          </span>
+        </>
+      )
+    ) : layout.subs[tab] === "dex" && mode !== "hud" ? (
+      dexSummary(dex, tab)
+    ) : (
+      "준비 중"
+    );
+  const pick = (campId: string | null) => {
+    setPicked(campId);
+    setMenuOpen(false);
+  };
+  const notice =
+    pickedIndex >= 0 ? (
+      <div className="base-notice">
+        <span>거점 {pickedIndex + 1} 보는 중 · 내 인벤토리 미포함</span>
+        <button onClick={() => pick(null)}>현재로 ↺</button>
+      </div>
+    ) : undefined;
   // a detail is always shown at the normal width, also when opened from the wide layout
   const shownMode = detail ? "side" : mode;
 
@@ -369,19 +451,21 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
               ‹
             </button>
           )}
-          <div>
+          <div className="ttl">
             <div className="t">{label}</div>
             <div className="sub">{subText}</div>
           </div>
-          <span className="grow" />
           <div className="modes">
             {modeBtn("hud", "mini", "컴팩트")}
             {modeBtn("side", "list", "일반")}
             {modeBtn("full", "grid", "와이드")}
           </div>
         </div>
+        {tab === "items" && menuOpen && mode !== "hud" && (
+          <BaseMenu bases={bases} me={data.me?.worldPos ?? null} hereIndex={data.baseIndex} pickedIndex={pickedIndex} hereLabel={hereLabel} onPick={pick} onClose={() => setMenuOpen(false)} />
+        )}
         {tab === "items" ? (
-          <ItemsTab data={data} mode={mode} />
+          <ItemsTab data={data} mode={mode} base={mode === "hud" ? data.base : shownBase} notice={notice} />
         ) : (
           <OtherTab
             tab={tab}

@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base select mock</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Oxanium:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --page-bg:#0d1117; --page-fg:#e6edf3; --page-muted:#8b949e; --page-line:#30363d; --orange:#ffb84c; --accent:#58a6ff;
+    --glass-line:rgba(255,255,255,.14); --glass-fg:#f2f5f9; --glass-muted:rgba(242,245,249,.62); --chip:rgba(255,255,255,.08); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page-bg); color:var(--page-fg); font-family:"Oxanium","Noto Sans KR","Malgun Gothic",system-ui,sans-serif; font-size:14px; }
+  .page { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:20px; padding:16px; }
+  @media (max-width:1000px) { .page { grid-template-columns:1fr; } }
+  .controls { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px; }
+  .group { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .group > span { color:var(--page-muted); font-size:12px; margin-right:2px; }
+  .group button { background:#161b22; color:var(--page-fg); border:1px solid var(--page-line); border-radius:6px; padding:5px 10px; font:inherit; font-size:13px; cursor:pointer; }
+  .group button.on { background:#1f6feb; border-color:#1f6feb; }
+  .scene { position:relative; border-radius:8px; border:1px solid var(--page-line); padding:28px; min-height:700px;
+    background:linear-gradient(160deg,#6d8a5a,#3e5236 45%,#5a4a36); }
+  /* drawn at 2x of the in-game size for readability */
+  .glass { background:rgba(16,20,28,.3); backdrop-filter:blur(18px) saturate(140%); border:1px solid var(--glass-line); border-radius:16px; color:var(--glass-fg); font-size:17px; }
+  .win { display:inline-flex; position:relative; }
+  .rail { width:56px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:16px 0; border-right:1px solid var(--glass-line); }
+  .rail i { width:40px; height:40px; border-radius:10px; background:var(--chip); display:block; }
+  .rail i.on { background:rgba(255,255,255,.2); box-shadow:-8px 0 0 -5px var(--orange); }
+  .main { width:305px; display:flex; flex-direction:column; }
+  .wtitle { display:flex; align-items:flex-start; gap:10px; padding:20px 10px 10px 16px; }
+  .wtitle .t { font-weight:700; font-size:18px; }
+  .ttl { flex:1; min-width:0; }
+  .sub { color:var(--glass-muted); font-size:13px; margin-top:6px; display:flex; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; }
+  .sub .rest { overflow:hidden; text-overflow:ellipsis; }
+  .basebtn { flex:none; display:inline-flex; align-items:center; gap:2px; padding:2px 4px 2px 6px; border-radius:7px; cursor:pointer; color:var(--glass-fg); background:var(--chip); }
+  .basebtn:hover, .basebtn.open { background:var(--chip); }
+  .basebtn svg { width:14px; height:14px; stroke:var(--glass-muted); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .basebtn.open svg { transform:rotate(180deg); }
+  .grow { flex:1; }
+  .modes { display:flex; gap:2px; padding:3px; border-radius:10px; background:rgba(0,0,0,.3); }
+  .modes span { width:28px; height:24px; border-radius:7px; display:grid; place-items:center; color:var(--glass-muted); font-size:12px; }
+  .modes span.on { background:rgba(255,255,255,.2); color:var(--glass-fg); }
+  .tabs { display:flex; gap:6px; padding:0 16px 10px; }
+  .tabs b { font-weight:500; font-size:15px; padding:5px 12px; border-radius:8px; background:var(--chip); color:var(--glass-muted); }
+  .tabs b.on { background:rgba(255,255,255,.18); color:var(--glass-fg); }
+  .chiprow { display:flex; gap:5px; padding:0 16px 10px; flex-wrap:nowrap; overflow:hidden; }
+  .chiprow span { flex:none; padding:3px 9px; border-radius:999px; background:var(--chip); color:var(--glass-muted); font-size:13px; cursor:pointer; }
+  .chiprow span.on { background:rgba(255,184,76,.22); color:#ffd99a; }
+  .chiprow span.here::before { content:"● "; color:#7ee787; font-size:9px; vertical-align:2px; }
+  .search { margin:0 16px 10px; padding:9px 12px; border-radius:10px; background:rgba(0,0,0,.28); border:1px solid var(--glass-line); color:var(--glass-fg); font:inherit; font-size:15px; width:calc(100% - 32px); }
+  .banner { margin:0 16px 10px; padding:6px 10px; border-radius:8px; background:rgba(255,184,76,.14); border:1px solid rgba(255,184,76,.4); color:#ffd99a; font-size:13px; display:flex; justify-content:space-between; gap:8px; }
+  .banner b { font-weight:600; color:var(--glass-fg); cursor:pointer; white-space:nowrap; }
+  .scroll { height:392px; overflow:hidden; padding:0 10px; }
+  .row { display:grid; grid-template-columns:40px 1fr auto; align-items:center; gap:10px; padding:7px 8px; }
+  .row .ic { width:40px; height:40px; border-radius:10px; background:rgba(255,255,255,.12); display:grid; place-items:center; font-weight:700; }
+  .row .count { font-size:19px; font-weight:700; }
+  .empty { padding:30px 18px; color:var(--glass-muted); text-align:center; font-size:15px; }
+  .menu { position:absolute; left:72px; top:66px; width:250px; z-index:5; padding:6px; border-radius:12px; background:rgba(16,20,28,.94); border:1px solid var(--glass-line); box-shadow:0 10px 30px rgba(0,0,0,.45); font-size:14px; }
+  .menu div { display:grid; grid-template-columns:1fr auto; gap:8px; padding:7px 10px; border-radius:8px; cursor:pointer; }
+  .menu div:hover { background:var(--chip); }
+  .menu div.on { background:rgba(255,184,76,.18); }
+  .menu small { color:var(--glass-muted); }
+  .menu .sep { height:1px; padding:0; margin:4px 6px; background:var(--glass-line); }
+  aside h3 { margin:16px 0 6px; font-size:14px; } aside h3:first-child { margin-top:0; }
+  aside ul { margin:0; padding-left:18px; color:#c9d1d9; line-height:1.6; font-size:12.5px; }
+  aside .decide li { color:#ffd88a; }
+</style>
+</head>
+<body>
+<div class="page">
+  <main>
+    <div class="controls">
+      <div class="group" id="g-plan"><span>안</span></div>
+      <div class="group" id="g-where"><span>상태</span></div>
+      <div class="group" id="g-menu"><span>A 드롭다운</span></div>
+    </div>
+    <div class="scene" id="scene"></div>
+  </main>
+  <aside>
+    <h3>바뀌는 것</h3>
+    <ul>
+      <li>아이템 탭은 기본으로 <b>내가 있는 거점 + 내 인벤토리</b>. 거점 밖이면 <b>내 인벤토리만</b>(이미 구현)</li>
+      <li>다른 거점을 골라 보면 그 거점 상자만 보이고, 위에 "거점 N 보는 중" 띠와 "현재로" 버튼이 뜸. 다른 거점끼리 합치지 않음</li>
+      <li>내가 거점을 옮기면(자동 모드) 따라 바뀜. 다른 거점을 골라 둔 상태면 "현재로"를 누를 때까지 유지</li>
+    </ul>
+    <h3>그대로인 것</h3>
+    <ul>
+      <li>합계/위치별, 검색, 레이아웃, 창 크기</li>
+    </ul>
+    <h3>안</h3>
+    <ul>
+      <li><b>A 드롭다운</b>: 제목 아래 "편들 · 거점 3 ▾"를 누르면 목록. 공간을 안 먹음</li>
+      <li><b>B 칩 줄</b>: 합계/위치별 아래 거점 칩 한 줄. 한 번에 보이지만 줄 하나만큼 목록이 줄거나 창이 커짐(시안은 창 높이 유지, 목록이 한 줄 줄어듦)</li>
+      <li>거점 이름은 게임에서 이름을 못 가져오면 "거점 1~5"(PalDefender 순서). 목록에 거리·아이템 수를 같이 보여 줌</li>
+    </ul>
+    <h3>정할 것</h3>
+    <ul class="decide">
+      <li>A 드롭다운 / B 칩 줄</li>
+    </ul>
+  </aside>
+</div>
+<script>
+const BASES = [
+  { n: 1, dist: "1.2km", items: 214 }, { n: 2, dist: "3.4km", items: 96 }, { n: 3, dist: "여기", items: 1531 },
+  { n: 4, dist: "5.0km", items: 402 }, { n: 5, dist: "7.8km", items: 58 },
+];
+const ROWS = [["돌", 1180], ["금속 광석", 643], ["목재", 579], ["섬유", 509], ["빨간 열매", 3846], ["팰지움 파편", 77], ["뼈", 57], ["양털", 44]];
+const state = { plan: "A", where: "in", menu: "open" };
+const opts = {
+  plan: [["A", "A 드롭다운"], ["B", "B 칩 줄"]],
+  where: [["in", "거점 3 안"], ["out", "거점 밖"], ["other", "거점 1 보는 중"]],
+  menu: [["closed", "닫힘"], ["open", "열림"]],
+};
+for (const [k, list] of Object.entries(opts)) {
+  const g = document.getElementById("g-" + k);
+  for (const [v, label] of list) {
+    const b = document.createElement("button");
+    b.textContent = label; b.dataset.k = k; b.dataset.v = v;
+    b.onclick = () => { state[k] = v; render(); };
+    g.appendChild(b);
+  }
+}
+function render() {
+  document.querySelectorAll(".group button").forEach((b) => b.classList.toggle("on", state[b.dataset.k] === b.dataset.v));
+  document.getElementById("g-menu").style.opacity = state.plan === "A" ? 1 : 0.35;
+  const w = state.where;
+  const label = w === "in" ? "거점 3" : w === "out" ? "거점 밖" : "거점 1";
+  const subText = w === "out" ? "내 인벤토리만" : w === "other" ? "보는 중" : "+ 내 인벤토리";
+  const baseBtn = state.plan === "A"
+    ? `<span class="basebtn ${state.menu === "open" ? "open" : ""}">${label}<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span><span class="rest">· ${subText} · 0초 전</span>`
+    : `<span class="rest">${label} · ${subText} · 0초 전</span>`;
+  const chips = state.plan === "B"
+    ? `<div class="chiprow"><span class="${w !== "other" ? "on" : ""}">현재</span>${BASES.map((b) => `<span class="${w === "other" && b.n === 1 ? "on" : ""} ${b.n === 3 && w !== "out" ? "here" : ""}">거점 ${b.n}</span>`).join("")}</div>`
+    : "";
+  const banner = w === "other" ? `<div class="banner"><span>거점 1 보는 중 · 내 인벤토리 미포함</span><b>현재로 ↺</b></div>` : "";
+  const rows = (w === "out" ? ROWS.slice(5, 8).map(([n, c]) => [n, Math.round(c / 6)]) : w === "other" ? ROWS.slice(0, 6).map(([n, c]) => [n, Math.round(c / 7)]) : ROWS);
+  const menu = state.plan === "A" && state.menu === "open"
+    ? `<div class="menu"><div class="${w !== "other" ? "on" : ""}"><span>현재 위치 (자동)</span><small>${w === "out" ? "거점 밖" : "거점 3"}</small></div><div class="sep"></div>${BASES.map((b) => `<div class="${w === "other" && b.n === 1 ? "on" : ""}"><span>거점 ${b.n}</span><small>${b.dist} · ${b.items}개</small></div>`).join("")}</div>`
+    : "";
+  const scrollH = state.plan === "B" ? 392 - 36 : 392;
+  document.getElementById("scene").innerHTML = `<div class="glass win"><div class="rail"><i class="on"></i><i></i><i></i><i></i></div><div class="main">
+    <div class="wtitle"><div class="ttl"><div class="t">아이템</div><div class="sub">${baseBtn}</div></div><div class="modes"><span>▭</span><span class="on">≡</span><span>▦</span></div></div>
+    <div class="tabs"><b class="on">합계</b><b>위치별</b></div>${chips}
+    <input class="search" placeholder="아이템 검색" readonly>${banner}
+    <div class="scroll" style="height:${scrollH - (banner ? 40 : 0)}px">${rows.map(([n, c]) => `<div class="row"><span class="ic">${n[0]}</span><span>${n}</span><span class="count">${c}</span></div>`).join("")}</div>
+    </div>${menu}</div>`;
+}
+render();
+</script>
+</body>
+</html>
