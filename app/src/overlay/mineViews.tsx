@@ -205,22 +205,29 @@ function PalRow({ L, p, onOpen }: { L: Lookups; p: MinePal; onOpen: () => void }
   );
 }
 
-function prodInfo(b: Building) {
+/**
+ * A production order with what it made so far. The game keeps `requested` as first ordered also
+ * after players take items out, so "made" is what still sits in the building (its production
+ * storage) and the order is that plus what is left to make, as the game shows it.
+ */
+type Prod = Building & { made: number };
+
+function prodInfo(b: Prod) {
   const pr = b.production!;
-  const done = Math.max(0, pr.requested - pr.remain);
   const on = pr.remain > 0;
+  const total = b.made + pr.remain;
   const part = on && pr.workRequired > 0 ? Math.min(1, pr.work / pr.workRequired) : 0;
   return {
-    done,
+    made: b.made,
+    total,
     on,
-    pct: Math.round(part * 100),
     // the item in progress counts with its share, so the bar moves between finished items
-    share: pr.requested > 0 ? Math.min(100, ((done + part) / pr.requested) * 100) : 0,
+    share: total > 0 ? Math.min(100, ((b.made + part) / total) * 100) : 100,
   };
 }
 
 /** One production order: item, (made/requested), building, current item progress, bar. */
-function ProdLines({ L, b, where }: { L: Lookups; b: Building; where?: string }) {
+function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
   const pr = b.production!;
   const x = prodInfo(b);
   return (
@@ -228,7 +235,7 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Building; where?: string })
       <span className="line">
         <span className="n">{itemName(pr.recipe)}</span>
         <span className="cnt tabular">
-          <b>{x.done}</b>/{pr.requested}
+          <b>{x.made}</b>/{x.total}
         </span>
       </span>
       <span className="line">
@@ -236,7 +243,7 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Building; where?: string })
           {b.customName || structName(L, b.buildObjectId)}
           {where ? ` · ${where}` : ""}
         </small>
-        <small className="tabular">{x.on ? `지금 ${x.pct}%` : "완료 · 꺼내기 대기"}</small>
+        <small className="tabular">{x.on ? `${x.share.toFixed(1)}%` : x.made > 0 ? "완료 · 꺼내기 대기" : "완료"}</small>
       </span>
       <span className="mn-bar">
         <i style={{ width: `${x.share}%` }} />
@@ -245,7 +252,7 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Building; where?: string })
   );
 }
 
-function ProdRow({ L, b, onOpen }: { L: Lookups; b: Building; onOpen: () => void }) {
+function ProdRow({ L, b, onOpen }: { L: Lookups; b: Prod; onOpen: () => void }) {
   return (
     <div className="row mn-row two" onClick={onOpen}>
       <ItemIcon id={b.production!.recipe} />
@@ -256,7 +263,7 @@ function ProdRow({ L, b, onOpen }: { L: Lookups; b: Building; onOpen: () => void
   );
 }
 
-function ProdList({ L, list }: { L: Lookups; list: Building[] }) {
+function ProdList({ L, list }: { L: Lookups; list: Prod[] }) {
   return (
     <div className="mn-plist">
       {list.map((b, i) => (
@@ -310,7 +317,19 @@ function groupBuildings(L: Lookups, list: Building[]): [string, { id: string; n:
     .map(([cat, g]) => [cat, [...g].map(([id, n]) => ({ id, n })).sort((a, b) => b.n - a.n)]);
 }
 
-const productions = (b: BaseView | null) => (b?.buildings ?? []).filter((x) => x.production);
+const sameSpot = (a: { x: number; y: number; z: number } | undefined, b: { x: number; y: number; z: number }) => !!a && a.x === b.x && a.y === b.y && a.z === b.z;
+
+/** Production orders of a base, each with the finished items still in its building. */
+function productions(base: BaseView | null): Prod[] {
+  return (base?.buildings ?? [])
+    .filter((x) => x.production)
+    .map((x) => {
+      // the building's storage has the same actor location as the building
+      const store = base!.storages.find((s) => s.kind === "production" && sameSpot(s.location, x.location));
+      const made = (store?.items ?? []).filter((it) => it.item === x.production!.recipe).reduce((a, it) => a + it.count, 0);
+      return { ...x, made };
+    });
+}
 
 // ---------------------------------------------------------------- views
 
@@ -516,7 +535,7 @@ function StructsList({ mode, data, base, query, onOpen, head, L }: Props) {
               {itemName(b.production!.recipe)} <small className="mn-where">거점 {i + 1}</small>
             </span>
             <b className="tabular">
-              {prodInfo(b).done}/{b.production!.requested}
+              {prodInfo(b).made}/{prodInfo(b).total}
             </b>
           </div>
         ))}
@@ -593,7 +612,7 @@ function StructDetail({ data, base, detail, L }: Props) {
   const id = detail!;
   const mine = base.buildings.filter((b) => b.buildObjectId === id);
   const info = L.struct(id);
-  const prods = mine.filter((b) => b.production);
+  const prods = productions(base).filter((b) => b.buildObjectId === id);
   const named = mine.filter((b) => b.customName);
   return (
     <>
