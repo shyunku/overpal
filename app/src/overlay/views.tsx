@@ -5,6 +5,8 @@ import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId }
 import { MAP_SIZE, mapPx } from "./mapcoords";
 import type { OverlayData } from "./useOverlayData";
 import { OverlayWindow } from "./OverlayWindow";
+import { DexDetail, DexList, dexSummary, useDex, type DexTab } from "./dexViews";
+import type { Dex } from "../data/dex";
 
 interface ViewProps {
   layout: Layout;
@@ -259,12 +261,25 @@ const TABS: { id: MainTab; icon: keyof typeof ICONS; label: string }[] = [
   { id: "places", icon: "pin", label: "장소" },
 ];
 
+interface OtherTabProps {
+  tab: DexTab;
+  mode: ItemMode;
+  sub: "mine" | "dex";
+  onSub: (s: "mine" | "dex") => void;
+  query: string;
+  onQuery: (q: string) => void;
+  dex: Dex | null;
+  detail: string | null;
+  onOpen: (id: string) => void;
+}
+
 /**
  * Pals, structures and places: "mine" (this server) or "dex" (game data).
- * The lists are filled in by later steps of #19; for now each shows where its content will go.
+ * "mine" is filled in by 19.5 of #19; the compact layout shows only "mine".
  */
-function OtherTab({ mode, sub, onSub }: { mode: ItemMode; sub: "mine" | "dex"; onSub: (s: "mine" | "dex") => void }) {
+function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, detail, onOpen }: OtherTabProps) {
   if (mode === "hud") return <div className="empty">준비 중</div>;
+  if (detail && sub === "dex" && dex) return <DexDetail dex={dex} tab={tab} id={detail} />;
   const subTabs = (
     <div className="tabs">
       <b className={sub === "mine" ? "on" : ""} onClick={() => onSub("mine")}>
@@ -275,7 +290,16 @@ function OtherTab({ mode, sub, onSub }: { mode: ItemMode; sub: "mine" | "dex"; o
       </b>
     </div>
   );
-  const search = <input className="search" placeholder="검색" disabled />;
+  const search = <input className="search" placeholder="검색" value={query} onChange={(e) => onQuery(e.target.value.trim())} />;
+  if (sub === "dex") {
+    return (
+      <>
+        {subTabs}
+        {search}
+        {dex ? <DexList dex={dex} tab={tab} mode={mode} query={query} onOpen={onOpen} /> : <div className="empty">도감 불러오는 중</div>}
+      </>
+    );
+  }
   if (mode === "full") {
     return (
       <>
@@ -304,9 +328,10 @@ function OtherTab({ mode, sub, onSub }: { mode: ItemMode; sub: "mine" | "dex"; o
 export function MainWindow({ layout, onLayout, data }: ViewProps) {
   const tab = layout.mainTab;
   const mode = layout.modes[tab];
-  const [sub, setSub] = useState<Record<Exclude<MainTab, "items">, "mine" | "dex">>({ pals: "mine", structs: "mine", places: "mine" });
+  const [queries, setQueries] = useState<Record<DexTab, string>>({ pals: "", structs: "", places: "" });
   // item shown in place of the list (opened from a list row); cleared when the tab changes
   const [detail, setDetail] = useState<string | null>(null);
+  const dex = useDex();
   const setTab = (t: MainTab) => {
     setDetail(null);
     onLayout({ ...layout, mainTab: t });
@@ -314,7 +339,10 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   const setMode = (m: ItemMode) => onLayout({ ...layout, modes: { ...layout.modes, [tab]: m } });
   const label = TABS.find((x) => x.id === tab)!.label;
   const base = data.guild ? `${data.guild.name || "길드"} · 거점 1` : "거점 없음";
-  const subText = tab === "items" ? (mode === "hud" ? statusText(data) : `${base} · ${statusText(data)}`) : "준비 중";
+  const subText =
+    tab === "items" ? (mode === "hud" ? statusText(data) : `${base} · ${statusText(data)}`) : layout.subs[tab] === "dex" && mode !== "hud" ? dexSummary(dex, tab) : "준비 중";
+  // a detail is always shown at the normal width, also when opened from the wide layout
+  const shownMode = detail ? "side" : mode;
 
   const modeBtn = (m: ItemMode, icon: keyof typeof ICONS, title: string) => (
     <button className={mode === m ? "on" : ""} title={title} onClick={() => setMode(m)}>
@@ -323,7 +351,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   );
 
   return (
-    <OverlayWindow view="items" layout={layout} onLayout={onLayout} scale={ITEM_SCALE} className={`glass win items mode-${mode}`}>
+    <OverlayWindow view="items" layout={layout} onLayout={onLayout} scale={ITEM_SCALE} className={`glass win items mode-${shownMode}${detail ? " is-detail" : ""}`}>
       <nav className="rail">
         {TABS.map((x) => (
           <button key={x.id} className={tab === x.id ? "on" : ""} onClick={() => setTab(x.id)}>
@@ -353,7 +381,20 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
         {tab === "items" ? (
           <ItemsTab data={data} mode={mode} />
         ) : (
-          <OtherTab mode={mode} sub={sub[tab]} onSub={(s) => setSub({ ...sub, [tab]: s })} />
+          <OtherTab
+            tab={tab}
+            mode={mode}
+            sub={layout.subs[tab]}
+            onSub={(s) => {
+              setDetail(null);
+              onLayout({ ...layout, subs: { ...layout.subs, [tab]: s } });
+            }}
+            query={queries[tab]}
+            onQuery={(q) => setQueries({ ...queries, [tab]: q })}
+            dex={dex}
+            detail={detail}
+            onOpen={setDetail}
+          />
         )}
       </div>
     </OverlayWindow>

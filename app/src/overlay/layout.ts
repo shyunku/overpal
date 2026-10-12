@@ -9,6 +9,8 @@ export type ViewId = "menubar" | "items" | "minimap" | "settings";
 /** main window layouts: compact (hud), normal (side), wide (full) */
 export type ItemMode = "side" | "hud" | "full";
 export type MainTab = "items" | "pals" | "structs" | "places";
+/** what the pals, structures and places tabs show: this server's ("mine") or game data ("dex") */
+export type MainSub = "mine" | "dex";
 
 /**
  * Window position in stage units (1 unit = screen height / 1080), measured from a screen edge
@@ -29,6 +31,7 @@ export interface Layout {
   mainTab: MainTab;
   /** layout of each main window tab */
   modes: Record<MainTab, ItemMode>;
+  subs: Record<Exclude<MainTab, "items">, MainSub>;
   /** alpha of the dark tint over the blurred background */
   opacity: number;
   /** windows can be dragged only while this is on; never persisted as on */
@@ -48,6 +51,7 @@ export const DEFAULT_LAYOUT: Layout = {
   },
   mainTab: "items",
   modes: { items: "side", pals: "side", structs: "side", places: "side" },
+  subs: { pals: "mine", structs: "mine", places: "mine" },
   opacity: 0.25,
   editMode: false,
 };
@@ -69,6 +73,7 @@ function merge(stored: unknown): Layout {
     ...s,
     windows: { ...DEFAULT_LAYOUT.windows, ...s.windows },
     modes: { ...DEFAULT_LAYOUT.modes, ...s.modes },
+    subs: { ...DEFAULT_LAYOUT.subs, ...s.subs },
   };
 }
 

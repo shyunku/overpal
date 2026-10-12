@@ -654,3 +654,187 @@ img.item-icon {
   background: rgba(88, 166, 255, 0.3);
   border-color: rgba(88, 166, 255, 0.7);
 }
+
+/* ---------------------------------------------------------------- main window: dex */
+.dx-ico {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.dx-sec {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 18px 4px;
+  color: #ffb84c;
+  font-size: 13px;
+  font-weight: 600;
+}
+.dx-sec span:last-child {
+  color: var(--glass-muted);
+  font-weight: 400;
+}
+.dx-row {
+  cursor: pointer;
+}
+.dx-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.dx-row .nm {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dx-row .nm small {
+  color: var(--glass-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* normal layout: 3 columns; wide layout: as many 104 px tiles as fit */
+.dx-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 2px 16px 12px;
+}
+.dx-tiles {
+  padding: 4px 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 104px);
+  gap: 10px;
+  align-content: start;
+  overflow: auto;
+}
+.dx-list {
+  overflow: auto;
+  padding: 0 6px;
+}
+.dx-tile {
+  position: relative;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid var(--glass-line);
+  padding: 8px 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+.dx-tile:hover {
+  border-color: rgba(88, 166, 255, 0.8);
+}
+.dx-tile .dx-ico {
+  width: 56px;
+  height: 56px;
+}
+.dx-tile .no {
+  position: absolute;
+  left: 7px;
+  top: 4px;
+  font-size: 11px;
+  color: var(--glass-muted);
+}
+.dx-tile .tn {
+  font-size: 13px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dx-head {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 4px 16px 10px;
+}
+.dx-head .dx-ico {
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.dx-head .dn {
+  font-size: 20px;
+  font-weight: 700;
+}
+.dx-head .dm {
+  color: var(--glass-muted);
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.dx-head .dm span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.dx-head .dm img {
+  width: 18px;
+  height: 18px;
+}
+.dx-box {
+  margin: 0 16px 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+}
+.dx-box h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #ffb84c;
+  font-weight: 600;
+}
+.dx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 3px;
+  border-radius: 7px;
+  background: var(--chip);
+  font-size: 14px;
+}
+.dx-chip img,
+.dx-chip > span:first-child {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+.dx-kv {
+  display: grid;
+  gap: 3px;
+  font-size: 14px;
+}
+.dx-kvrow {
+  display: flex;
+  justify-content: space-between;
+}
+.dx-kvrow span:first-child {
+  color: var(--glass-muted);
+}
+.dx-desc {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+/* a detail has no sub tabs or search, so its scroll area takes their height to keep the window size */
+.items.is-detail .scroll.dx-detail {
+  height: calc(392px + var(--dx-detail-extra, 90px));
+}
+.dx-tiles,
+.dx-list,
+.dx-detail,
+.full-body .filters {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
