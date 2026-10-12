@@ -117,10 +117,31 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
         if let Backdrop::LegacyAcrylic = backdrop {
             legacy_acrylic(&w);
         }
+        #[cfg(windows)]
+        popup_style(&w);
         #[cfg(not(windows))]
         let _ = (w, backdrop);
     }
     Ok(())
+}
+
+/// Makes the window a plain popup. An undecorated window keeps the caption and frame styles and
+/// only hides them; on focus changes Windows sometimes drew that caption ("PalHelper ×") and its
+/// square frame over the overlay.
+#[cfg(windows)]
+fn popup_style(window: &tauri::WebviewWindow) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos,
+        WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
+    };
+    let Ok(hwnd) = window.hwnd() else { return };
+    let h = hwnd.0 as _;
+    unsafe {
+        let style = GetWindowLongPtrW(h, GWL_STYLE) as u32;
+        let style = (style & !(WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)) | WS_POPUP;
+        SetWindowLongPtrW(h, GWL_STYLE, style as isize);
+        SetWindowPos(h, std::ptr::null_mut(), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
 }
 
 /// Acrylic through the pre-Windows-11 SetWindowCompositionAttribute API, which (unlike the

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import type { BaseView, ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
 import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId } from "./layout";
@@ -6,7 +6,7 @@ import { MAP_SIZE, mapPx } from "./mapcoords";
 import type { OverlayData } from "./useOverlayData";
 import { OverlayWindow } from "./OverlayWindow";
 import { DexDetail, DexList, dexSummary, useDex, type DexTab } from "./dexViews";
-import type { Dex } from "../data/dex";
+import { loadItemDesc, type Dex } from "../data/dex";
 
 interface ViewProps {
   layout: Layout;
@@ -103,6 +103,44 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
 // in overlay.css so the window grows 25% in height but only 15% in width
 const ITEM_SCALE = 0.6125;
 
+function useItemDesc(): Record<string, string> {
+  const [desc, setDesc] = useState<Record<string, string>>({});
+  useEffect(() => {
+    loadItemDesc().then(setDesc, () => {});
+  }, []);
+  return desc;
+}
+
+interface Hover {
+  item: string;
+  /** in .mainbody px: below the row, or above it for rows in the lower half */
+  top?: number;
+  bottom?: number;
+}
+
+/** Where to show the tooltip for a hovered row, relative to the main window body. */
+function hoverAt(e: ReactMouseEvent<HTMLElement>, item: string): Hover | null {
+  const row = e.currentTarget;
+  const body = row.closest(".mainbody") as HTMLElement | null;
+  if (!body) return null;
+  const b = body.getBoundingClientRect();
+  const r = row.getBoundingClientRect();
+  // client rects are zoomed; positions inside the body are not
+  const k = body.offsetHeight / b.height;
+  const top = (r.top - b.top) * k;
+  const bottom = (r.bottom - b.top) * k;
+  return top + bottom > body.offsetHeight ? { item, bottom: body.offsetHeight - top + 4 } : { item, top: bottom + 4 };
+}
+
+function ItemTooltip({ hover, desc }: { hover: Hover; desc: Record<string, string> }) {
+  return (
+    <div className="item-tip" style={{ top: hover.top, bottom: hover.bottom }}>
+      <b>{itemName(hover.item)}</b>
+      {desc[hover.item] && <p>{desc[hover.item]}</p>}
+    </div>
+  );
+}
+
 const byName = (a: { item: string }, b: { item: string }) => itemName(a.item).localeCompare(itemName(b.item), "ko");
 
 /** `base`: the storages shown (current base + inventory, or a base picked from the menu); `notice` goes under the search box. */
@@ -111,6 +149,8 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
   const [query, setQuery] = useState("");
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [place, setPlace] = useState("all");
+  const [hover, setHover] = useState<Hover | null>(null);
+  const desc = useItemDesc();
   const places = placesOf(base?.storages ?? []);
   const totals = base?.totals ?? [];
   const placeOf = (containerId: string) => places.find((p) => p.storages.some((s) => s.containerId === containerId))?.name ?? "?";
@@ -178,6 +218,7 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
                   <b>
                     {itemName(x.item)} {x.count}
                   </b>
+                  {desc[x.item] && <p>{desc[x.item]}</p>}
                   {x.sources.map(([n, v]) => (
                     <div key={n}>
                       <span>{n}</span>
@@ -234,9 +275,15 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
           ) : (
             <div className="rows">
               {found.map((t) => (
-                <div key={t.item} className={`row ${openRow === t.item ? "open" : ""}`} onClick={() => setOpenRow(openRow === t.item ? null : t.item)}>
+                <div
+                  key={t.item}
+                  className={`row ${openRow === t.item ? "open" : ""}`}
+                  onClick={() => setOpenRow(openRow === t.item ? null : t.item)}
+                  onMouseEnter={(e) => setHover(hoverAt(e, t.item))}
+                  onMouseLeave={() => setHover(null)}
+                >
                   <ItemIcon id={t.item} />
-                  <span>{itemName(t.item)}</span>
+                  <span className="name">{itemName(t.item)}</span>
                   <span className={`count tabular ${t.count ? "" : "none"}`}>{t.count}</span>
                   {openRow === t.item && (
                     <div className="sources">
@@ -257,7 +304,12 @@ function ItemsTab({ data, mode, base, notice }: { data: OverlayData; mode: ItemM
     );
   }
 
-  return body;
+  return (
+    <>
+      {body}
+      {hover && mode === "side" && <ItemTooltip hover={hover} desc={desc} />}
+    </>
+  );
 }
 
 // ---------------------------------------------------------------- main window
@@ -457,13 +509,16 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
             </button>
           )}
           <div className="ttl">
-            <div className="t">{label}</div>
+            {/* the layout buttons sit on the title's line */}
+            <div className="tline">
+              <div className="t">{label}</div>
+              <div className="modes">
+                {modeBtn("hud", "mini", "컴팩트")}
+                {modeBtn("side", "list", "일반")}
+                {modeBtn("full", "grid", "와이드")}
+              </div>
+            </div>
             <div className="sub">{subText}</div>
-          </div>
-          <div className="modes">
-            {modeBtn("hud", "mini", "컴팩트")}
-            {modeBtn("side", "list", "일반")}
-            {modeBtn("full", "grid", "와이드")}
           </div>
         </div>
         {tab === "items" && menuOpen && mode !== "hud" && (

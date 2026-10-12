@@ -62,3 +62,11 @@ export function loadDex(): Promise<Dex> {
   });
   return loading;
 }
+
+let descLoading: Promise<Record<string, string>> | null = null;
+
+/** Item descriptions by game item id (public/data/itemDesc.json), loaded once per window. */
+export function loadItemDesc(): Promise<Record<string, string>> {
+  descLoading ??= fetch("/data/itemDesc.json").then((r) => (r.ok ? (r.json() as Promise<Record<string, string>>) : {}));
+  return descLoading;
+}

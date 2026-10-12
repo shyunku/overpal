@@ -369,7 +369,8 @@ img.item-icon {
 /* fixed list height so searching or changes never resize the window: 7 rows (54 px each + list
    padding) plus 68 px (55 screen px at QHD) asked for in game */
 .items {
-  --list-h: 459px;
+  /* 451: the tidied spacing above the list added 8 px */
+  --list-h: 451px;
 }
 .items.mode-side .scroll {
   height: var(--list-h);
@@ -960,4 +961,91 @@ img.item-icon {
 .items .row {
   padding-top: 5px;
   padding-bottom: 5px;
+}
+
+/* ---------------------------------------------------------------- main window: spacing and type
+   One horizontal inset (16 px) for the title, tabs, search box and list icons, and the same
+   10 px gap between the title, tabs, search box and list. */
+.items .wtitle {
+  align-items: flex-start;
+  padding: 16px 12px 12px 16px;
+}
+.items .wtitle .tline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.items .wtitle .tline .t {
+  flex: 1;
+  min-width: 0;
+}
+.items .wtitle .sub {
+  margin-top: 8px;
+}
+.items .tabs {
+  padding: 0 16px 10px;
+}
+.items .search {
+  margin: 0 16px 10px;
+  /* explicit height with no vertical padding keeps the text vertically centered */
+  height: 36px;
+  padding: 0 12px;
+  line-height: normal;
+}
+.items .rows {
+  padding: 0 8px 10px;
+}
+/* layout buttons at 75% (icons and padding) */
+.items .modes {
+  gap: 1px;
+  padding: 2px;
+  border-radius: 8px;
+}
+.items .modes button {
+  width: 24px;
+  height: 21px;
+  border-radius: 6px;
+}
+.items .modes svg.ic {
+  width: 13.5px;
+  height: 13.5px;
+}
+/* long names end with an ellipsis */
+.items .row .name {
+  min-width: 0;
+  /* the cap trim of other row text would cut the glyphs here, since the overflow is hidden */
+  text-box: normal;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.items .row .count,
+.items .tile .n,
+.items .hud-row b {
+  font-weight: 500;
+}
+.item-tip {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  z-index: 6;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(16, 20, 28, 0.94);
+  border: 1px solid var(--glass-line);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  font-size: 14px;
+}
+.item-tip b {
+  font-weight: 700;
+}
+.item-tip p,
+.items .tile .tt p {
+  margin: 4px 0 0;
+  color: var(--glass-muted);
+  font-size: 13px;
+  line-height: 1.45;
+  white-space: normal;
 }

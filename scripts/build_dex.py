@@ -20,6 +20,8 @@ ITEM_TABLE = ROOT / "app" / "src" / "data" / "itemTable.json"
 # fetched by the main window only, so the other overlay windows do not load it
 OUT_DATA = ROOT / "app" / "public" / "data" / "dex.json"
 OUT_ICONS = ROOT / "app" / "public" / "icons" / "dex"
+# game item id -> description, for the item tooltips; fetched by the main window
+OUT_ITEM_DESC = ROOT / "app" / "public" / "data" / "itemDesc.json"
 # building id (as the mod reports it, e.g. ItemChest_02) -> Korean name; small, bundled with the app
 OUT_BUILDINGS = ROOT / "app" / "src" / "data" / "buildingNames.json"
 # same size as the item icons (scripts/build_item_table.py)
@@ -89,6 +91,14 @@ def main() -> None:
             "works": [{"name": work_names.get(w["icon"], ""), "lv": w["lv"], "icon": icon(w["icon"])} for w in s.get("works") or []],
         })
 
+    item_desc = {}
+    for it in helper_items:
+        gid = game_id.get(it["id"])
+        if gid and it.get("desc"):
+            item_desc.setdefault(gid, it["desc"].strip())
+    OUT_ITEM_DESC.parent.mkdir(parents=True, exist_ok=True)
+    OUT_ITEM_DESC.write_text(json.dumps(item_desc, ensure_ascii=False), encoding="utf-8")
+
     # structure icons are named after the building id: T_icon_buildObject_<id>.webp
     buildings = {}
     for s in structs:
@@ -120,6 +130,7 @@ def main() -> None:
     size = sum(f.stat().st_size for f in OUT_ICONS.glob("*.webp"))
     print(f"pals {len(out_pals)}, structures {len(out_structs)}, marker layers {len(layers)}, building names {len(buildings)}")
     print(f"icons {len(icons) - len(missing)} ({size / 1024 / 1024:.1f} MB), missing {len(missing)}: {missing[:5]}")
+    print(f"item descriptions {len(item_desc)} ({OUT_ITEM_DESC.stat().st_size / 1024:.0f} KB)")
     print(f"data {OUT_DATA.stat().st_size / 1024:.0f} KB; item refs not mapped to game ids: {len(unmapped)} {sorted(unmapped)[:8]}")
 
 

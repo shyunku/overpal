@@ -3,6 +3,7 @@ import { useSharedLayout } from "./OverlayWindow";
 import { useOverlayData } from "./useOverlayData";
 import { MainWindow, MenuBar, MinimapWindow, SettingsWindow } from "./views";
 import "@fontsource/oxanium/400.css";
+import "@fontsource/oxanium/500.css";
 import "@fontsource/oxanium/600.css";
 import "@fontsource/oxanium/700.css";
 import "@fontsource/noto-sans-kr/400.css";
