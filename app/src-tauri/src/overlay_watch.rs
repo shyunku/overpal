@@ -67,6 +67,9 @@ pub fn spawn(app: &AppHandle, labels: &'static [&'static str], always_show: bool
             if last != Some(s) {
                 for label in labels {
                     if let Some(w) = app.get_webview_window(label) {
+                        #[cfg(windows)]
+                        crate::overlay::set_click_through(&w, !s.interactive);
+                        #[cfg(not(windows))]
                         let _ = w.set_ignore_cursor_events(!s.interactive);
                     }
                 }

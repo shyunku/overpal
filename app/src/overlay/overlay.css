@@ -369,8 +369,8 @@ img.item-icon {
 /* fixed list height so searching or changes never resize the window: 7 rows (54 px each + list
    padding) plus 68 px (55 screen px at QHD) asked for in game */
 .items {
-  /* 451: the tidied spacing above the list added 8 px */
-  --list-h: 451px;
+  /* 455: the tidied spacing above the list added 8 px, the smaller tab text took 4 back */
+  --list-h: 455px;
 }
 .items.mode-side .scroll {
   height: var(--list-h);
@@ -957,10 +957,10 @@ img.item-icon {
 .items.mode-side .base-notice + .scroll {
   height: calc(var(--list-h) - 40px);
 }
-/* main window rows 2 px shorter at top and bottom than elsewhere */
+/* main window rows 4 px shorter at top and bottom than elsewhere */
 .items .row {
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: 3px;
+  padding-bottom: 3px;
 }
 
 /* ---------------------------------------------------------------- main window: spacing and type
@@ -984,6 +984,9 @@ img.item-icon {
 }
 .items .tabs {
   padding: 0 16px 10px;
+}
+.items .tabs b {
+  font-size: 13px;
 }
 .items .search {
   margin: 0 16px 10px;
@@ -1024,6 +1027,12 @@ img.item-icon {
 .items .tile .n,
 .items .hud-row b {
   font-weight: 500;
+}
+.items .row .name {
+  font-size: 16px;
+}
+.items .row .count {
+  font-size: 18px;
 }
 .tip-win p,
 .items .tile .tt p {

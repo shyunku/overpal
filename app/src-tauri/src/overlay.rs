@@ -122,23 +122,66 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
             legacy_acrylic(&w);
         }
         #[cfg(windows)]
-        ensure_popup(&w);
+        {
+            ensure_popup(&w);
+            // the minimap is a circle drawn inside a transparent square window
+            window_corners(&w, v.label != "minimap");
+        }
         #[cfg(not(windows))]
         let _ = (w, backdrop);
     }
     Ok(())
 }
 
-/// Keeps the window a plain popup with Windows 11 rounded corners.
-///
-/// An undecorated window keeps the caption and frame styles and only hides them, and tao writes
-/// them back whenever it changes the window (e.g. every click-through toggle). Windows then
-/// sometimes drew that caption ("PalHelper ×") over the overlay. The watcher calls this every tick;
-/// it only writes when the caption came back. The rounded corners also clip the acrylic blur,
-/// which ignores window regions and otherwise shows as a square around the rounded panel.
+/// Windows 11 rounded corners (8 px at 100%, DWMWCP_ROUND) or square ones, and no DWM border line.
+/// The rounded corners clip the acrylic blur, which ignores window regions and otherwise shows as
+/// a square around the rounded panel; the panels' CSS radius matches (--win-radius). The border
+/// line DWM draws around rounded windows showed as a square around the round minimap.
+#[cfg(windows)]
+fn window_corners(window: &tauri::WebviewWindow, round: bool) {
+    use windows_sys::Win32::Graphics::Dwm::{DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DWMWCP_ROUND, DwmSetWindowAttribute};
+    let Ok(hwnd) = window.hwnd() else { return };
+    let h = hwnd.0 as _;
+    let corner = if round { DWMWCP_ROUND } else { DWMWCP_DONOTROUND };
+    let border = DWMWA_COLOR_NONE;
+    unsafe {
+        DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &corner as *const _ as *const _, size_of_val(&corner) as u32);
+        DwmSetWindowAttribute(h, DWMWA_BORDER_COLOR as u32, &border as *const _ as *const _, size_of_val(&border) as u32);
+    }
+}
+
+/// Turns click-through on or off by changing only the extended style. tao's
+/// set_ignore_cursor_events rewrites the whole style, putting back the caption of the undecorated
+/// window, which Windows then sometimes drew over the overlay ("PalHelper").
+#[cfg(windows)]
+pub fn set_click_through(window: &tauri::WebviewWindow, on: bool) {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{GWL_EXSTYLE, GetWindowLongPtrW, SetWindowLongPtrW, WS_EX_LAYERED, WS_EX_TRANSPARENT};
+    let Ok(hwnd) = window.hwnd() else { return };
+    let h = hwnd.0 as _;
+    unsafe {
+        let ex = GetWindowLongPtrW(h, GWL_EXSTYLE) as u32;
+        let next = if on { ex | WS_EX_TRANSPARENT | WS_EX_LAYERED } else { ex & !(WS_EX_TRANSPARENT | WS_EX_LAYERED) };
+        if next != ex {
+            SetWindowLongPtrW(h, GWL_EXSTYLE, next as isize);
+        }
+    }
+}
+
+/// Click-through for the windows that manage it themselves (minimap, tooltip).
+#[tauri::command]
+pub fn click_through(window: tauri::WebviewWindow, on: bool) {
+    #[cfg(windows)]
+    set_click_through(&window, on);
+    #[cfg(not(windows))]
+    let _ = window.set_ignore_cursor_events(on);
+}
+
+/// Keeps the window a plain popup. An undecorated window keeps the caption and frame styles and
+/// only hides them; when tao writes them back Windows sometimes drew that caption ("PalHelper ×")
+/// over the overlay. Called at creation and by the watcher every tick as a safety net; it only
+/// writes when the caption came back.
 #[cfg(windows)]
 pub fn ensure_popup(window: &tauri::WebviewWindow) {
-    use windows_sys::Win32::Graphics::Dwm::{DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUNDSMALL, DwmSetWindowAttribute};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
         GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowLongPtrW, SetWindowPos,
         WS_CAPTION, WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_POPUP, WS_SYSMENU, WS_THICKFRAME,
@@ -153,15 +196,9 @@ pub fn ensure_popup(window: &tauri::WebviewWindow) {
         }
         SetWindowLongPtrW(h, GWL_STYLE, ((style & !FRAME) | WS_POPUP) as isize);
         SetWindowPos(h, std::ptr::null_mut(), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-        // small: 4 px at 100% scaling; the panels' CSS radius matches it (--win-radius)
-        let round = DWMWCP_ROUNDSMALL;
-        DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &round as *const _ as *const _, size_of_val(&round) as u32);
     }
 }
 
-/// Acrylic through the pre-Windows-11 SetWindowCompositionAttribute API, which (unlike the
-/// DWM system backdrop) does not fall back to a solid color while the window is inactive.
-#[cfg(windows)]
 /// Clips the window to a rounded rectangle (radius in physical px) so the blur behind it, which
 /// covers the whole window, follows the panel's rounded corners instead of showing a square edge.
 #[tauri::command]
@@ -185,6 +222,9 @@ pub fn round_corners(window: tauri::WebviewWindow, radius: f64) {
     let _ = (window, radius);
 }
 
+/// Acrylic through the pre-Windows-11 SetWindowCompositionAttribute API, which (unlike the
+/// DWM system backdrop) does not fall back to a solid color while the window is inactive.
+#[cfg(windows)]
 fn legacy_acrylic(window: &tauri::WebviewWindow) {
     use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryW};
 

@@ -29,8 +29,7 @@ export function TooltipWindow() {
   const [screen, setScreen] = useState<ScreenInfo | null>(null);
 
   useEffect(() => {
-    const native = getCurrentWindow();
-    native.setIgnoreCursorEvents(true);
+    invoke("click_through", { on: true });
     getScreen().then(setScreen);
     const un = listen<TipPayload | null>(ITEM_TIP, (e) => setTip(e.payload));
     return () => {
@@ -59,7 +58,7 @@ export function TooltipWindow() {
 
   const zoom = screen && tip ? cssZoom(screen, tip.scale) : 1;
   return (
-    <div ref={ref} className="glass tip-win" style={{ zoom, "--win-radius": `${4 / zoom}px` } as React.CSSProperties}>
+    <div ref={ref} className="glass tip-win" style={{ zoom, "--win-radius": `${8 / zoom}px` } as React.CSSProperties}>
       {tip && (
         <>
           <b>{tip.name}</b>

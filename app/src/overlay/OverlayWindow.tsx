@@ -76,7 +76,8 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
 
   // overlay_watch.rs leaves passive windows alone
   useEffect(() => {
-    if (passive) getCurrentWindow().setIgnoreCursorEvents(!takesMouse);
+    // not setIgnoreCursorEvents: it brings back the window caption (overlay.rs, set_click_through)
+    if (passive) invoke("click_through", { on: !takesMouse });
   }, [passive, takesMouse]);
 
   useEffect(() => {
@@ -158,9 +159,9 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
     zoom: screen ? cssZoom(screen, scale) : 1,
     visibility: screen ? "visible" : "hidden",
     "--glass-alpha": layout.opacity,
-    // Windows rounds the window (and its blur) by 4 px times the display scale (DWMWCP_ROUNDSMALL);
-    // in this window's zoomed CSS px that is 4 / zoom, which keeps the panel corners on that curve
-    "--win-radius": screen ? `${4 / cssZoom(screen, scale)}px` : "4px",
+    // Windows rounds the window (and its blur) by 8 px times the display scale (DWMWCP_ROUND);
+    // in this window's zoomed CSS px that is 8 / zoom, which keeps the panel corners on that curve
+    "--win-radius": screen ? `${8 / cssZoom(screen, scale)}px` : "8px",
   } as CSSProperties;
 
   return (
