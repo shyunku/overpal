@@ -55,6 +55,21 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 - `OnUpdateSlotContent`는 훅을 걸어도 호출되지 않았다.
 - 훅 대상 클래스는 월드가 로드된 뒤에 생기므로, 첫 전체 스캔 때 훅을 건다.
 
+## 작업 진행도 복제 (#13)
+
+건설·제작 진행 바가 전용 서버에서 1초에 약 3번 툭툭 오르는 원인을 2026-10-12에 확인했다. 서버와 클라이언트 양쪽에 UE4SS를 붙여 측정했다. 측정 로그는 `.local/probes/progress_*_2026-10-12.txt`에 있다.
+
+- 진행도는 `PalWorkProgress`(outer는 `BP_PalWorkProgressManager_C`)의 `CurrentWorkAmount`이고, 일반 복제 변수(`OnRep_CurrentWorkAmount`)로 클라에 간다. 진행 속도 `ReplicatedWorkAmountBySec`도 함께 복제된다(감시대 건설 때 540~600).
+- 서버: 진행량이 약 0.08초 간격으로 매끄럽게 오른다.
+- 클라: `OnRep_CurrentWorkAmount`가 약 0.34초 간격(초당 약 3번)으로 온다. 받는 사이에는 클라의 `CurrentWorkAmount`가 바뀌지 않는다(클라 예측 없음). 진행 바는 받은 값을 보간 없이 그리므로 "띡-띡-띡" 하고 오른다.
+- 0.34초 주기의 근거:
+  - 서버는 `PalReplicationGraph`를 쓰고 그래프는 초당 30번 돈다(`Net.RepGraph.Frequency.Override`=30. `DefaultEngine.ini`에는 20이지만 실행 중 값은 30).
+  - 건물 액터(`BP_BuildObject_*`)의 `NetUpdateFrequency`가 3이다. 30 / 3 = 10프레임 = 0.33초로 측정값과 맞는다. 진행도는 건물 액터 쪽으로 복제되는 것으로 본다.
+  - 서버 네트워크 틱레이트(`NetServerMaxTickRate`=60)와 대역폭은 원인이 아니다.
+- 효과가 없었던 것: 실행 중에 건물 액터·GameState·`PalNetworkTransmitter`의 `NetUpdateFrequency`를 올리기, `Net.RepGraph.SetPeriodFrame BP_PalGameStateInGame_C 1`. 복제 그래프는 클래스별 주기를 시작할 때 정해 두므로, 실행 중에 액터 값을 바꾸면 무시되는 것으로 본다.
+- 개선한다면 시도할 후보: 건물 클래스에 `Net.RepGraph.SetPeriodFrame`를 쓰거나, 복제 그래프가 초기화되기 전에 건물 클래스 기본값(CDO)의 `NetUpdateFrequency`를 올리는 방법. 둘 다 확인하지 않았다. 클라 쪽에서 `ReplicatedWorkAmountBySec`로 보간하는 방법은 클라 모드가 필요하다.
+- 서버는 Shipping 빌드라 로그가 남지 않는다. 복제 그래프 콘솔 명령(`PalRepGraph.PrintRouting` 등)의 출력은 볼 수 없었다.
+
 ## 검증 기록
 
 - 2026-10-12 03:42 KST: 사용자가 알려준 상자 내용(돌 81, 팰지움 파편 58, 빨간 열매 15, 나무 12, 열매 씨앗 10, 팰스피어 2)과 모드 출력이 일치했다. 빨간 열매는 부패로 14, 13으로 줄어드는 것이 반영됐다.
