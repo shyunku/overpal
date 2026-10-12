@@ -15,9 +15,10 @@ local UPDATE_HOOK = "/Script/Pal.PalMapObjectItemContainerModule:OnUpdateContent
 local DEBUG_DUMP = false
 -- How often buildings replicate to clients (class default of PalBuildObject, 3 in the game).
 -- The replication graph fixes each class's rate when it first sees the class, so this must be
--- set at startup. Higher makes build/craft progress bars smoother and costs more server CPU.
+-- set at startup. Higher makes build/craft progress bars smoother and costs more server CPU;
+-- clients get at most about 20 updates a second, so values above 20 only cost CPU.
 -- 0 leaves the game's value. See docs/game-internals.md, "작업 진행도 복제".
-local BUILD_NET_UPDATE_HZ = 30
+local BUILD_NET_UPDATE_HZ = 20
 
 local ZERO_GUID = "00000000-00000000-00000000-00000000"
 
