@@ -41,6 +41,9 @@ fn parse_args() -> Result<Args, String> {
 
 fn fail(msg: &str) -> ! {
     eprintln!("palhelper: {msg}");
+    // started by double-click, the console closes with the process; keep the message readable
+    eprintln!("Press Enter to close.");
+    let _ = std::io::stdin().read_line(&mut String::new());
     std::process::exit(1);
 }
 
@@ -57,6 +60,8 @@ pub fn run() {
     let path = config::resolve_path(args.config.as_deref());
     let cfg: Config = config::load(&path).unwrap_or_else(|e| fail(&e));
     let mode = args.mode.unwrap_or(cfg.mode);
+    eprintln!("PalHelper {} ({mode:?} mode, config {})", env!("CARGO_PKG_VERSION"), path.display());
+    eprintln!("Closing this window quits PalHelper. The overlay shows only while the game window is visible.");
 
     let server_cfg = if mode.has_server() {
         Some(cfg.server.clone().unwrap_or_else(|| fail("mode needs a \"server\" section in the config")))
