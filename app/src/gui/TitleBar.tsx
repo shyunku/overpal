@@ -2,13 +2,14 @@
 // maximize (Home), minimize / maximize / close.
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-export function TitleBar({ resizable, profile }: { resizable: boolean; profile?: string | null }) {
+export function TitleBar({ resizable, version, profile }: { resizable: boolean; version?: string | null; profile?: string | null }) {
   const win = getCurrentWindow();
   return (
     <div className="titlebar" data-tauri-drag-region>
       <img className="tlogo" src="/app-icon.png" alt="" draggable={false} data-tauri-drag-region />
       <span className="ttext" data-tauri-drag-region>
-        Overpal{profile ? ` (Profile: ${profile})` : ""}
+        Overpal{version ? ` v${version}` : ""}
+        {profile ? ` (Profile: ${profile})` : ""}
       </span>
       <span className="sp" data-tauri-drag-region />
       <button className="wb" title="최소화" onClick={() => win.minimize()}>

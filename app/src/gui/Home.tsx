@@ -6,7 +6,7 @@ import type { PdPlayers } from "../data/paldefender";
 import type { ClientConfig, ModStatus } from "../types";
 import { Icon, type IconName } from "./icons";
 import { GameServerView, gsState } from "./GameServer";
-import { api, errorText, MODE_NAME, shortPath, type Detected, type FoundServer, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
+import { api, errorText, MODE_NAME, shortPath, type Detected, type FoundServer, type GameServerStatus, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
 
 // ---------------------------------------------------------------- data from the app server
 
@@ -66,6 +66,17 @@ export function Home() {
   const [session, setSession] = useState<SessionView | null>(null);
   const [stage, setStage] = useState<Stage>({ kind: "loading" });
   const [error, setError] = useState<string | null>(null);
+  // before the run starts nothing needs stopping: closing quits (Running handles it after)
+  const stageRef = useRef(stage);
+  stageRef.current = stage;
+  useEffect(() => {
+    const un = listen("home-close-requested", () => {
+      if (stageRef.current.kind !== "run") api.quit();
+    });
+    return () => {
+      un.then((f) => f());
+    };
+  }, []);
 
   const reload = async () => {
     const s = await api.session();
@@ -196,6 +207,20 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
   const health = usePoll(cfg && mode === "client" ? () => getJson<{ ok: boolean }>(cfg, "/api/health") : null, 5000);
   const gsPoll = usePoll(hasServer(mode) ? () => api.gsStatus() : null, 2000);
   const gs = gsPoll.value;
+  const [quitAsk, setQuitAsk] = useState(false);
+  const gsRef = useRef(gs);
+  gsRef.current = gs;
+  useEffect(() => {
+    const un = listen("home-close-requested", async () => {
+      // the latest state, not the last poll: the server may have just been started or stopped
+      const now = hasServer(mode) ? await api.gsStatus().catch(() => gsRef.current) : null;
+      if (now?.running) setQuitAsk(true);
+      else api.quit();
+    });
+    return () => {
+      un.then((f) => f());
+    };
+  }, [mode]);
   const tabs: [Tab, string, IconName][] = [
     ["home", "홈", "home"],
     ...(hasServer(mode) ? ([["gameserver", "게임 서버", "server"]] as [Tab, string, IconName][]) : []),
@@ -255,6 +280,7 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
           {tab === "friends" && <FriendsView session={session} host={host.value} players={players.value} onProfile={(p) => setSession({ ...session, profile: p })} />}
           {tab === "settings" && mode && <SettingsView session={session} mode={mode} onSaved={(p) => setSession({ ...session, profile: p })} />}
         </div>
+        {quitAsk && gs && <QuitDialog gs={gs} onCancel={() => setQuitAsk(false)} />}
         <div className="statusbar">
           {appServer}
           {game}
@@ -263,6 +289,93 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
             <Icon name={mode === "server" ? "server" : mode === "client" ? "monitor" : "sliders"} />
             {mode} 모드
           </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Quitting while the game server runs: save and stop it, wait for it to end, then quit. */
+function QuitDialog({ gs, onCancel }: { gs: GameServerStatus; onCancel: () => void }) {
+  const [phase, setPhase] = useState<"ask" | "stopping" | "norest">(gs.restEnabled ? "ask" : "norest");
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    setError(null);
+    try {
+      await api.gsStop();
+    } catch (e) {
+      setError(errorText(e));
+      return;
+    }
+    setPhase("stopping");
+    // wait for the process to end (at most two minutes), then quit
+    for (let i = 0; i < 120; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      const s = await api.gsStatus().catch(() => null);
+      if (s && !s.running) break;
+    }
+    api.quit();
+  };
+  return (
+    <div className="modal-back">
+      <div className="modal">
+        <h3>
+          <Icon name="alert" className="lg" />
+          Overpal 종료
+        </h3>
+        {phase === "ask" && (
+          <p className="qp">
+            게임 서버가 켜져 있습니다.
+            <br />
+            Overpal을 종료하면 월드를 저장한 뒤 게임 서버도 끕니다.
+            {gs.players ? (
+              <>
+                <br />
+                접속 중인 플레이어 {gs.players}명의 연결이 끊깁니다.
+              </>
+            ) : null}
+          </p>
+        )}
+        {phase === "stopping" && (
+          <>
+            <p className="qp">월드를 저장했습니다. 게임 서버가 종료되면 Overpal도 종료됩니다.</p>
+            <div className="qbar">
+              <i />
+            </div>
+          </>
+        )}
+        {phase === "norest" && (
+          <p className="qp">
+            서버 설정에서 관리 API가 꺼져 있어 게임 서버를 저장 후 끌 수 없습니다.
+            <br />
+            게임 서버를 그대로 두고 종료할까요?
+          </p>
+        )}
+        {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: phase === "stopping" ? 14 : 0 }}>
+          {phase === "stopping" ? (
+            <button className="btn" disabled>
+              <Icon name="refresh" />
+              게임 서버 끄는 중
+            </button>
+          ) : (
+            <>
+              <button className="btn" onClick={onCancel}>
+                취소
+              </button>
+              {phase === "ask" ? (
+                <button className="btn danger-fill" onClick={go}>
+                  <Icon name="power" />
+                  저장 후 종료
+                </button>
+              ) : (
+                <button className="btn" onClick={() => api.quit()}>
+                  <Icon name="power" />
+                  서버를 두고 종료
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

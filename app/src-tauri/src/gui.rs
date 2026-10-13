@@ -17,6 +17,20 @@ pub const HOME: &str = "home";
 const HOME_SIZE: (f64, f64) = (912.0, 702.0);
 const HOME_MIN: (f64, f64) = (760.0, 540.0);
 const WINDOW_FILE: &str = "home-window.json";
+pub const HOME_CLOSE_REQUESTED: &str = "home-close-requested";
+
+/// Ends the app (the overlay windows would keep it running); Home's size is kept for next time.
+#[tauri::command]
+pub fn app_quit(app: AppHandle) {
+    if let Some(w) = app.get_webview_window(HOME) {
+        if let (Ok(size), Ok(scale)) = (w.inner_size(), w.scale_factor()) {
+            let logical = size.to_logical::<f64>(scale);
+            let dir = app.state::<Session>().0.lock().unwrap().config_dir.clone();
+            let _ = std::fs::write(dir.join(WINDOW_FILE), serde_json::to_string(&(logical.width, logical.height)).unwrap());
+        }
+    }
+    app.exit(0);
+}
 
 /// Client settings for the overlay windows, set when the run starts.
 pub struct ClientState(pub Mutex<Option<ClientConfig>>);
@@ -111,18 +125,16 @@ pub fn open_home(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
-/// Closing Home ends the app (the overlay windows would keep it running); its size is kept.
+/// Home asks first (the game server may need stopping, `home-close-requested`) and quits with
+/// app_quit; closing the profile window without picking a profile quits.
 pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
-    if let tauri::WindowEvent::CloseRequested { .. } = event {
+    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
         let app = window.app_handle();
         match window.label() {
             HOME => {
-                if let (Ok(size), Ok(scale)) = (window.inner_size(), window.scale_factor()) {
-                    let logical = size.to_logical::<f64>(scale);
-                    let dir = app.state::<Session>().0.lock().unwrap().config_dir.clone();
-                    let _ = std::fs::write(dir.join(WINDOW_FILE), serde_json::to_string(&(logical.width, logical.height)).unwrap());
-                }
-                app.exit(0);
+                use tauri::Emitter;
+                api.prevent_close();
+                let _ = window.emit(HOME_CLOSE_REQUESTED, ());
             }
             // closing the profile window without picking one quits
             LAUNCHER if app.get_webview_window(HOME).is_none() => app.exit(0),

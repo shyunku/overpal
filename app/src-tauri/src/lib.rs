@@ -101,6 +101,7 @@ pub fn run() {
         .manage(ClientState(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             gui::client_config,
+            gui::app_quit,
             gui::profiles_list,
             gui::profile_delete,
             gui::launcher_open,

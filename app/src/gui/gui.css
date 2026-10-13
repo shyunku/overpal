@@ -1050,3 +1050,32 @@ th.r {
   word-break: break-all;
 }
 
+/* quit while the game server runs */
+.qp {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #c9d1d9;
+}
+.qbar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--panel2);
+  overflow: hidden;
+}
+.qbar i {
+  display: block;
+  height: 100%;
+  width: 40%;
+  background: var(--accent);
+  animation: qslide 1.2s ease-in-out infinite;
+}
+@keyframes qslide {
+  0% {
+    margin-left: -40%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+

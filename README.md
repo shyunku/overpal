@@ -31,6 +31,8 @@ Real-time base storage data for a Palworld dedicated server, shown as an in-game
 
 Release build: `cd app && pnpm tauri build` (from a Visual Studio developer prompt) writes `app/src-tauri/target/release/overpal.exe`, a single exe with the screens built in, and an installer `app/src-tauri/target/release/bundle/nsis/Overpal_<version>_x64-setup.exe` (per-user, no admin rights). Started without a config file it opens the profile window; with `overpal.config.json` next to it (or `--config`) it starts that config straight away.
 
+Every release raises the version first (patch number for fixes and small changes), in `app/src-tauri/tauri.conf.json`, `app/src-tauri/Cargo.toml` and `app/package.json`. The title bar shows it.
+
 Development: `cd app && pnpm install && pnpm tauri dev`. On Windows, run it from a Visual Studio developer prompt (`vcvars64.bat`); see `docs/cautions.md`.
 
 ## Known risks
