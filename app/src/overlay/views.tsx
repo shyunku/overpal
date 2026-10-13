@@ -790,8 +790,8 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
               <svg className="mk fan" viewBox="-1 -1 2 2" style={{ left: half, top: half, width: MINIMAP_SIZE, height: MINIMAP_SIZE, transform: `translate(-50%, -50%) rotate(${heading}rad)` }}>
                 <defs>
                   <radialGradient id="fan-fill" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stopColor="rgba(88, 166, 255, 0.2)" />
-                    <stop offset="1" stopColor="rgba(88, 166, 255, 0.04)" />
+                    <stop offset="0" stopColor="rgba(88, 166, 255, 0.4)" />
+                    <stop offset="1" stopColor="rgba(88, 166, 255, 0.06)" />
                   </radialGradient>
                 </defs>
                 <path d={`M0 0 L${-Math.sin(FAN / 2)} ${-Math.cos(FAN / 2)} A1 1 0 0 1 ${Math.sin(FAN / 2)} ${-Math.cos(FAN / 2)} Z`} fill="url(#fan-fill)" />

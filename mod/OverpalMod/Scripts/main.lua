@@ -173,6 +173,10 @@ local function collect_modules()
     return by_container
 end
 
+-- production building's model by buildObjectId, filled by the full scan: the fast tick re-reads
+-- what is left to make when that building's storage changes (else "made" moves on its own)
+local production_models = {}
+
 -- Building entry for the main window's "mine" structures: id, name given in game, location,
 -- guild, and for production buildings what they make and how far along it is.
 -- `progress`: work progress by concrete model address (work_progress_by_model).
@@ -183,6 +187,7 @@ local function building_entry(a, id, model, location, custom_name, progress)
         local recipe = concrete.CurrentRecipeId:ToString()
         if recipe ~= "None" then
             local w = progress[concrete:GetAddress()]
+            production_models[id] = concrete
             entry.production = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
@@ -212,6 +217,7 @@ local LOCATED_ACTOR_CLASSES = { "PalBuildObject", "PalMapObjectCommonDropItem3D"
 
 -- Also returns the guild buildings (building_entry), read in the same pass over the actors.
 local function collect_actor_locations()
+    production_models = {}
     local by_model = {}
     local buildings = {}
     local progress = work_progress_by_model()
@@ -286,7 +292,7 @@ end
 
 -- ---------------------------------------------------------------- change push
 -- The last full scan, kept so a single container can be refreshed without scanning again.
-local current = { storages = {}, byId = {}, objects = {}, buildings = {} }
+local current = { storages = {}, byId = {}, objects = {}, buildings = {}, buildingsById = {} }
 -- container ids flagged by the update hook since the last fast tick
 local dirty = {}
 local hooked = false
@@ -300,7 +306,9 @@ end
 local function set_current(storages, objects, buildings)
     local by_id = {}
     for _, s in ipairs(storages) do by_id[s.containerId] = s end
-    current = { storages = storages, byId = by_id, objects = objects, buildings = buildings }
+    local buildings_by_id = {}
+    for _, b in ipairs(buildings) do buildings_by_id[b.buildObjectId] = b end
+    current = { storages = storages, byId = by_id, objects = objects, buildings = buildings, buildingsById = buildings_by_id }
 end
 
 local function try_hook()
@@ -328,6 +336,17 @@ local function fast_tick()
             if ok and to_json(items) ~= to_json(entry.items) then
                 entry.items = items
                 changed = true
+                -- a production building's storage: the order's counts moved with it
+                local b = entry.buildObjectId and current.buildingsById[entry.buildObjectId]
+                local model = entry.buildObjectId and production_models[entry.buildObjectId]
+                if b and b.production and model then
+                    pcall(function()
+                        if model:IsValid() then
+                            b.production.requested = model.RequestedProductNum
+                            b.production.remain = model.RemainProductNum
+                        end
+                    end)
+                end
             end
         end
     end
