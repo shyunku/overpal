@@ -51,6 +51,18 @@
 - 친구와 할 때는 그 시점의 A로 위 과정을 다시 한다. 그 뒤로 A를 플레이하면 두 월드가 갈라진다.
 - 지도 밝힌 기록은 서버가 아니라 각 플레이어 PC의 `SaveGames\<SteamID>\<월드 ID>\LocalData.sav`에 있다. 전용 서버의 월드 ID가 협동 월드와 같으면, 호스트가 서버에 처음 접속할 때 협동 월드 폴더의 `LocalData.sav`를 새것으로 덮어써 지도가 비어 보인다(손님이던 친구는 그대로 이어진다). 옮기기 전에 백업해 두고, 게임을 끈 상태에서 원래 파일을 다시 넣으면 돌아온다(2026-10-12 확인).
 
+## 서버 환경 (2026-10-13)
+
+| | 위치 | 월드 ID | 용도 |
+| --- | --- | --- | --- |
+| A | 이 PC 협동 세이브 `SaveGames\<SteamID>\FF88CE01…` | `FF88CE01…` | 원본 보관, 더 플레이하지 않음 |
+| B | `E:\Games\Steam\steamapps\common\PalServer` | `7EEC10A2940A4812ADCE889EF63DB5C2` | 테스트. 개발 앱(`.local/palhelper.config.json`)과 `redeploy.ps1` 기본값 |
+| C | `E:\Games\Palworld\servers\Pyundle261012-fork` | `FF88CE01…` | 친구와 하는 실제 서버. 앱은 `mod_apps\host`, 친구용은 `mod_appsriends\<이름>` |
+
+- B와 C는 포트(8211, 8212, 17993, 17994)가 같아 동시에 켤 수 없다.
+- B는 C와 지도 기록(`LocalData.sav`)이 섞이지 않게 월드를 새 ID 폴더로 복사해 쓴다(원래 `FF88CE01…` 폴더는 B에 그대로 있다).
+- 모드는 B에서 확인한 뒤 `redeploy.ps1 -Server <C 경로>`로 C에 넣는다.
+
 ## 화면 개발
 
 - 패치 스크립트로 파일을 여러 번 나눠 쓰면 vite가 중간 상태를 핫 리로드해 창이 오류 상태로 남을 수 있다(예: `match is not defined`). 앱만 재시작해서는 풀리지 않았고 vite를 다시 띄워야 했다.
