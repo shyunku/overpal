@@ -181,6 +181,16 @@
   .fchk span { display:inline-flex; align-items:center; gap:4px; }
   .fchk .ok { color:#7ee787; } .fchk .no { color:#ffa198; }
   .fchk .ic { width:12px; height:12px; }
+  .gscard { display:flex; align-items:center; gap:14px; padding:14px 16px; margin-bottom:12px; border-radius:12px; border:1px solid var(--line); background:linear-gradient(180deg,#1e2430,#1a1f28); }
+  .gsicon { width:40px; height:40px; border-radius:10px; display:grid; place-items:center; background:var(--panel2); color:var(--accent); flex:none; }
+  .gsicon .ic { translate:none; }
+  .gsmain { flex:1; min-width:0; }
+  .gstitle { font-size:12px; color:var(--muted); display:flex; align-items:baseline; gap:8px; margin-bottom:6px; }
+  .gspath { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gscard .big { font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .gscard .sub { color:var(--muted); font-size:12px; margin-top:4px; line-height:1.5; }
+  .gsact .btn { height:38px; min-width:96px; }
+  .btn.danger-fill { background:#c9473a; border-color:#c9473a; color:#fff; }
   aside h3 { margin:16px 0 6px; font-size:14px; } aside h3:first-child { margin-top:0; }
   aside ul { margin:0; padding-left:18px; color:#c9d1d9; line-height:1.6; font-size:12.5px; }
   aside .decide li { color:#ffd88a; }
@@ -193,6 +203,7 @@
       <div class="group" id="g-tab"><span>화면</span></div>
       <div class="group" id="g-mode"><span>모드</span></div>
       <div class="group" id="g-state"><span>상황</span></div>
+      <div class="group" id="g-gs"><span>게임 서버</span></div>
     </div>
     <div class="flow">흐름: <b>① 프로필 창</b> → 저장된 프로필(시작 모드 있음) → <b>③ Home</b> / New Profile 또는 '매번 선택' → <b>② 모드 선택</b> → <b>③ Home</b></div>
     <div class="hint">실제 기본 창 크기(912×702). 오른쪽 아래 모서리를 끌면 크기 조절됨(최소 760×540). 이름·주소는 예시. '시작 화면'에서 모드 카드, 나머지는 왼쪽 메뉴도 눌러 볼 수 있음.</div>
@@ -213,6 +224,7 @@
       <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
       <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
       <li>처음 실행(프로필 없음)이면 드롭다운에 New Profile만 있음</li>
+      <li><b>게임 서버 켜기/끄기</b>(홈, 서버가 있는 모드만): 홈 맨 위 '게임 서버' 카드에 상태(켜짐/켜는 중/끄는 중/꺼짐)·실행 시간·접속 인원과 켜기/끄기 버튼. 끄기는 확인 창을 거쳐 월드를 저장한 뒤 정상 종료(관리 API, 비밀번호는 서버 설정 파일에서 읽음). 켜기는 그 폴더의 PalServer.exe를 따로 띄움. PalHelper를 꺼도 게임 서버는 계속 돎. 아래 상태줄도 꺼짐/켜는 중/끄는 중을 보여줌</li>
       <li><b>게임 서버 폴더 자동 찾기</b>(설정, 서버가 있는 모드만): 버튼을 누르면 스팀 라이브러리(여러 개면 전부)의 steamapps\common\PalServer를 찾아 후보로 보여줌. 후보마다 모드·PalDefender 확인 여부. 누르면 그 폴더로 채워짐. 스팀 밖에 둔 서버는 '찾아보기'로 고름</li>
       <li>프로필은 시작할 때만 고름. Home에서는 프로필 창이 다시 뜨지 않고 프로필을 바꿀 수 없음(바꾸려면 앱을 다시 실행). Home의 설정 메뉴는 고른 프로필의 설정을 고침</li>
       <li>화면 문구는 존댓말(제품 문구). 이 옆 설명만 반말</li>
@@ -234,10 +246,11 @@
   </aside>
 </div>
 <script>
-const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false, finder: false };
+const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false, finder: false, gs: "on", gsConfirm: false };
 const opts = {
   tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 홈"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
   mode: [["both", "both"], ["server", "server"], ["client", "client"]],
+  gs: [["on", "켜짐"], ["starting", "켜는 중"], ["stopping", "끄는 중"], ["off", "꺼짐"]],
   state: [["ok", "정상"], ["gameoff", "게임 서버 꺼짐"], ["first", "처음 실행(프로필 없음)"], ["dirty", "설정 바꾼 뒤(저장 전)"]],
 };
 for (const [k, list] of Object.entries(opts)) {
@@ -280,6 +293,7 @@ const IC = {
   sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
   file: '<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+  power: '<path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/>',
 };
 const ic = (n, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24">${IC[n]}</svg>`;
 const PROFILES = [
@@ -360,6 +374,30 @@ function launch() {
     <div class="row launch-foot"><span class="muted" style="flex:1;font-size:12px">${ready ? "마지막으로 사용한 설정으로 시작합니다." : "시작 전에 이 모드의 설정을 입력해야 합니다."}</span>${ready ? `<button class="btn">${ic("sliders")}설정 확인</button>` : ""}<button class="btn primary">${ic("play")}${ready ? "시작" : "설정 후 시작"}</button></div></div>`;
 }
 
+function gameServerCard() {
+  const g = st.gs;
+  const dot = g === "on" ? "" : g === "off" ? "off" : "warn";
+  const big = { on: "켜짐", starting: "켜는 중…", stopping: "저장 후 끄는 중…", off: "꺼짐" }[g];
+  const sub = {
+    on: "실행 시간 2시간 14분 · 접속 2명 / 4명 · 서버 FPS 60",
+    starting: "게임 서버를 시작했습니다. 접속을 받을 수 있게 되면 '켜짐'으로 바뀝니다.",
+    stopping: "월드를 저장했습니다. 서버가 종료되기를 기다리는 중입니다.",
+    off: "게임 서버가 꺼져 있습니다.",
+  }[g];
+  const btn = g === "on" ? `<button class="btn danger" data-gs="stop">${ic("power")}끄기</button>`
+    : g === "off" ? `<button class="btn primary" data-gs="start">${ic("play")}켜기</button>`
+    : `<button class="btn" disabled style="opacity:.45">${ic("refresh")}${g === "starting" ? "켜는 중" : "끄는 중"}</button>`;
+  return `<div class="gscard">
+      <div class="gsicon">${ic("server", "lg")}</div>
+      <div class="gsmain"><div class="gstitle">게임 서버 <span class="gspath" title="E:\\Games\\Palworld\\servers\\Pyundle261012-fork">…\\servers\\Pyundle261012-fork</span></div>
+        <div class="big"><span class="dot ${dot}"></span>${big}</div><div class="sub">${sub}</div></div>
+      <div class="gsact">${btn}</div>
+    </div>
+    ${st.gsConfirm ? `<div class="modal-back"><div class="modal"><h3>${ic("power", "lg")} 게임 서버 끄기</h3>
+      <p style="margin:0 0 14px;font-size:13px;line-height:1.6;color:#c9d1d9">월드를 저장한 뒤 게임 서버를 끕니다.<br>접속 중인 플레이어 2명의 연결이 끊깁니다.</p>
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-gs="cancel">취소</button><button class="btn primary danger-fill" data-gs="stopok">${ic("power")}저장 후 끄기</button></div></div></div>` : ""}`;
+}
+
 function status() {
   const off = st.state === "gameoff";
   const cards = [];
@@ -379,6 +417,7 @@ function status() {
     <div class="w">${ic("zap")}23:11:53  게임 서버 지연 806ms (모드 스캔 중)</div>
     <div class="w">${ic("zap")}23:10:21  게임 서버 지연 142ms</div></div>`;
   return `<h2>홈</h2><p class="lead">${st.mode} 모드(${MODE_TEXT[st.mode]})로 실행 중입니다.</p>
+    ${has("server") ? gameServerCard() : ""}
     ${off ? `<div class="banner warn">${ic("alert", "lg")}<span>게임 서버에 연결할 수 없습니다.<br>게임 서버가 켜지면 자동으로 다시 연결됩니다.</span></div>` : ""}
     <div class="cards">${cards.join("")}</div>${players}${recent}`;
 }
@@ -438,7 +477,10 @@ function statusbar() {
   const app = st.mode === "client"
     ? `<span class="si">${ic("server")}<span class="dot"></span>앱 서버 <b>연결됨</b> 203.0.113.24:17994</span>`
     : `<span class="si">${ic("server")}<span class="dot"></span>앱 서버 <b>실행 중</b> 0.0.0.0:17994</span>`;
-  const game = `<span class="si">${ic("game")}<span class="dot ${off ? "bad" : ""}"></span>게임 서버 <b>${off ? "연결 안 됨" : "연결됨"}</b>${off ? "" : " 접속 2명"}</span>`;
+  const gsOff = has("server") && st.gs !== "on";
+  const game = gsOff
+    ? `<span class="si">${ic("game")}<span class="dot ${st.gs === "off" ? "off" : "warn"}"></span>게임 서버 <b>${{ off: "꺼짐", starting: "켜는 중", stopping: "끄는 중" }[st.gs]}</b></span>`
+    : `<span class="si">${ic("game")}<span class="dot ${off ? "bad" : ""}"></span>게임 서버 <b>${off ? "연결 안 됨" : "연결됨"}</b>${off ? "" : " 접속 2명"}</span>`;
   return `<div class="statusbar">${app}${game}<span class="sp"></span><span class="si">${ic(st.mode === "server" ? "server" : st.mode === "client" ? "monitor" : "sliders")}${st.mode} 모드</span></div>`;
 }
 
@@ -462,6 +504,14 @@ function render() {
   if (size && !isProfile && !prev.classList.contains("pw")) Object.assign(w.querySelector(".win").style, { width: size.w + "px", height: size.h + "px" });
   w.querySelectorAll("[data-prof]").forEach((e) => (e.onclick = () => { st.prof = Number(e.dataset.prof); st.dd = false; render(); }));
   w.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { const pf = PROFILES[st.prof]; if (!pf || pf.start === "ask") st.tab = "launch"; else { st.mode = pf.start; st.tab = "status"; } st.dd = false; render(); }));
+  w.querySelectorAll("[data-gs]").forEach((e) => (e.onclick = () => {
+    const a = e.dataset.gs;
+    if (a === "stop") st.gsConfirm = true;
+    if (a === "cancel") st.gsConfirm = false;
+    if (a === "stopok") { st.gsConfirm = false; st.gs = "stopping"; }
+    if (a === "start") st.gs = "starting";
+    render();
+  }));
   w.querySelectorAll("[data-find]").forEach((e) => (e.onclick = () => { st.finder = e.dataset.find === "1"; render(); }));
   w.querySelectorAll("[data-pickdir]").forEach((e) => (e.onclick = () => { st.picked = FOUND[Number(e.dataset.pickdir)].path; st.finder = false; render(); }));
   w.querySelectorAll("[data-dd]").forEach((e) => (e.onclick = () => { st.dd = !st.dd; render(); }));
