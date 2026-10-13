@@ -1,5 +1,6 @@
 mod applog;
 mod config;
+mod gameserver;
 mod gui;
 mod hotkeys;
 mod overlay;
@@ -108,6 +109,11 @@ pub fn run() {
             gui::profile_update,
             gui::detect_server_dir,
             gui::find_game_servers,
+            gui::gs_status,
+            gui::gs_start,
+            gui::gs_stop,
+            gui::gs_log_follow,
+            gui::gs_log_dir,
             gui::players_in,
             gui::pick_folder,
             gui::open_path,

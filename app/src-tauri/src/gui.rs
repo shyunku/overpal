@@ -355,6 +355,53 @@ pub fn open_path(path: String) -> Result<(), String> {
     std::process::Command::new("explorer").arg(path).spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
+// ---------------------------------------------------------------- commands: game server
+
+/// The game server folder of this run: the profile's, or from a config file's mod output folder.
+fn game_server_dir(session: &tauri::State<'_, Session>) -> Result<PathBuf, String> {
+    let s = session.0.lock().unwrap();
+    if let Some(dir) = s.profile.as_ref().and_then(|p| p.server.as_ref()).map(|x| x.game_server_dir.clone()) {
+        return Ok(dir);
+    }
+    // ...\Pal\Binaries\Win64\ue4ss\Mods\<mod>
+    s.legacy
+        .as_ref()
+        .and_then(|(_, c)| c.server.as_ref())
+        .and_then(|sc| sc.mod_output_dir.ancestors().nth(6).map(|p| p.to_path_buf()))
+        .ok_or_else(|| "게임 서버 폴더가 설정되지 않았습니다.".into())
+}
+
+#[tauri::command]
+pub async fn gs_status(session: tauri::State<'_, Session>) -> Result<crate::gameserver::GameServerStatus, String> {
+    let dir = game_server_dir(&session)?;
+    Ok(crate::gameserver::status(&dir).await)
+}
+
+#[tauri::command]
+pub async fn gs_start(session: tauri::State<'_, Session>) -> Result<(), String> {
+    crate::gameserver::start(&game_server_dir(&session)?)
+}
+
+#[tauri::command]
+pub async fn gs_stop(session: tauri::State<'_, Session>) -> Result<(), String> {
+    let dir = game_server_dir(&session)?;
+    crate::gameserver::stop(&dir).await
+}
+
+/// Starts following a server log ("pd" or "mod"); lines arrive as `gs-log` events.
+#[tauri::command]
+pub fn gs_log_follow(app: AppHandle, session: tauri::State<'_, Session>, source: String) -> Result<(), String> {
+    crate::gameserver::follow(app, game_server_dir(&session)?, source);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn gs_log_dir(session: tauri::State<'_, Session>, source: String) -> Result<String, String> {
+    let dir = game_server_dir(&session)?;
+    let sub = if source == "mod" { r"Pal\Binaries\Win64\ue4ss" } else { r"Pal\Binaries\Win64\PalDefender\Logs" };
+    Ok(dir.join(sub).display().to_string())
+}
+
 // ---------------------------------------------------------------- commands: friends
 
 /// This PC's address on the internet (friends' configs point here).

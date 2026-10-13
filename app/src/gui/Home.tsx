@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PdPlayers } from "../data/paldefender";
 import type { ClientConfig, ModStatus } from "../types";
 import { Icon, type IconName } from "./icons";
+import { GameServerView, gsState } from "./GameServer";
 import { api, errorText, MODE_NAME, shortPath, type Detected, type FoundServer, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
 
 // ---------------------------------------------------------------- data from the app server
@@ -183,7 +184,7 @@ function ModeSelect({ profile, error, onStart, onSettings }: { profile: Profile;
 
 // ---------------------------------------------------------------- running
 
-type Tab = "home" | "log" | "friends" | "settings";
+type Tab = "home" | "gameserver" | "log" | "friends" | "settings";
 
 function Running({ session, setSession }: { session: SessionView; setSession: (s: SessionView) => void }) {
   const [tab, setTab] = useState<Tab>("home");
@@ -193,8 +194,11 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
   const mod = usePoll(cfg ? () => getJson<ModStatus>(cfg, "/api/mod-status") : null, 5000);
   const players = usePoll(cfg ? () => getJson<PdPlayers>(cfg, "/api/players") : null, 5000);
   const health = usePoll(cfg && mode === "client" ? () => getJson<{ ok: boolean }>(cfg, "/api/health") : null, 5000);
+  const gsPoll = usePoll(hasServer(mode) ? () => api.gsStatus() : null, 2000);
+  const gs = gsPoll.value;
   const tabs: [Tab, string, IconName][] = [
     ["home", "홈", "home"],
+    ...(hasServer(mode) ? ([["gameserver", "게임 서버", "server"]] as [Tab, string, IconName][]) : []),
     ["log", "로그", "log"],
     ...(hasServer(mode) ? ([["friends", "친구", "users"]] as [Tab, string, IconName][]) : []),
     ["settings", "설정", "settings"],
@@ -216,7 +220,15 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
     );
   const pdOk = hasServer(mode) ? host.value?.palDefender.ok : players.value ? true : players.failed ? false : null;
   const online = hasServer(mode) ? host.value?.palDefender.online : players.value?.Players.filter((p) => p.Status === "Online").length;
-  const game = (
+  // server modes: the game server's own state first (off, starting, stopping)
+  const gst = hasServer(mode) ? gsState(gs) : null;
+  const game = gst && gst !== "on" && gst !== "norest" ? (
+    <span className="si">
+      <Icon name="game" />
+      <span className={`dot ${gst === "off" ? "off" : "warn"}`} />
+      게임 서버 <b>{gst === "off" ? "꺼짐" : gst === "starting" ? "켜는 중" : "끄는 중"}</b>
+    </span>
+  ) : (
     <span className="si">
       <Icon name="game" />
       <span className={`dot ${pdOk ? "" : pdOk === false ? "bad" : "off"}`} />
@@ -238,6 +250,7 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
       <div className="mainwrap">
         <div className={`main ${tab === "log" ? "fill" : ""}`}>
           {tab === "home" && <HomeView session={session} host={host.value} mod={mod.value} modFailed={mod.failed} players={players.value} pdOk={pdOk ?? null} onLog={() => setTab("log")} />}
+          {tab === "gameserver" && <GameServerView gs={gs} onChanged={() => api.gsStatus().catch(() => null)} />}
           {tab === "log" && <LogView />}
           {tab === "friends" && <FriendsView session={session} host={host.value} players={players.value} onProfile={(p) => setSession({ ...session, profile: p })} />}
           {tab === "settings" && mode && <SettingsView session={session} mode={mode} onSaved={(p) => setSession({ ...session, profile: p })} />}

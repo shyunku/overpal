@@ -51,6 +51,19 @@ export interface FoundServer {
   hasPalDefender: boolean;
 }
 
+export interface GameServerStatus {
+  dir: string;
+  running: boolean;
+  restEnabled: boolean;
+  restOk: boolean;
+  version: string | null;
+  serverName: string | null;
+  fps: number | null;
+  players: number | null;
+  maxPlayers: number | null;
+  uptime: number | null;
+}
+
 export interface LogLine {
   at: string;
   level: "info" | "warn" | "error";
@@ -68,6 +81,11 @@ export const api = {
   save: (profile: Profile) => invoke<boolean>("profile_update", { profile }),
   detect: (dir: string) => invoke<Detected>("detect_server_dir", { dir }),
   findServers: () => invoke<FoundServer[]>("find_game_servers"),
+  gsStatus: () => invoke<GameServerStatus>("gs_status"),
+  gsStart: () => invoke<void>("gs_start"),
+  gsStop: () => invoke<void>("gs_stop"),
+  gsLogFollow: (source: "pd" | "mod") => invoke<void>("gs_log_follow", { source }),
+  gsLogDir: (source: "pd" | "mod") => invoke<string>("gs_log_dir", { source }),
   playersIn: (dir: string) => invoke<string[]>("players_in", { dir }),
   pickFolder: () => invoke<string | null>("pick_folder"),
   openPath: (path: string) => invoke<void>("open_path", { path }),
