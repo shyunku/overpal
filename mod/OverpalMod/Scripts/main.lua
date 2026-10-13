@@ -24,6 +24,12 @@ local BUILD_NET_UPDATE_HZ = 20
 -- more late, i.e. the server did nothing else for that long. Lines go to stalls.txt
 -- ("HH:MM:SS <late ms>[ scan]", "scan" when this mod's full scan ran in that time); the app
 -- server prints them as warnings.
+-- Player positions and camera directions go to positions.json this often (only when changed).
+-- The controllers are found by the full scan (FindAllOf takes about 44 ms); reading them costs
+-- about 10 us per player.
+local POSITIONS_MS = 100
+local POSITIONS_FILE = "positions.json"
+
 local STALL_WATCH_MS = 50
 local STALL_WARN_MS = 50
 local STALL_FILE = "stalls.txt"
@@ -422,6 +428,44 @@ local function raise_build_rate()
     return true
 end
 
+-- ---------------------------------------------------------------- player positions
+-- { controller, uid } of the connected players, refreshed by the full scan
+local player_controllers = {}
+local last_positions = nil
+
+local function collect_players()
+    local list = {}
+    for _, pc in ipairs(FindAllOf("PalPlayerController") or {}) do
+        if pc:IsValid() then
+            local uid = try("player uid", function()
+                local ps = pc.PlayerState
+                return ps and ps:IsValid() and guid_of(ps.PlayerUId) or nil
+            end)
+            if uid then list[#list + 1] = { pc = pc, uid = uid } end
+        end
+    end
+    player_controllers = list
+end
+
+-- uid, world position (cm) and camera yaw (degrees, 0 = world +X, 90 = +Y) of each player
+local function write_positions()
+    local players = {}
+    for _, p in ipairs(player_controllers) do
+        pcall(function()
+            if not p.pc:IsValid() then return end
+            local pawn = p.pc.Pawn
+            if not pawn or not pawn:IsValid() then return end
+            local l = pawn:K2_GetActorLocation()
+            local yaw = p.pc.ControlRotation.Yaw
+            players[#players + 1] = ('{"uid":"%s","x":%.0f,"y":%.0f,"z":%.0f,"yaw":%.1f}'):format(p.uid, l.X, l.Y, l.Z, yaw)
+        end)
+    end
+    local text = '{"players":[' .. table.concat(players, ",") .. "]}"
+    if text == last_positions then return end
+    last_positions = text
+    write_file(POSITIONS_FILE, text)
+end
+
 -- end of the last full scan (os.clock), to tell the mod's own stalls apart
 local scan_ended = -math.huge
 
@@ -437,6 +481,7 @@ local function tick()
         local located, buildings = collect_actor_locations()
         local storages, raw, objects = collect_storages(modules, located)
         set_current(storages, objects, buildings)
+        collect_players()
         dirty = {}
         write_storage()
         -- the hooked class exists once the world is loaded
@@ -490,5 +535,9 @@ ExecuteInGameThreadWithDelay(FIRST_DELAY_MS, function()
     LoopInGameThreadWithDelay(FAST_MS, function()
         local ok, err = pcall(fast_tick)
         if not ok then print("[OverpalMod] fast tick failed: " .. tostring(err)) end
+    end)
+    LoopInGameThreadWithDelay(POSITIONS_MS, function()
+        local ok, err = pcall(write_positions)
+        if not ok then print("[OverpalMod] positions failed: " .. tostring(err)) end
     end)
 end)

@@ -3,10 +3,25 @@
 
 import type { BaseStorage, ClientConfig } from "../types";
 
+/** a player's position (world cm) and camera yaw (degrees, 0 = world +X) from the mod */
+export interface LivePosition {
+  uid: string;
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+}
+
 const RETRY_MS = 2000;
 
 /** Calls `onStorage` with every new version until `signal` aborts; reconnects on errors. */
-export async function streamStorage(cfg: ClientConfig, onStorage: (s: BaseStorage) => void, onDown: (e: unknown) => void, signal: AbortSignal) {
+export async function streamStorage(
+  cfg: ClientConfig,
+  onStorage: (s: BaseStorage) => void,
+  onDown: (e: unknown) => void,
+  signal: AbortSignal,
+  onPositions?: (p: LivePosition[]) => void,
+) {
   while (!signal.aborted) {
     try {
       const res = await fetch(`${cfg.serverUrl.replace(/\/$/, "")}/api/events`, {
@@ -32,6 +47,7 @@ export async function streamStorage(cfg: ClientConfig, onStorage: (s: BaseStorag
             else if (line.startsWith("data:")) data.push(line.slice(5).replace(/^ /, ""));
           }
           if (event === "storage" && data.length) onStorage(JSON.parse(data.join("\n")) as BaseStorage);
+          else if (event === "positions" && data.length && onPositions) onPositions((JSON.parse(data.join("\n")) as { players: LivePosition[] }).players);
         }
       }
       throw new Error("events stream ended");

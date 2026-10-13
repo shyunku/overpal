@@ -6,10 +6,11 @@ import type { PdGuilds, PdInventory, PdPlayers, Vec3 } from "./paldefender";
 
 /**
  * Max horizontal distance (world units, 100 = 1 m) between a storage and a camp
- * for the storage to count as part of that base.
- * Assumption: the in-game base radius was not measured yet.
+ * for the storage to count as part of that base: the game's base area radius
+ * (PalBaseCampModel.AreaRange and the BaseCampAreaRange setting, both 3500, read on the server
+ * 2026-10-13; it was 5000 by guess before).
  */
-export const BASE_RADIUS = 5000;
+export const BASE_RADIUS = 3500;
 
 export interface ItemSource {
   containerId: string;
@@ -50,6 +51,8 @@ export interface PlayerView {
   online: boolean;
   worldPos: Vec3;
   mapPos: Vec3;
+  /** camera direction (degrees, 0 = world +X = map north, clockwise) when the mod sends it */
+  yaw?: number;
 }
 
 export interface Snapshot {

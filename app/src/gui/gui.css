@@ -115,8 +115,9 @@ textarea {
 }
 
 /* ---------------------------------------------------------------- icons
-   Text in this font stack draws about 1.5 px above its line box center, so an icon centered on
-   the line looks low; icons next to text are lifted (the dropdown trims its text instead). */
+   Icons are centered on the line box. Measured on captures (2026-10-13), that lines them up with
+   Hangul labels; an earlier 1.5 px lift (for Latin text, which draws higher) left them 1-2 px
+   above the Hangul next to them. The status bar's small text still wants the lift. */
 .ic {
   width: 15px;
   height: 15px;
@@ -127,7 +128,16 @@ textarea {
   stroke-linejoin: round;
   flex: none;
   vertical-align: -3px;
+}
+/* small or number-heavy lines still sit higher than the icon (measured; icon shapes vary by
+   about 1 px, so these are middle values) */
+.statusbar .ic,
+.banner > .ic {
   translate: 0 -1.5px;
+}
+.card > * > .ic,
+.log .ic {
+  translate: 0 -1px;
 }
 .ic.lg {
   width: 18px;
@@ -661,7 +671,9 @@ th.r {
   padding: 8px 10px;
   font-family: Consolas, "Noto Sans KR", monospace;
   font-size: 12px;
-  line-height: 1.7;
+  /* whole pixels (was 1.7 = 20.4 px): rows at fractional positions put the 13 px icons a pixel
+     above or below their text depending on the row */
+  line-height: 21px;
   user-select: text;
 }
 .log div {

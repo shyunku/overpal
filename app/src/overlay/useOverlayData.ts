@@ -3,7 +3,7 @@ import { fetchGuilds, fetchInventory, fetchModStatus, fetchPlayers, loadClientCo
 import type { PdGuilds, PdInventory, PdPlayers } from "../data/paldefender";
 import { baseAt, buildSnapshot, inventoryOnly, inventoryStorage, withInventory, type BaseView, type GuildView, type PlayerView, type Snapshot } from "../data/snapshot";
 import type { BaseStorage, ClientConfig, ModStatus } from "../types";
-import { streamStorage } from "./storageStream";
+import { streamStorage, type LivePosition } from "./storageStream";
 
 /** player positions */
 const PLAYERS_MS = 500;
@@ -62,7 +62,19 @@ function every(ms: number, fn: () => Promise<void>): () => void {
   };
 }
 
-export function useOverlayData(playersMs = PLAYERS_MS): OverlayData {
+/** while the mod sends positions, PalDefender is asked for the player list only this often */
+const PLAYERS_WITH_LIVE_MS = 3000;
+/** live positions newer than this count as flowing (the mod writes only on change) */
+const LIVE_FRESH_MS = 5000;
+
+/** PalDefender map coordinates of a world position (its MapLocation, see mapcoords.ts) */
+const mapOf = (p: LivePosition) => ({ x: (p.y - 158000) / 459, y: (p.x + 123888) / 459, z: p.z });
+
+/**
+ * `livePositionsMs`: how often live positions (mod, 0.1 s) reach this window; the minimap takes
+ * every one (0), other windows only need the player's place now and then.
+ */
+export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): OverlayData {
   const [cfg, setCfg] = useState<ClientConfig | null>(null);
   const [storage, setStorage] = useState<BaseStorage | null>(null);
   const [status, setStatus] = useState<ModStatus | null>(null);
@@ -74,6 +86,9 @@ export function useOverlayData(playersMs = PLAYERS_MS): OverlayData {
   const [now, setNow] = useState(() => Date.now());
   /** the viewing player's uid, read by the stream callback */
   const meUidRef = useRef<string | undefined>(undefined);
+  const [live, setLive] = useState<Map<string, LivePosition> | null>(null);
+  const liveAt = useRef(0);
+  const livePending = useRef<LivePosition[] | null>(null);
 
   useEffect(() => {
     loadClientConfig().then(setCfg, (e) => setError(String(e)));
@@ -103,10 +118,28 @@ export function useOverlayData(playersMs = PLAYERS_MS): OverlayData {
         setError(String(e));
       },
       abort.signal,
+      (list) => {
+        // applied at most every livePositionsMs (the latest one wins)
+        const first = livePending.current === null;
+        livePending.current = list;
+        const apply = () => {
+          const l = livePending.current;
+          livePending.current = null;
+          if (l && !abort.signal.aborted) setLive(new Map(l.map((p) => [p.uid, p])));
+        };
+        if (!livePositionsMs) apply();
+        else if (first) window.setTimeout(apply, livePositionsMs);
+        liveAt.current = Date.now();
+      },
     );
+    let playersAt = 0;
     const stops = [
-      // PalDefender is optional
-      every(playersMs, () => fetchPlayers(cfg).then(setPlayers)),
+      // PalDefender is optional; while the mod sends positions only the list (names, online) is needed
+      every(playersMs, async () => {
+        if (Date.now() - liveAt.current < LIVE_FRESH_MS && Date.now() - playersAt < PLAYERS_WITH_LIVE_MS) return;
+        playersAt = Date.now();
+        await fetchPlayers(cfg).then(setPlayers);
+      }),
       every(GUILDS_MS, () => fetchGuilds(cfg).then(setGuilds)),
       every(STATUS_MS, () => fetchModStatus(cfg).then(setStatus)),
       // keeps the "n seconds ago" text and the stale check moving
@@ -118,7 +151,16 @@ export function useOverlayData(playersMs = PLAYERS_MS): OverlayData {
     };
   }, [cfg, playersMs]);
 
-  const snapshot = useMemo(() => (storage ? buildSnapshot(storage, guilds, players) : null), [storage, guilds, players]);
+  const built = useMemo(() => (storage ? buildSnapshot(storage, guilds, players) : null), [storage, guilds, players]);
+  // live positions over the ones from PalDefender (cheap: the snapshot is not rebuilt for them)
+  const snapshot = useMemo(() => {
+    if (!built || !live) return built;
+    const players = built.players.map((p) => {
+      const l = live.get(p.uid);
+      return l ? { ...p, worldPos: { x: l.x, y: l.y, z: l.z }, mapPos: mapOf(l), yaw: l.yaw } : p;
+    });
+    return { ...built, players };
+  }, [built, live]);
   const me = snapshot ? pickMe(snapshot.players, cfg) : null;
   const guild = snapshot ? (snapshot.guilds.find((g) => g.guildId === me?.guildId) ?? snapshot.guilds[0] ?? null) : null;
   const meUid = me?.uid;

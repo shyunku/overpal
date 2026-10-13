@@ -288,6 +288,7 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
 
 /** gap kept to the screen edges and to other overlay windows, and how far from it a window snaps (physical px) */
 const SNAP_GAP = 15;
+const SNAP_GAP_WINDOWS = 8;
 /** pointer travel (CSS px) before a press on a drag handle becomes a drag */
 const DRAG_START_PX = 4;
 const SNAP_RANGE = 15;
@@ -309,8 +310,8 @@ function snap(screen: ScreenInfo, others: [number, number, number, number][], x:
   const ys = [screen.y + SNAP_GAP, screen.y + screen.h - SNAP_GAP - h];
   for (const [ox, oy, ow, oh] of others) {
     // beside another window only where the two overlap on the other axis
-    if (oy < y + h && oy + oh > y) xs.push(ox + ow + SNAP_GAP, ox - SNAP_GAP - w);
-    if (ox < x + w && ox + ow > x) ys.push(oy + oh + SNAP_GAP, oy - SNAP_GAP - h);
+    if (oy < y + h && oy + oh > y) xs.push(ox + ow + SNAP_GAP_WINDOWS, ox - SNAP_GAP_WINDOWS - w);
+    if (ox < x + w && ox + ow > x) ys.push(oy + oh + SNAP_GAP_WINDOWS, oy - SNAP_GAP_WINDOWS - h);
   }
   return { x: nearest(x, xs), y: nearest(y, ys) };
 }

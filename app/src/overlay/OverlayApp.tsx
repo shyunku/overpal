@@ -19,7 +19,7 @@ export function OverlayApp({ view }: { view: ViewId | "tooltip" }) {
 
 function Panel({ view }: { view: ViewId }) {
   const [layout, setLayout] = useSharedLayout();
-  const data = useOverlayData(view === "minimap" ? MINIMAP_PLAYERS_MS : undefined);
+  const data = useOverlayData(view === "minimap" ? MINIMAP_PLAYERS_MS : undefined, view === "minimap" ? 0 : undefined);
   if (!layout) return null;
   const props = { layout, onLayout: setLayout, data };
   switch (view) {

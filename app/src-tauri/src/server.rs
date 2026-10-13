@@ -22,6 +22,9 @@ use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
 
 const STORAGE_FILE: &str = "base_storage.json";
+/// player positions and camera directions, written by the mod every 0.1 s while they change
+const POSITIONS_FILE: &str = "positions.json";
+const POSITIONS_WATCH_EVERY: Duration = Duration::from_millis(30);
 /// server stalls logged by the mod
 const STALL_FILE: &str = "stalls.txt";
 /// how often the mod output file is checked for a new version
@@ -81,7 +84,8 @@ struct AppState {
     http: reqwest::Client,
     pd_token: Option<String>,
     /// new contents of the mod output, for /api/events
-    storage_tx: broadcast::Sender<String>,
+    /// (event name, mod output file text) for the `events` stream
+    storage_tx: broadcast::Sender<(&'static str, String)>,
 }
 
 pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
@@ -100,8 +104,9 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
     let tokens = TOKENS.get_or_init(|| Arc::new(RwLock::new(Tokens::default()))).clone();
     *tokens.write().unwrap() = Tokens { list: cfg.access_tokens.clone(), names: cfg.token_names.clone() };
     let host = Arc::new(Mutex::new(HostState::default()));
-    let (storage_tx, _) = broadcast::channel(16);
-    spawn_storage_watcher(cfg.mod_output_dir.join(STORAGE_FILE), storage_tx.clone());
+    let (storage_tx, _) = broadcast::channel(64);
+    spawn_file_watcher(cfg.mod_output_dir.join(STORAGE_FILE), "storage", WATCH_EVERY, storage_tx.clone());
+    spawn_file_watcher(cfg.mod_output_dir.join(POSITIONS_FILE), "positions", POSITIONS_WATCH_EVERY, storage_tx.clone());
     spawn_stall_watcher(cfg.mod_output_dir.join(STALL_FILE), host.clone());
     let state = AppState { cfg: Arc::new(cfg), tokens, host, http: reqwest::Client::new(), pd_token, storage_tx };
     spawn_pd_monitor(state.clone());
@@ -296,7 +301,7 @@ fn spawn_stall_watcher(path: std::path::PathBuf, host: Arc<Mutex<HostState>>) {
 }
 
 /// Sends the mod output whenever the mod writes a new version.
-fn spawn_storage_watcher(path: std::path::PathBuf, tx: broadcast::Sender<String>) {
+fn spawn_file_watcher(path: std::path::PathBuf, event: &'static str, every: Duration, tx: broadcast::Sender<(&'static str, String)>) {
     tokio::spawn(async move {
         let mut last: Option<SystemTime> = None;
         loop {
@@ -306,17 +311,18 @@ fn spawn_storage_watcher(path: std::path::PathBuf, tx: broadcast::Sender<String>
                     if let Ok(text) = tokio::fs::read_to_string(&path).await {
                         last = Some(modified);
                         if tx.receiver_count() > 0 {
-                            let _ = tx.send(text);
+                            let _ = tx.send((event, text));
                         }
                     }
                 }
             }
-            tokio::time::sleep(WATCH_EVERY).await;
+            tokio::time::sleep(every).await;
         }
     });
 }
 
-/// Server-sent events: `storage` with the current mod output, then every new version.
+/// Server-sent events: `storage` with the current mod output, then every new version, and
+/// `positions` (players' positions and camera directions) as they change.
 async fn events(State(s): State<AppState>) -> Response {
     let rx = s.storage_tx.subscribe();
     let first = tokio::fs::read_to_string(s.cfg.mod_output_dir.join(STORAGE_FILE)).await.ok();
@@ -326,7 +332,7 @@ async fn events(State(s): State<AppState>) -> Response {
         }
         loop {
             match rx.recv().await {
-                Ok(text) => return Some((Ok(Event::default().event("storage").data(text)), (None, rx))),
+                Ok((event, text)) => return Some((Ok(Event::default().event(event).data(text)), (None, rx))),
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(broadcast::error::RecvError::Closed) => return None,
             }

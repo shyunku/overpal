@@ -690,7 +690,7 @@ const MINIMAP_FAR = 0.25;
 /** marker icons are drawn smaller below this */
 const MINIMAP_SMALL = 0.5;
 const ZOOM_TAG_MS = 1000;
-/** the server sends no facing; the heading follows movement of at least this much (world units) */
+/** without the mod's camera direction the heading follows movement of at least this much (world units) */
 const HEADING_MIN_MOVE = 100;
 /** width of the view fan in front of my arrow */
 const FAN = Math.PI / 3;
@@ -727,21 +727,27 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
     };
   }, []);
 
-  // heading (radians clockwise from north on the map image) from the last movement; kept while standing
+  // heading (radians clockwise from north on the map image): the camera direction from the mod,
+  // else from the last movement (kept while standing)
   const last = useRef<{ wx: number; wy: number; px: [number, number] } | null>(null);
   const [heading, setHeading] = useState<number | null>(null);
   const meWorld = data.me?.worldPos;
   const meMap = data.me?.mapPos;
+  const meYaw = data.me?.yaw;
+  // keep the angle continuous so a turn animates the short way round
+  const turnTo = (raw: number) => setHeading((h) => (h === null ? raw : h + Math.atan2(Math.sin(raw - h), Math.cos(raw - h))));
   useEffect(() => {
-    if (!meWorld || !meMap) return;
+    // world +X is up on the map and +Y right, so the yaw is already clockwise from north
+    if (meYaw !== undefined) turnTo((meYaw * Math.PI) / 180);
+  }, [meYaw]);
+  useEffect(() => {
+    if (meYaw !== undefined || !meWorld || !meMap) return;
     const px = mapPx(meMap.x, meMap.y);
     const prev = last.current;
     if (prev && Math.hypot(meWorld.x - prev.wx, meWorld.y - prev.wy) < HEADING_MIN_MOVE) return;
     last.current = { wx: meWorld.x, wy: meWorld.y, px };
     if (!prev) return;
-    const raw = Math.atan2(px[0] - prev.px[0], prev.px[1] - px[1]);
-    // keep the angle continuous so the turn animates the short way round
-    setHeading((h) => (h === null ? raw : h + Math.atan2(Math.sin(raw - h), Math.cos(raw - h))));
+    turnTo(Math.atan2(px[0] - prev.px[0], prev.px[1] - px[1]));
   }, [meWorld?.x, meWorld?.y]);
 
   const center = data.me ? mapPx(data.me.mapPos.x, data.me.mapPos.y) : camps[0] ? mapPx(camps[0].mapPos.x, camps[0].mapPos.y) : null;
