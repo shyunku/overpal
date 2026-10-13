@@ -190,6 +190,10 @@ svg.ic {
   font-size: 22px;
   line-height: 1;
 }
+.wclose svg.ic {
+  width: 16px;
+  height: 16px;
+}
 .wclose:hover {
   background: rgba(248, 81, 73, 0.3);
   color: #fff;
@@ -782,6 +786,8 @@ svg.mk.fan {
 .dx-sec span:last-child {
   color: var(--glass-muted);
   font-weight: 400;
+  /* Oxanium digits sit about 0.2em above Hangul of the same size (measured 2.5 px at 12 px) */
+  translate: 0 0.2em;
 }
 .dx-row {
   cursor: pointer;
@@ -1185,6 +1191,11 @@ svg.mk.fan {
   text-align: right;
   white-space: nowrap;
 }
+/* Oxanium digits still draw about 1 px above the Hangul name next to them (measured) */
+.items .row .count,
+.items .hud-row b {
+  translate: 0 1px;
+}
 .tip-win .tip-line {
   display: flex;
   justify-content: space-between;
@@ -1414,6 +1425,8 @@ svg.mk.fan {
   flex: none;
   font-size: 14px;
   color: var(--glass-muted);
+  /* the smaller text centered on the name's line still looked 1 px low (measured) */
+  translate: 0 -1px;
 }
 .items .mn-row .line .cnt,
 .items .mn-plist .line .cnt {

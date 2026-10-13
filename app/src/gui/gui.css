@@ -94,6 +94,10 @@ textarea {
   color: var(--muted);
   cursor: default;
 }
+/* the window buttons sit edge to edge like the system ones */
+.titlebar .wb + .wb {
+  margin-left: -8px;
+}
 .titlebar .wb:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--fg);

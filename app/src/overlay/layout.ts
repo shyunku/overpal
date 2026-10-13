@@ -54,7 +54,8 @@ export const DEFAULT_LAYOUT: Layout = {
   version: 3,
   windows: {
     menubar: { open: true, ax: "right", dx: 4, ay: "top", dy: 4 },
-    // 338.75: 55 screen px (QHD) lower than 380 so the top stays put after the list grew by that much
+    // above the pal slots; top-anchored so a layout switch keeps the top left corner in place
+    // (the window converts any other anchor on load, OverlayWindow sideAnchor)
     items: { open: true, ax: "left", dx: 40, ay: "bottom", dy: 338.75 },
     // lower right, left of the weapon panel
     minimap: { open: true, ax: "right", dx: 400, ay: "bottom", dy: 26 },

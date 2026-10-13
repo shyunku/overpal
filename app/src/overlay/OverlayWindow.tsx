@@ -58,7 +58,10 @@ interface Props {
   passive?: boolean;
   /** while the game shows a cursor, dragging this part (a selector) moves the window also outside edit mode */
   dragHandle?: string;
-  /** after a drag, anchor to the screen edge (left or right) of the half the window's middle is in */
+  /**
+   * Anchored to the top and to the screen edge (left or right) of the half the window's middle is
+   * in, so a change of size (layout switch) keeps the top corner on that side in place.
+   */
   sideAnchor?: boolean;
   /** edges and corners resize the window while the game shows a cursor; size in CSS px before zoom */
   resize?: { size: Size | null; min: Size; onDone: (size: Size, win: WinLayout) => void };
@@ -105,7 +108,21 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
     const fit = () => {
       if (dragging.current) return;
       const r = el.getBoundingClientRect();
-      placeWindow(screen, win, r.width * screen.dpr, r.height * screen.dpr).then(() => {
+      const pw = r.width * screen.dpr;
+      const ph = r.height * screen.dpr;
+      // sideAnchor: also a layout stored before this rule (or moved by a change of size) gets the
+      // top corner of its side as anchor, keeping where it is now
+      if (sideAnchor && !live) {
+        const x = win.ax === "left" ? screen.x + win.dx * screen.unit : screen.x + screen.w - win.dx * screen.unit - pw;
+        const y = win.ay === "top" ? screen.y + win.dy * screen.unit : screen.y + screen.h - win.dy * screen.unit - ph;
+        const ax = x + pw / 2 < screen.x + screen.w / 2 ? "left" : "right";
+        if (ax !== win.ax || win.ay !== "top") {
+          const cur = latest.current;
+          onLayout({ ...cur, windows: { ...cur.windows, [view]: anchoredAt(screen, { ...win, ax, ay: "top" }, x, y, pw, ph) } });
+          return;
+        }
+      }
+      placeWindow(screen, win, pw, ph).then(() => {
         // clip the window (and the blur behind it) to the panel's corner radius; a circle
         // (the minimap, given as a percentage) has no blur and is left alone
         const radius = getComputedStyle(el).borderTopLeftRadius;
@@ -170,8 +187,12 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
       Object.assign(at, p);
       native.setPosition(new PhysicalPosition(p.x - (inner.x - outer.x), p.y - (inner.y - outer.y)));
     };
+    // a click that does not move (e.g. on the title) leaves the window where it is, unsnapped
+    let moved = false;
     const move = (m: globalThis.PointerEvent) => {
       mouse = { x: m.screenX * dpr, y: m.screenY * dpr };
+      if (!moved && Math.hypot(mouse.x - start.mx, mouse.y - start.my) < DRAG_START_PX * dpr) return;
+      moved = true;
       if (!frame) frame = requestAnimationFrame(place);
     };
     const up = () => {
@@ -179,13 +200,18 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
       if (frame) cancelAnimationFrame(frame);
+      if (!moved) {
+        dragging.current = false;
+        return;
+      }
       place();
       const cur = latest.current;
       const win = cur.windows[view];
       const ax = sideAnchor ? (at.x + size.width / 2 < screen.x + screen.w / 2 ? "left" : "right") : win.ax;
-      const moved = anchoredAt(screen, { ...win, ax }, at.x, at.y, size.width, size.height);
+      const ay = sideAnchor ? "top" : win.ay;
+      const next = anchoredAt(screen, { ...win, ax, ay }, at.x, at.y, size.width, size.height);
       dragging.current = false;
-      onLayout({ ...cur, windows: { ...cur.windows, [view]: moved } });
+      onLayout({ ...cur, windows: { ...cur.windows, [view]: next } });
     };
     el.addEventListener("pointermove", move);
     el.addEventListener("pointerup", up);
@@ -262,6 +288,8 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
 
 /** gap kept to the screen edges and to other overlay windows, and how far from it a window snaps (physical px) */
 const SNAP_GAP = 15;
+/** pointer travel (CSS px) before a press on a drag handle becomes a drag */
+const DRAG_START_PX = 4;
 const SNAP_RANGE = 15;
 
 /** Where a window dragged to (x, y) lands: snapped to the screen edges and beside other windows. */

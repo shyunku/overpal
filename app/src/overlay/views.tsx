@@ -34,6 +34,7 @@ const ICONS = {
   grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />,
   bag: <path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" />,
   chevron: <path d="m6 9 6 6 6-6" />,
+  close: <path d="M6 6l12 12M18 6 6 18" />,
   grip: <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />,
   paw: (
     <>
@@ -78,7 +79,7 @@ function setOpen(layout: Layout, view: ViewId, open: boolean): Layout {
 function CloseButton({ view, layout, onLayout }: { view: ViewId; layout: Layout; onLayout: (l: Layout) => void }) {
   return (
     <button className="wclose" title="닫기" onClick={() => onLayout(setOpen(layout, view, false))}>
-      ×
+      <Icon name="close" />
     </button>
   );
 }

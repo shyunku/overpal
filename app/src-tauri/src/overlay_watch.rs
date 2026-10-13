@@ -59,10 +59,15 @@ pub fn spawn(app: &AppHandle, labels: &'static [&'static str], always_show: bool
         let mut ticks = 0u32;
         // development: keep the overlay click-through to check how it renders in that state
         let force_click_through = std::env::var("OVERPAL_FORCE_CLICK_THROUGH").is_ok();
+        // development: act as if the game showed a cursor (Esc menu) to check moving and resizing
+        let force_interactive = std::env::var("OVERPAL_FORCE_INTERACTIVE").is_ok();
         loop {
             let mut s = sample(always_show, &mut game);
             if force_click_through {
                 s.interactive = false;
+            }
+            if force_interactive {
+                s.interactive = true;
             }
             if last != Some(s) {
                 // window changes run on the main thread: changing a window from this thread sends
