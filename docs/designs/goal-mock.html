@@ -82,6 +82,16 @@
   .notes h3 { margin: 4px 0 6px; font-size: 14px; }
   .notes ul { margin: 0 0 10px; padding-left: 18px; }
   .notes .q { color: #e3b341; }
+  .ctx { position: absolute; z-index: 10; min-width: 150px; padding: 4px; border-radius: 8px; background: rgba(22, 27, 34, 0.96); border: 1px solid var(--glass-line); box-shadow: 0 6px 18px rgba(0,0,0,.45); font-size: 14px; }
+  .ctx div { padding: 7px 10px; border-radius: 6px; display: flex; gap: 8px; align-items: center; }
+  .ctx div.hi { background: rgba(255, 184, 76, 0.2); color: #ffd79a; }
+  .ctx svg.ic { width: 15px; height: 15px; }
+  .irow { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 8px; border-radius: 10px; }
+  .irow.hi { background: rgba(255, 255, 255, 0.1); }
+  .tabs { display: flex; gap: 6px; padding: 0 16px 8px; }
+  .tabs b { padding: 5px 12px; border-radius: 8px; background: var(--chip); font-weight: 500; font-size: 13px; color: var(--glass-muted); }
+  .tabs b.on { background: rgba(255,255,255,.18); color: var(--glass-fg); }
+  .toast { margin: 0 16px 8px; padding: 8px 10px; border-radius: 8px; background: rgba(63,185,80,.18); border: 1px solid rgba(63,185,80,.5); color: #9be9a8; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -96,10 +106,12 @@
     <ul>
       <li>메인 창에 <b>목표</b> 탭 추가 (장소 다음, 깃발 아이콘)</li>
       <li><b>목표 목록</b>: 아이템 아이콘·이름·목표 수량, 재료 충족 막대(모든 재료 보유/필요 비율), "지금 n개 만들 수 있음". 다 모이면 초록</li>
-      <li><b>목표 상세</b>: 수량 조절(- / + 와 직접 입력), 만드는 곳(제작대), 재료별 <b>보유 / 필요</b>와 부족분(빨강) 또는 ✓(초록)</li>
-      <li><b>재료 펼치기</b>: 만들 수 있는 재료는 ▸ 를 눌러 그 재료의 재료를 봄. 하위 재료 수량은 <b>부족한 만큼만</b> 계산 (예: 금속 주괴 12개 부족 → 금속 광석 24개 필요)</li>
-      <li><b>목표 추가</b>: 목록의 '+ 추가'에서 아이템 검색 → 수량 → 추가. 아이템 탭의 아이템 상세에도 '목표에 추가' 버튼</li>
-      <li>보유량 = 지금 거점 + 내 인벤토리 (아이템 탭과 같은 기준, 거점 메뉴로 다른 거점도 고를 수 있음). 실시간으로 바뀜</li>
+      <li><b>목표 상세</b>: 수량 조절(- / + 와 직접 입력), 만드는 곳(제작대), 재료별 <b>보유 / 필요</b>와 부족분(빨강). 다 채운 재료는 <b>완료</b>(초록)</li>
+      <li><b>재료 펼치기</b>: 만들 수 있는 재료는 그 재료의 재료를 아래에 보여 줌. 하위 재료 수량은 <b>부족한 만큼만</b> 계산 (예: 금속 주괴 12개 부족 → 금속 광석 24개 필요)</li>
+      <li><b>기본 접힘/펼침</b>: 부족한 재료는 펼쳐져 있고, 다 채운 재료는 접혀 있음. ▸/▾ 로 자유롭게 접고 펼 수 있음. 그 재료가 다 채워지거나 다시 부족해지면 기본 상태(채움 → 접힘, 부족 → 펼침)로 돌아감</li>
+      <li><b>겹치는 재료</b>: 같은 재료가 여러 줄에 나오면 보유량을 <b>위 줄부터</b> 채움 (예: 쇠뇌 ×2 — 위의 '금속 주괴 20'이 보유 18을 먼저 쓰고, 아래 '못 → 금속 주괴 4'는 남은 0개에서 시작)</li>
+      <li><b>목표 추가</b>: 아이템 탭·구조물 탭(내 것/도감)에서 <b>우클릭 → '목표로 설정'</b>. 누르면 목표에 1개로 들어가고 목표 탭에서 수량 조절. 목록의 '+ 추가'(검색)도 그대로 둠</li>
+      <li>보유량 = <b>선택한 거점 + 내 인벤토리</b> (아이템 탭과 같은 기준, 거점 메뉴로 다른 거점 고르면 그 거점으로). 실시간으로 바뀜</li>
       <li>목표는 이 PC에 저장되어 앱을 껐다 켜도 남음. 순서는 추가한 순서</li>
       <li>컴팩트 모드: 목표별로 부족한 재료만 한 줄씩</li>
     </ul>
@@ -130,11 +142,14 @@ const I = {
   Crossbow: ["쇠뇌", "T_itemicon_Weapon_BowGun.webp"],
   Wood: ["목재", "T_itemicon_Material_Wood.webp"],
   Nail: ["못", "T_itemicon_Material_MachineParts.webp"],
+  Furnace: ["개선된 화로", "../dex/T_icon_buildObject_BlastFurnace_2.webp"],
 };
-const R = { Metal_Armor: [["Ingot", 30], ["Leather", 10], ["Cloth", 5]], Ingot: [["Ore", 2]], Cloth: [["Wool", 2]], Cement: [["Stone", 20], ["Bone", 1], ["Fluid", 1]], Crossbow: [["Wood", 50], ["Stone", 40], ["Ingot", 10], ["Nail", 2]], Nail: [["Ingot", 1]] };
+const R = { Furnace: [["Ingot", 50], ["Stone", 100], ["Cement", 20]], Metal_Armor: [["Ingot", 30], ["Leather", 10], ["Cloth", 5]], Ingot: [["Ore", 2]], Cloth: [["Wool", 2]], Cement: [["Stone", 20], ["Bone", 1], ["Fluid", 1]], Crossbow: [["Wood", 50], ["Stone", 40], ["Ingot", 10], ["Nail", 2]], Nail: [["Ingot", 1]] };
 const BENCH = { Metal_Armor: "상급 작업대 외 2곳", Cement: "상급 작업대 외 2곳", Crossbow: "상급 작업대 외 2곳", Ingot: "원시적인 화로 외 2곳" };
 const HAVE = { Ingot: 18, Leather: 14, Cloth: 2, Wool: 9, Ore: 40, Stone: 312, Bone: 4, Fluid: 2, Wood: 1240, Nail: 0 };
-const st = { view: "list", mode: "side", goals: [["Metal_Armor", 2], ["Cement", 10], ["Crossbow", 1]], open: 0, exp: { Ingot: true } };
+const GOALS = [["Metal_Armor", 2], ["Cement", 10], ["Crossbow", 2]];
+// exp: a row's own open/closed state, kept only while its filled/lacking state stays as it was
+const st = { view: "list", mode: "side", goals: GOALS.slice(), open: 0, exp: {} };
 const img = (id, cls = "ico") => `<img class="${cls}" src="${IC}${I[id][1]}" alt="">`;
 const need = (id, n) => (R[id] || []).map(([m, q]) => [m, q * n]);
 const canMake = (id) => Math.min(...need(id, 1).map(([m, q]) => Math.floor((HAVE[m] || 0) / q)));
@@ -157,13 +172,20 @@ function list() {
   return title("목표", baseSub) + `<div class="scroll"><div class="sec"><span>목표</span><span>${st.goals.length}</span></div>${rows}</div><div class="foot"><button class="btn primary" data-go="add">+ 목표 추가</button></div>`;
 }
 
-function matRows(id, n, depth) {
-  return need(id, n).map(([m, q]) => {
-    const have = HAVE[m] || 0, lack = Math.max(0, q - have), sub = R[m];
-    const row = `<div class="mat ${depth === 1 ? "child" : depth === 2 ? "child2" : ""}"><span class="tw" ${sub ? `data-exp="${m}"` : ""}>${sub ? (st.exp[m] ? "▾" : "▸") : ""}</span>${img(m, "ico sm")}<span class="nm">${I[m][0]}</span>
-      <span class="num tabular">${have}/${q}<small class="${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "✓"}</small></span></div>`;
+// stock is used from the top row down: a material on several rows fills the first ones first
+function matRows(id, n, depth, pool, path) {
+  return need(id, n).map(([m, q], idx) => {
+    const take = Math.min(pool[m] || 0, q);
+    pool[m] = (pool[m] || 0) - take;
+    const lack = q - take, sub = R[m] && depth < 2, key = path + "/" + idx + m;
+    // default: lacking open, filled closed; a toggle holds until the row turns filled or lacking
+    const o = st.exp[key];
+    const open = sub && (o && o.lack === (lack > 0) ? o.open : lack > 0);
+    const row = `<div class="mat ${depth === 1 ? "child" : depth === 2 ? "child2" : ""}"><span class="tw" ${sub ? `data-exp="${key}" data-lack="${lack > 0}" data-open="${open}"` : ""}>${sub ? (open ? "▾" : "▸") : ""}</span>${img(m, "ico sm")}<span class="nm">${I[m][0]}</span>
+      <span class="num tabular">${take}/${q}<small class="${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "완료"}</small></span></div>`;
     // only the shortfall is made from the material's own materials
-    return row + (sub && st.exp[m] && lack && depth < 2 ? matRows(m, lack, depth + 1) : "");
+    // a filled row opened by hand shows its recipe for the whole amount, without using stock
+    return row + (open ? (lack ? matRows(m, lack, depth + 1, pool, key) : matRows(m, q, depth + 1, { ...pool }, key)) : "");
   }).join("");
 }
 
@@ -171,7 +193,7 @@ function detail() {
   const [id, n] = st.goals[st.open];
   return title(I[id][0], baseSub, true) + `<div style="padding:0 16px 6px;display:flex;gap:10px;align-items:center">${img(id)}<div style="flex:1"><div class="bench">만드는 곳: ${BENCH[id] || "-"}</div>
       <div class="qty"><span class="s">−</span><span class="q tabular">${n}</span><span class="s">+</span><span class="sp"></span><button class="btn danger">삭제</button></div></div></div>
-    <div class="scroll"><div class="sec"><span>재료</span><span>보유 / 필요</span></div>${matRows(id, n, 0)}</div>`;
+    <div class="scroll"><div class="sec"><span>재료</span><span>보유 / 필요</span></div>${matRows(id, n, 0, { ...HAVE }, "")}</div>`;
 }
 
 function add() {
@@ -179,6 +201,22 @@ function add() {
   return title("목표 추가", "만들 아이템을 고르세요", true) + `<input class="search" value="금속" placeholder="아이템 검색">
     <div class="scroll">${hits.map((h, i) => `<div class="goal" style="${i === 0 ? "background:rgba(255,255,255,.08)" : ""}">${img(h)}<span class="nm"><span class="line"><b>${I[h][0]}</b></span><span class="line"><small>${need(h, 1).map(([m, q]) => `${I[m][0]} ${q}`).join(" · ")}</small></span></span></div>`).join("")}</div>
     <div class="foot" style="align-items:center"><span style="flex:1;font-size:13px;color:var(--glass-muted)">금속 갑옷</span><div class="qty" style="margin:0"><span class="s">−</span><span class="q tabular">2</span><span class="s">+</span></div><button class="btn primary">추가</button></div>`;
+}
+
+function ctxMenu(x, y) {
+  return `<div class="ctx" style="left:${x}px;top:${y}px"><div class="hi">${icon('<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>')}목표로 설정</div><div style="color:var(--glass-muted)">상세 보기</div></div>`;
+}
+function ctxItems() {
+  const rows = [["Ingot", 18], ["Metal_Armor", 0], ["Cement", 4], ["Crossbow", 0], ["Wood", 1240]];
+  return title("아이템", baseSub) + `<div class="tabs"><b class="on">합계</b><b>위치별</b></div><div class="scroll" style="position:relative">${rows.map(([id, n], i) => `<div class="irow ${i === 1 ? "hi" : ""}">${img(id)}<span>${I[id][0]}</span><span class="tabular">${n}</span></div>`).join("")}${ctxMenu(150, 82)}</div>`;
+}
+function ctxStructs() {
+  const rows = [["Furnace", "×2"], ["Metal_Armor", ""]];
+  return title("구조물", "도감 · 건축 가능한 구조물") + `<div class="tabs"><b>내 것</b><b class="on">도감</b></div><div class="scroll" style="position:relative">
+    <div class="irow hi">${img("Furnace")}<span>${I.Furnace[0]}</span><span class="tabular" style="color:var(--glass-muted)">생산</span></div>${ctxMenu(150, 40)}</div>`;
+}
+function added() {
+  return list().replace('<div class="scroll">', '<div class="toast">개선된 화로를 목표에 추가했습니다. 수량은 상세에서 바꿀 수 있습니다.</div><div class="scroll">');
 }
 
 function hud() {
@@ -192,18 +230,18 @@ function hud() {
 
 function render() {
   document.querySelectorAll(".group button").forEach((b) => b.classList.toggle("on", st[b.dataset.k] === b.dataset.v));
-  const body = st.mode === "hud" ? hud() : { list, detail, add, empty: list }[st.view]();
+  const body = st.mode === "hud" ? hud() : { list, detail, detail2: detail, add, empty: list, ctxItems, ctxStructs, added }[st.view]();
   document.getElementById("win").innerHTML = `<div class="glass win">${rail()}<div class="main ${st.mode}">${body}</div></div>`;
   document.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { st.open = +e.dataset.open; st.view = "detail"; render(); }));
   document.querySelectorAll("[data-go]").forEach((e) => (e.onclick = () => { st.view = e.dataset.go; render(); }));
-  document.querySelectorAll("[data-exp]").forEach((e) => (e.onclick = () => { st.exp[e.dataset.exp] = !st.exp[e.dataset.exp]; render(); }));
+  document.querySelectorAll("[data-exp]").forEach((e) => (e.onclick = () => { st.exp[e.dataset.exp] = { open: e.dataset.open !== "true", lack: e.dataset.lack === "true" }; render(); }));
 }
-const opts = { view: [["list", "목표 목록"], ["detail", "목표 상세"], ["add", "목표 추가"], ["empty", "비어 있음"]], mode: [["side", "일반"], ["hud", "컴팩트"]] };
+const opts = { view: [["list", "목표 목록"], ["detail", "목표 상세"], ["detail2", "상세: 겹치는 재료(쇠뇌)"], ["ctxItems", "아이템 우클릭"], ["ctxStructs", "구조물 우클릭"], ["added", "추가된 직후"], ["add", "검색으로 추가"], ["empty", "비어 있음"]], mode: [["side", "일반"], ["hud", "컴팩트"]] };
 for (const [k, list] of Object.entries(opts)) {
   const g = document.getElementById("g-" + k);
   for (const [v, l] of list) {
     const b = document.createElement("button"); b.textContent = l; b.dataset.k = k; b.dataset.v = v;
-    b.onclick = () => { st[k] = v; if (k === "view") { st.goals = v === "empty" ? [] : [["Metal_Armor", 2], ["Cement", 10], ["Crossbow", 1]]; if (v === "detail") st.open = 0; } render(); };
+    b.onclick = () => { st[k] = v; if (k === "view") { st.goals = v === "empty" ? [] : v === "added" ? [...GOALS, ["Furnace", 1]] : GOALS.slice(); st.open = v === "detail2" ? 2 : 0; st.exp = {}; } render(); };
     g.appendChild(b);
   }
 }
