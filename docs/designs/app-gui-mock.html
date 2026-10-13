@@ -290,7 +290,7 @@ function profileWin() {
   const list = st.state === "first" ? [] : PROFILES;
   const cur = list[st.prof];
   const label = (pf) => `${ic(pf.start === "client" ? "monitor" : pf.start === "server" ? "server" : pf.start === "both" ? "sliders" : "play")}<span class="ddname">${pf.name}</span><span class="ddmode">${START_TEXT[pf.start]}</span>`;
-  const shown = cur ? label(cur) : `${ic("plus")}<span class="ddname">New Profile</span>`;
+  const shown = cur ? label(cur) : `${ic("plus")}<span class="ddname">New Profile</span>${list.length ? `<span class="ddused">저장된 프로필 ${list.length}개</span>` : ""}`;
   const menu = st.dd ? `<div class="ddmenu">
       <div class="dditem ${st.prof < 0 ? "on" : ""}" data-prof="-1">${ic("plus")}<span class="ddname">New Profile</span></div>
       ${list.length ? '<div class="ddsep"></div>' : ""}
@@ -304,7 +304,7 @@ function profileWin() {
       </div>`
     : `<div class="pnew"><label>프로필 이름</label><input type="text" placeholder="예: 실제 서버"><div class="help">시작하면 모드를 고르고 설정을 입력합니다.<br>설정은 이 이름으로 저장되어 다음부터 목록에서 바로 불러올 수 있습니다.</div></div>`;
   return `<div class="pwin">
-    <div class="phead"><span class="plogo"></span><div><div class="ptitle">PalHelper</div><div class="psub">프로필을 선택해 주세요.</div></div></div>
+    <div class="phead"><span class="plogo"></span><div><div class="ptitle">PalHelper</div><div class="psub">${list.length ? "프로필을 선택해 주세요." : "처음 실행입니다. 새 프로필을 만들어 주세요."}</div></div></div>
     <div class="pfield"><label>프로필</label><div class="dd"><button class="ddbtn" data-dd="1">${shown}<svg class="ic ddchev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>${menu}</div></div>
     ${detail}
     <div class="pfoot">${cur ? `<button class="btn big danger">${ic("trash")}삭제</button>` : ""}<span class="sp"></span><button class="btn primary big" data-open="1">${ic("play")}시작하기</button></div>
