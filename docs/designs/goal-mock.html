@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Item goals mock</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Oxanium:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page-bg: #0d1117; --page-fg: #e6edf3; --page-muted: #8b949e; --page-line: #30363d;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --accent: #58a6ff; --orange: #ffb84c;
+    --glass-line: rgba(255, 255, 255, 0.14); --glass-fg: #f2f5f9; --glass-muted: rgba(242, 245, 249, 0.62); --chip: rgba(255, 255, 255, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page-bg); color: var(--page-fg); font-family: "Oxanium", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif; font-size: 14px; }
+  .page { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; padding: 16px; }
+  @media (max-width: 1000px) { .page { grid-template-columns: 1fr; } }
+  .group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+  .group > span { color: var(--page-muted); font-size: 12px; margin-right: 2px; }
+  .group button { background: #161b22; color: var(--page-fg); border: 1px solid var(--page-line); border-radius: 6px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+  .group button.on { background: #1f6feb; border-color: #1f6feb; }
+  .scene { padding: 28px; border-radius: 8px; border: 1px solid var(--page-line); min-height: 640px;
+    background: radial-gradient(ellipse at 60% 40%, #6d8a5a 0%, #3e5236 45%, #26301f 100%); }
+
+  .glass { background: rgba(16, 20, 28, 0.55); backdrop-filter: blur(18px) saturate(140%); border: 1px solid var(--glass-line); border-radius: 12px; color: var(--glass-fg); font-size: 15px; }
+  .win { display: inline-flex; overflow: hidden; }
+  svg.ic { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; }
+  .rail { width: 56px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 16px 0; border-right: 1px solid var(--glass-line); }
+  .rail .rb { position: relative; width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: var(--glass-muted); }
+  .rail .rb.on { background: rgba(255, 255, 255, 0.18); color: var(--glass-fg); }
+  .rail .rb.on::before { content: ""; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: var(--orange); }
+  .rail .rb.new::after { content: "새 탭"; position: absolute; left: 44px; top: 11px; font-size: 10px; color: #111; background: var(--orange); border-radius: 4px; padding: 1px 4px; white-space: nowrap; }
+  .main { width: 360px; height: 600px; display: flex; flex-direction: column; min-width: 0; }
+  .main.hud { width: 272px; height: auto; }
+  .wtitle { padding: 18px 12px 10px 16px; }
+  .tline { display: flex; align-items: center; gap: 8px; }
+  .tline .t { font-weight: 700; font-size: 18px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub { color: var(--glass-muted); font-size: 13px; margin-top: 6px; }
+  .sub b { color: var(--glass-fg); font-weight: 600; }
+  .modes { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: rgba(0, 0, 0, 0.3); }
+  .modes span { width: 28px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: var(--glass-muted); font-size: 12px; }
+  .modes span.on { background: rgba(255, 255, 255, 0.2); color: var(--glass-fg); }
+  .back { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--chip); font-size: 18px; cursor: pointer; }
+  .scroll { flex: 1; overflow: auto; padding: 2px 10px 12px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
+  .sec { display: flex; justify-content: space-between; padding: 10px 8px 4px; color: var(--orange); font-size: 13px; font-weight: 600; }
+  .sec span:last-child { color: var(--glass-muted); font-weight: 400; }
+  .ico { width: 34px; height: 34px; flex: none; object-fit: contain; }
+  .ico.sm { width: 26px; height: 26px; }
+  .goal { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 10px; cursor: pointer; }
+  .goal:hover { background: rgba(255, 255, 255, 0.06); }
+  .goal .nm { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .line { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .line b { font-weight: 600; }
+  .line small { font-size: 12px; color: var(--glass-muted); }
+  .bar { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--orange); }
+  .bar.done i { background: var(--ok); }
+  .ok { color: var(--ok); } .lack { color: #ff8a80; }
+  .mat { display: grid; grid-template-columns: 16px 26px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; }
+  .mat .tw { color: var(--glass-muted); font-size: 11px; cursor: pointer; text-align: center; }
+  .mat .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mat .num { text-align: right; font-size: 14px; white-space: nowrap; }
+  .mat .num small { display: block; font-size: 11px; }
+  .mat.child { padding-left: 30px; }
+  .mat.child2 { padding-left: 52px; }
+  .mat:hover { background: rgba(255, 255, 255, 0.05); }
+  .qty { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+  .qty .q { min-width: 54px; text-align: center; font-size: 16px; font-weight: 600; padding: 4px 8px; border-radius: 8px; background: rgba(0,0,0,.28); border: 1px solid var(--glass-line); }
+  .qty .s { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--chip); font-size: 15px; cursor: pointer; }
+  .qty .sp { flex: 1; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 8px; background: var(--chip); border: 1px solid var(--glass-line); color: var(--glass-fg); font: inherit; font-size: 13px; cursor: pointer; }
+  .btn.primary { background: rgba(255, 184, 76, 0.22); border-color: rgba(255, 184, 76, 0.6); color: #ffd79a; }
+  .btn.danger { color: #ff8a80; }
+  .search { margin: 0 16px 8px; width: calc(100% - 32px); padding: 9px 12px; border-radius: 10px; background: rgba(0,0,0,.28); border: 1px solid var(--glass-line); color: var(--glass-fg); font: inherit; font-size: 14px; }
+  .empty { padding: 40px 20px; text-align: center; color: var(--glass-muted); line-height: 1.7; font-size: 14px; }
+  .bench { font-size: 12px; color: var(--glass-muted); margin-top: 4px; }
+  .foot { padding: 8px 16px 12px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--glass-line); }
+  .hrow { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 10px; font-size: 14px; }
+  .hrow .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .notes { background: #161b22; border: 1px solid var(--page-line); border-radius: 8px; padding: 14px 16px; font-size: 13px; line-height: 1.65; }
+  .notes h3 { margin: 4px 0 6px; font-size: 14px; }
+  .notes ul { margin: 0 0 10px; padding-left: 18px; }
+  .notes .q { color: #e3b341; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div>
+    <div class="group" id="g-view"><span>화면</span></div>
+    <div class="group" id="g-mode"><span>보기 모드</span></div>
+    <div class="scene"><div id="win"></div></div>
+  </div>
+  <div class="notes">
+    <h3>바뀌는 것</h3>
+    <ul>
+      <li>메인 창에 <b>목표</b> 탭 추가 (장소 다음, 깃발 아이콘)</li>
+      <li><b>목표 목록</b>: 아이템 아이콘·이름·목표 수량, 재료 충족 막대(모든 재료 보유/필요 비율), "지금 n개 만들 수 있음". 다 모이면 초록</li>
+      <li><b>목표 상세</b>: 수량 조절(- / + 와 직접 입력), 만드는 곳(제작대), 재료별 <b>보유 / 필요</b>와 부족분(빨강) 또는 ✓(초록)</li>
+      <li><b>재료 펼치기</b>: 만들 수 있는 재료는 ▸ 를 눌러 그 재료의 재료를 봄. 하위 재료 수량은 <b>부족한 만큼만</b> 계산 (예: 금속 주괴 12개 부족 → 금속 광석 24개 필요)</li>
+      <li><b>목표 추가</b>: 목록의 '+ 추가'에서 아이템 검색 → 수량 → 추가. 아이템 탭의 아이템 상세에도 '목표에 추가' 버튼</li>
+      <li>보유량 = 지금 거점 + 내 인벤토리 (아이템 탭과 같은 기준, 거점 메뉴로 다른 거점도 고를 수 있음). 실시간으로 바뀜</li>
+      <li>목표는 이 PC에 저장되어 앱을 껐다 켜도 남음. 순서는 추가한 순서</li>
+      <li>컴팩트 모드: 목표별로 부족한 재료만 한 줄씩</li>
+    </ul>
+    <h3>그대로인 것</h3>
+    <ul>
+      <li>다른 탭, 창 크기·이동·마그넷, 거점 메뉴 동작</li>
+    </ul>
+    <h3>정할 것</h3>
+    <ul>
+      <li class="q">한 번 제작할 때 나오는 개수: 지금 가진 레시피 데이터에는 재료만 있고 결과 개수가 없음. 시안은 1개로 계산. 화살·탄약처럼 한 번에 여러 개 나오는 건 틀릴 수 있어서, 게임 데이터에서 결과 개수를 따로 찾아 넣을 예정</li>
+      <li class="q">목표 다 모였을 때: 그대로 두기(지금 시안) / 자동 완료 표시 / 알림</li>
+    </ul>
+  </div>
+</div>
+<script>
+const IC = "../../app/public/icons/items/";
+const I = {
+  Metal_Armor: ["금속 갑옷", "T_itemicon_Armor_CopperArmor.webp"],
+  Ingot: ["금속 주괴", "T_itemicon_Material_CopperIngot.webp"],
+  Leather: ["가죽", "T_itemicon_Material_Leather.webp"],
+  Cloth: ["천", "T_itemicon_Material_Cloth.webp"],
+  Wool: ["양털", "T_itemicon_Material_Wool.webp"],
+  Ore: ["금속 광석", "T_itemicon_Material_CopperOre.webp"],
+  Cement: ["시멘트", "T_itemicon_Material_Cement.webp"],
+  Stone: ["돌", "T_itemicon_Material_Stone.webp"],
+  Bone: ["뼈", "T_itemicon_Material_Bone.webp"],
+  Fluid: ["수생 팰의 점액", "T_itemicon_Material_PalFluid.webp"],
+  Crossbow: ["쇠뇌", "T_itemicon_Weapon_BowGun.webp"],
+  Wood: ["목재", "T_itemicon_Material_Wood.webp"],
+  Nail: ["못", "T_icon_item_BossDefeatReward_ElecSnail.webp"],
+};
+const R = { Metal_Armor: [["Ingot", 30], ["Leather", 10], ["Cloth", 5]], Ingot: [["Ore", 2]], Cloth: [["Wool", 2]], Cement: [["Stone", 20], ["Bone", 1], ["Fluid", 1]], Crossbow: [["Wood", 50], ["Stone", 40], ["Ingot", 10], ["Nail", 2]], Nail: [["Ingot", 1]] };
+const BENCH = { Metal_Armor: "상급 작업대 외 2곳", Cement: "상급 작업대 외 2곳", Crossbow: "상급 작업대 외 2곳", Ingot: "원시적인 화로 외 2곳" };
+const HAVE = { Ingot: 18, Leather: 14, Cloth: 2, Wool: 9, Ore: 40, Stone: 312, Bone: 4, Fluid: 2, Wood: 1240, Nail: 0 };
+const st = { view: "list", mode: "side", goals: [["Metal_Armor", 2], ["Cement", 10], ["Crossbow", 1]], open: 0, exp: { Ingot: true } };
+const img = (id, cls = "ico") => `<img class="${cls}" src="${IC}${I[id][1]}" alt="">`;
+const need = (id, n) => (R[id] || []).map(([m, q]) => [m, q * n]);
+const canMake = (id) => Math.min(...need(id, 1).map(([m, q]) => Math.floor((HAVE[m] || 0) / q)));
+const ratio = (id, n) => { const r = need(id, n); return r.reduce((a, [m, q]) => a + Math.min(HAVE[m] || 0, q), 0) / r.reduce((a, [, q]) => a + q, 0); };
+const icon = (p) => `<svg class="ic" viewBox="0 0 24 24">${p}</svg>`;
+const RAIL = [['<path d="M21 8 12 3 3 8v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8"/>'], ['<circle cx="12" cy="13" r="6"/><circle cx="7" cy="5" r="2"/><circle cx="17" cy="5" r="2"/>'], ['<path d="M3 21h18M5 21V10l7-5 7 5v11M10 21v-6h4v6"/>'], ['<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>'], ['<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>', true]];
+function rail() { return `<nav class="rail">${RAIL.map(([p, goal]) => `<span class="rb ${goal ? "on new" : ""}">${icon(p)}</span>`).join("")}</nav>`; }
+function modes() { return `<div class="modes">${["hud", "side"].map((m) => `<span class="${st.mode === m ? "on" : ""}">${m === "hud" ? "▭" : "☰"}</span>`).join("")}</div>`; }
+function title(t, sub, back) { return `<div class="wtitle"><div class="tline">${back ? '<span class="back" data-go="list">‹</span>' : ""}<span class="t">${t}</span>${modes()}</div><div class="sub">${sub}</div></div>`; }
+const baseSub = `<b>거점 2 ⌄</b> · 내 인벤토리 포함`;
+
+function list() {
+  if (!st.goals.length) return title("목표", baseSub) + `<div class="empty">목표가 없습니다.<br>만들 아이템과 수량을 등록하면<br>필요한 재료를 모아 보여 줍니다.<br><br><button class="btn primary" data-go="add">+ 목표 추가</button></div>`;
+  const rows = st.goals.map(([id, n], i) => {
+    const r = ratio(id, n), c = canMake(id), done = r >= 1;
+    return `<div class="goal" data-open="${i}">${img(id)}<span class="nm"><span class="line"><b>${I[id][0]} ×${n}</b><small class="${done ? "ok" : ""}">${done ? "재료 다 모임" : `재료 ${Math.round(r * 100)}%`}</small></span>
+      <span class="line"><small>${c > 0 ? `지금 ${c}개 만들 수 있음` : "아직 만들 수 없음"}</small><small>${BENCH[id] || ""}</small></span>
+      <span class="bar ${done ? "done" : ""}"><i style="width:${Math.min(100, r * 100)}%"></i></span></span></div>`;
+  }).join("");
+  return title("목표", baseSub) + `<div class="scroll"><div class="sec"><span>목표</span><span>${st.goals.length}</span></div>${rows}</div><div class="foot"><button class="btn primary" data-go="add">+ 목표 추가</button></div>`;
+}
+
+function matRows(id, n, depth) {
+  return need(id, n).map(([m, q]) => {
+    const have = HAVE[m] || 0, lack = Math.max(0, q - have), sub = R[m];
+    const row = `<div class="mat ${depth === 1 ? "child" : depth === 2 ? "child2" : ""}"><span class="tw" ${sub ? `data-exp="${m}"` : ""}>${sub ? (st.exp[m] ? "▾" : "▸") : ""}</span>${img(m, "ico sm")}<span class="nm">${I[m][0]}</span>
+      <span class="num tabular">${have}/${q}<small class="${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "✓"}</small></span></div>`;
+    // only the shortfall is made from the material's own materials
+    return row + (sub && st.exp[m] && lack && depth < 2 ? matRows(m, lack, depth + 1) : "");
+  }).join("");
+}
+
+function detail() {
+  const [id, n] = st.goals[st.open];
+  return title(I[id][0], baseSub, true) + `<div style="padding:0 16px 6px;display:flex;gap:10px;align-items:center">${img(id)}<div style="flex:1"><div class="bench">만드는 곳: ${BENCH[id] || "-"}</div>
+      <div class="qty"><span class="s">−</span><span class="q tabular">${n}</span><span class="s">+</span><span class="sp"></span><button class="btn danger">삭제</button></div></div></div>
+    <div class="scroll"><div class="sec"><span>재료</span><span>보유 / 필요</span></div>${matRows(id, n, 0)}</div>`;
+}
+
+function add() {
+  const hits = ["Metal_Armor", "Crossbow", "Cement", "Nail"];
+  return title("목표 추가", "만들 아이템을 고르세요", true) + `<input class="search" value="금속" placeholder="아이템 검색">
+    <div class="scroll">${hits.map((h, i) => `<div class="goal" style="${i === 0 ? "background:rgba(255,255,255,.08)" : ""}">${img(h)}<span class="nm"><span class="line"><b>${I[h][0]}</b></span><span class="line"><small>${need(h, 1).map(([m, q]) => `${I[m][0]} ${q}`).join(" · ")}</small></span></span></div>`).join("")}</div>
+    <div class="foot" style="align-items:center"><span style="flex:1;font-size:13px;color:var(--glass-muted)">금속 갑옷</span><div class="qty" style="margin:0"><span class="s">−</span><span class="q tabular">2</span><span class="s">+</span></div><button class="btn primary">추가</button></div>`;
+}
+
+function hud() {
+  const rows = st.goals.map(([id, n]) => {
+    const lacks = need(id, n).filter(([m, q]) => (HAVE[m] || 0) < q);
+    return `<div class="sec" style="padding:8px 10px 2px"><span>${I[id][0]} ×${n}</span><span>${lacks.length ? `부족 ${lacks.length}` : "✓"}</span></div>` +
+      (lacks.length ? lacks.map(([m, q]) => `<div class="hrow">${img(m, "ico sm")}<span class="nm">${I[m][0]}</span><span class="tabular">${HAVE[m] || 0}/${q}</span></div>`).join("") : `<div class="hrow"><span></span><span class="nm ok">재료 다 모임</span><span></span></div>`);
+  }).join("");
+  return title("목표", baseSub) + `<div style="padding-bottom:10px">${rows}</div>`;
+}
+
+function render() {
+  document.querySelectorAll(".group button").forEach((b) => b.classList.toggle("on", st[b.dataset.k] === b.dataset.v));
+  const body = st.mode === "hud" ? hud() : { list, detail, add, empty: list }[st.view]();
+  document.getElementById("win").innerHTML = `<div class="glass win">${rail()}<div class="main ${st.mode}">${body}</div></div>`;
+  document.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { st.open = +e.dataset.open; st.view = "detail"; render(); }));
+  document.querySelectorAll("[data-go]").forEach((e) => (e.onclick = () => { st.view = e.dataset.go; render(); }));
+  document.querySelectorAll("[data-exp]").forEach((e) => (e.onclick = () => { st.exp[e.dataset.exp] = !st.exp[e.dataset.exp]; render(); }));
+}
+const opts = { view: [["list", "목표 목록"], ["detail", "목표 상세"], ["add", "목표 추가"], ["empty", "비어 있음"]], mode: [["side", "일반"], ["hud", "컴팩트"]] };
+for (const [k, list] of Object.entries(opts)) {
+  const g = document.getElementById("g-" + k);
+  for (const [v, l] of list) {
+    const b = document.createElement("button"); b.textContent = l; b.dataset.k = k; b.dataset.v = v;
+    b.onclick = () => { st[k] = v; if (k === "view") { st.goals = v === "empty" ? [] : [["Metal_Armor", 2], ["Cement", 10], ["Crossbow", 1]]; if (v === "detail") st.open = 0; } render(); };
+    g.appendChild(b);
+  }
+}
+render();
+</script>
+</body>
+</html>
