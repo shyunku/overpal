@@ -1,4 +1,6 @@
-# palworld-helper-mod
+# Overpal (palworld-helper-mod)
+
+앱 이름은 Overpal(이전 이름 PalHelper)이다. 저장소 이름은 palworld-helper-mod 그대로다.
 
 팰월드 전용 서버에서 게임 데이터를 실시간으로 꺼내 게임 화면 위 오버레이로 보여주는 프로젝트.
 
@@ -51,7 +53,7 @@
 | RE-UE4SS (Okaetsu 포크) | `Palworld (2281fa31)` | `Pal\Binaries\Win64\dwmapi.dll`, `ue4ss\` | 공식 UE4SS는 0.4.1.5 이후 팰월드에서 동작하지 않는다. |
 | PalDefender | v1.9.3 | `Pal\Binaries\Win64\d3d9.dll`, `PalDefender.dll` | REST는 `127.0.0.1:17993`, Bearer 토큰 |
 
-### 모드 (`mod/PalHelperMod`)
+### 모드 (`mod/OverpalMod`)
 
 - 서버 시작 30초 뒤부터 10초마다 전체를 다시 읽어 `base_storage.json`과 `status.json`을 모드 폴더에 쓴다.
 - 그 사이에는 `PalMapObjectItemContainerModule:OnUpdateContents` 훅이 바뀐 컨테이너를 표시하고, 250ms마다 표시된 컨테이너만 다시 읽어 내용이 실제로 바뀌었을 때만 파일을 쓴다. 파일의 `seq`는 쓸 때마다 1씩 늘어난다.

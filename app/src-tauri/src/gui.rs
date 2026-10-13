@@ -2,7 +2,7 @@
 //! the profile window ("launcher") picks a profile, then the Home window ("home") picks the mode
 //! when the profile asks for it, starts the app server and/or the overlay, and shows status, log,
 //! friends and settings. A run keeps its profile and mode; saving settings restarts the app.
-//! A config file (palhelper.config.json, `--config`) skips the profile window.
+//! A config file (overpal.config.json, `--config`) skips the profile window.
 
 use crate::applog::{self, Kind};
 use crate::config::{ClientConfig, Config, Mode};
@@ -76,7 +76,7 @@ pub struct SessionView {
 
 pub fn open_launcher(app: &AppHandle) -> tauri::Result<()> {
     WebviewWindowBuilder::new(app, LAUNCHER, WebviewUrl::App("index.html?view=launcher".into()))
-        .title("PalHelper")
+        .title("Overpal")
         // our own title bar (32 px) is inside the window
         .decorations(false)
         .shadow(true)
@@ -100,7 +100,7 @@ pub fn open_home(app: &AppHandle) -> tauri::Result<()> {
         .map(|(w, h)| (w.max(HOME_MIN.0), h.max(HOME_MIN.1)))
         .unwrap_or(HOME_SIZE);
     WebviewWindowBuilder::new(app, HOME, WebviewUrl::App("index.html?view=home".into()))
-        .title("PalHelper")
+        .title("Overpal")
         .decorations(false)
         .shadow(true)
         .inner_size(w, h)

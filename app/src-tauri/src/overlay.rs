@@ -77,7 +77,7 @@ pub fn layout_set(app: AppHandle, store: tauri::State<'_, LayoutStore>, layout: 
 /// backdrop) turns into a solid color while the window is inactive, which overlay windows always
 /// are, and `Blur` renders solid black under the webview. The pre-Windows-11 acrylic accent
 /// (SetWindowCompositionAttribute) keeps blurring, also while the window is click-through.
-/// PALHELPER_EFFECT=none|blur|acrylic switches to the alternatives for comparison.
+/// OVERPAL_EFFECT=none|blur|acrylic switches to the alternatives for comparison.
 enum Backdrop {
     None,
     Tauri(Effect),
@@ -85,7 +85,7 @@ enum Backdrop {
 }
 
 fn backdrop() -> Backdrop {
-    match std::env::var("PALHELPER_EFFECT").as_deref() {
+    match std::env::var("OVERPAL_EFFECT").as_deref() {
         Ok("none") => Backdrop::None,
         Ok("blur") => Backdrop::Tauri(Effect::Blur),
         Ok("acrylic") => Backdrop::Tauri(Effect::Acrylic),
@@ -97,7 +97,7 @@ fn backdrop() -> Backdrop {
 pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
     for v in VIEWS {
         let mut b = WebviewWindowBuilder::new(app, v.label, WebviewUrl::App(format!("index.html?view={}", v.label).into()))
-            .title("PalHelper")
+            .title("Overpal")
             .transparent(true)
             .decorations(false)
             .always_on_top(true)
@@ -136,7 +136,7 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
 
 /// Stops Windows from painting a window frame. With the caption it had right after creation, the
 /// default handling of WM_NCPAINT / WM_NCACTIVATE (e.g. when a click activates the window) painted
-/// a "PalHelper" title bar that showed through the translucent panel.
+/// a title bar with the app name that showed through the translucent panel.
 #[cfg(windows)]
 fn no_frame_painting(window: &tauri::WebviewWindow) {
     use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
@@ -177,7 +177,7 @@ fn window_corners(window: &tauri::WebviewWindow, round: bool) {
 
 /// Turns click-through on or off by changing only the extended style. tao's
 /// set_ignore_cursor_events rewrites the whole style, putting back the caption of the undecorated
-/// window, which Windows then sometimes drew over the overlay ("PalHelper").
+/// window, which Windows then sometimes drew over the overlay (the app name).
 ///
 /// Window changes must run on the main thread at a safe point of the event loop
 /// (run_on_main_thread): made from another thread, or in the middle of a webview callback, their
@@ -220,7 +220,7 @@ pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
 
 /// Recomputes and repaints the window frame. Windows keeps the frame it drew while the window
 /// still had a caption (right after creation) and shows it through the translucent panel as a
-/// "PalHelper" bar until the frame is redrawn.
+/// app-name bar until the frame is redrawn.
 #[cfg(windows)]
 fn redraw_frame(hwnd: isize) {
     use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow};
@@ -254,7 +254,7 @@ pub fn needs_popup_fix(window: &tauri::WebviewWindow) -> bool {
 }
 
 /// Keeps the window a plain popup. An undecorated window keeps the caption and frame styles and
-/// only hides them; when tao writes them back Windows sometimes drew that caption ("PalHelper ×")
+/// only hides them; when tao writes them back Windows sometimes drew that caption (app name and ×)
 /// over the overlay. Called at creation, and on the main thread when the watcher finds the caption
 /// back (needs_popup_fix); it only writes when the caption came back.
 #[cfg(windows)]

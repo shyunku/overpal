@@ -47,7 +47,7 @@ function App() {
 
   return (
     <main className="debug">
-      <h1>PalHelper connection check</h1>
+      <h1>Overpal connection check</h1>
       {error && <p className="error">{error}</p>}
       {status && (
         <p>

@@ -1,8 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-pub const CONFIG_FILE_NAME: &str = "palhelper.config.json";
-pub const CONFIG_ENV: &str = "PALHELPER_CONFIG";
+pub const CONFIG_FILE_NAME: &str = "overpal.config.json";
+pub const CONFIG_ENV: &str = "OVERPAL_CONFIG";
+/// names from before the rename to Overpal, still read
+const OLD_CONFIG_FILE_NAME: &str = "palhelper.config.json";
+const OLD_CONFIG_ENV: &str = "PALHELPER_CONFIG";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -58,7 +61,7 @@ impl PalDefenderConfig {
 pub struct ServerConfig {
     /// e.g. 127.0.0.1:17994
     pub listen: String,
-    /// PalHelperMod folder inside the server's ue4ss/Mods
+    /// OverpalMod (formerly PalHelperMod) folder inside the server's ue4ss/Mods
     pub mod_output_dir: PathBuf,
     pub pal_defender: Option<PalDefenderConfig>,
     /// bearer tokens accepted by this server; the first one is the host's own
@@ -105,17 +108,19 @@ impl Config {
     }
 }
 
-/// The config file of this run, if any: `--config <path>`, then $PALHELPER_CONFIG, then the file
-/// next to the executable. None means the app starts with the profile window.
+/// The config file of this run, if any: `--config <path>`, then $OVERPAL_CONFIG, then the file
+/// next to the executable (old names too). None means the app starts with the profile window.
 pub fn find_path(cli_path: Option<&str>) -> Option<PathBuf> {
     if let Some(p) = cli_path {
         return Some(PathBuf::from(p));
     }
-    if let Ok(p) = std::env::var(CONFIG_ENV) {
-        return Some(PathBuf::from(p));
+    for var in [CONFIG_ENV, OLD_CONFIG_ENV] {
+        if let Ok(p) = std::env::var(var) {
+            return Some(PathBuf::from(p));
+        }
     }
-    let p = std::env::current_exe().ok()?.parent()?.join(CONFIG_FILE_NAME);
-    p.exists().then_some(p)
+    let dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    [CONFIG_FILE_NAME, OLD_CONFIG_FILE_NAME].into_iter().map(|n| dir.join(n)).find(|p| p.exists())
 }
 
 pub fn load(path: &Path) -> Result<Config, String> {

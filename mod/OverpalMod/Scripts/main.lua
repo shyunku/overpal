@@ -1,4 +1,4 @@
--- PalHelperMod
+-- OverpalMod (Overpal's server mod)
 -- Reads base storage (chests, production buildings, guild storage, items dropped by players,
 -- level pickups) from the
 -- running dedicated server and writes it to base_storage.json next to this mod.
@@ -54,7 +54,7 @@ local function mod_dir()
     local dir = src:match("^(.*)/Scripts/[^/]+$")
     if dir then return dir .. "/" end
     -- UE4SS runs with the ue4ss folder as the working directory
-    return "Mods/PalHelperMod/"
+    return "Mods/OverpalMod/"
 end
 
 local DIR = mod_dir()
@@ -409,7 +409,7 @@ local scan_ended = -math.huge
 local function tick()
     if ENABLE_PROBE then
         local ok, err = pcall(run_probe)
-        if not ok then print("[PalHelperMod] probe failed: " .. tostring(err)) end
+        if not ok then print("[OverpalMod] probe failed: " .. tostring(err)) end
     end
     errors = {}
     local started = os.clock()
@@ -438,7 +438,7 @@ local function tick()
     }))
 end
 
-print("[PalHelperMod] loaded, output: " .. DIR)
+print("[OverpalMod] loaded, output: " .. DIR)
 -- stalls of this run only
 os.remove(DIR .. STALL_FILE)
 local last_watch = nil
@@ -456,7 +456,7 @@ if BUILD_NET_UPDATE_HZ > 0 then
     local function retry()
         local ok, done = pcall(raise_build_rate)
         if not ok then
-            print("[PalHelperMod] building rate failed: " .. tostring(done))
+            print("[OverpalMod] building rate failed: " .. tostring(done))
         elseif not done then
             ExecuteInGameThreadWithDelay(100, retry)
         end
@@ -470,6 +470,6 @@ ExecuteInGameThreadWithDelay(FIRST_DELAY_MS, function()
     LoopInGameThreadWithDelay(REFRESH_MS, tick)
     LoopInGameThreadWithDelay(FAST_MS, function()
         local ok, err = pcall(fast_tick)
-        if not ok then print("[PalHelperMod] fast tick failed: " .. tostring(err)) end
+        if not ok then print("[OverpalMod] fast tick failed: " .. tostring(err)) end
     end)
 end)

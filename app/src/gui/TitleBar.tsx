@@ -8,7 +8,7 @@ export function TitleBar({ resizable, profile }: { resizable: boolean; profile?:
     <div className="titlebar" data-tauri-drag-region>
       <img className="tlogo" src="/app-icon.png" alt="" draggable={false} data-tauri-drag-region />
       <span className="ttext" data-tauri-drag-region>
-        PalHelper{profile ? ` (Profile: ${profile})` : ""}
+        Overpal{profile ? ` (Profile: ${profile})` : ""}
       </span>
       <span className="sp" data-tauri-drag-region />
       <button className="wb" title="최소화" onClick={() => win.minimize()}>

@@ -300,7 +300,7 @@ function HomeView(props: { session: SessionView; host: HostStatus | null; mod: M
         </div>
       )}
       <div className="cards">
-        <Card icon="mod" title="모드 (PalHelperMod)" dot={mod ? (mod.ok && modAge! < 30 ? "" : "warn") : modFailed ? "off" : "off"} big={mod ? (mod.ok ? (modAge! < 30 ? "정상" : "갱신 멈춤") : "오류") : "출력 없음"}>
+        <Card icon="mod" title="모드 (OverpalMod)" dot={mod ? (mod.ok && modAge! < 30 ? "" : "warn") : modFailed ? "off" : "off"} big={mod ? (mod.ok ? (modAge! < 30 ? "정상" : "갱신 멈춤") : "오류") : "출력 없음"}>
           {mod ? (
             <>
               {ago(modAge!)} 갱신 · 스캔 {mod.elapsedMs}ms

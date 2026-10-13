@@ -1,6 +1,6 @@
 //! Profiles: named sets of settings with a start mode, kept in `<app config dir>\profiles\<name>.json`
-//! (%APPDATA%\com.palworldhelper.mod). The app picks one at start and turns it into the same
-//! `Config` a palhelper.config.json gives. Friends of a profile get their own token and a folder
+//! (%APPDATA%\com.overpal.app). The app picks one at start and turns it into the same
+//! `Config` an overpal.config.json gives. Friends of a profile get their own token and a folder
 //! with the exe and a client config (`<app config dir>\friends\<name>`).
 
 use crate::config::{ClientConfig, Config, Mode, PalDefenderConfig, ServerConfig};
@@ -10,7 +10,16 @@ use std::path::{Path, PathBuf};
 
 pub const DEFAULT_PORT: u16 = 17994;
 /// where the mod writes its output, inside a dedicated server folder
-const MOD_DIR: &str = r"Pal\Binaries\Win64\ue4ss\Mods\PalHelperMod";
+const MOD_DIR: &str = r"Pal\Binaries\Win64\ue4ss\Mods\OverpalMod";
+/// the mod's folder before the rename to Overpal (servers not redeployed since)
+const OLD_MOD_DIR: &str = r"Pal\Binaries\Win64\ue4ss\Mods\PalHelperMod";
+
+/// The mod folder of a server: the new name, or the old one while only that is installed.
+fn mod_dir(server: &Path) -> PathBuf {
+    let new = server.join(MOD_DIR);
+    let old = server.join(OLD_MOD_DIR);
+    if !new.is_dir() && old.is_dir() { old } else { new }
+}
 /// PalDefender's REST settings inside a dedicated server folder
 const PD_DIR: &str = r"Pal\Binaries\Win64\PalDefender\RESTAPI";
 
@@ -112,7 +121,7 @@ impl Profile {
                 }
                 Some(ServerConfig {
                     listen: format!("{}:{}", if sp.allow_external { "0.0.0.0" } else { "127.0.0.1" }, sp.port),
-                    mod_output_dir: sp.game_server_dir.join(MOD_DIR),
+                    mod_output_dir: mod_dir(&sp.game_server_dir),
                     pal_defender: found.pal_defender_url.map(|url| PalDefenderConfig { url, token_file: None, token: found.pal_defender_token }),
                     access_tokens: tokens,
                     token_names: names,
@@ -148,7 +157,7 @@ pub struct Detected {
 }
 
 pub fn detect_server(dir: &Path) -> Detected {
-    let mut d = Detected { has_server: dir.join("PalServer.exe").exists(), has_mod: dir.join(MOD_DIR).is_dir(), ..Default::default() };
+    let mut d = Detected { has_server: dir.join("PalServer.exe").exists(), has_mod: mod_dir(dir).is_dir(), ..Default::default() };
     let pd = dir.join(PD_DIR);
     if let Ok(text) = std::fs::read_to_string(pd.join("RESTConfig.json")) {
         let port = serde_json::from_str::<serde_json::Value>(text.trim_start_matches('\u{feff}')).ok().and_then(|v| v.get("Port").and_then(|p| p.as_u64()));
@@ -313,7 +322,7 @@ impl Store {
         let dir = self.friend_dir(&f.name);
         std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
         let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-        std::fs::copy(&exe, dir.join("palhelper.exe")).map_err(|e| format!("실행 파일을 복사할 수 없습니다: {e}"))?;
+        std::fs::copy(&exe, dir.join("overpal.exe")).map_err(|e| format!("실행 파일을 복사할 수 없습니다: {e}"))?;
         let cfg = serde_json::json!({ "mode": "client", "client": { "serverUrl": server_url, "token": f.token, "playerName": f.nickname } });
         std::fs::write(dir.join(crate::config::CONFIG_FILE_NAME), serde_json::to_string_pretty(&cfg).unwrap()).map_err(|e| e.to_string())?;
         Ok(dir)
@@ -329,7 +338,7 @@ mod tests {
     use super::*;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("palhelper-test-{tag}-{}", new_token()));
+        let d = std::env::temp_dir().join(format!("overpal-test-{tag}-{}", new_token()));
         std::fs::create_dir_all(&d).unwrap();
         d
     }
@@ -427,7 +436,7 @@ mod tests {
         assert_eq!(store.list().len(), 1);
         let f = Friend { name: "친구 1".into(), nickname: "nick".into(), token: "tok".into() };
         let dir = store.write_friend_folder(&f, "http://1.2.3.4:17994").unwrap();
-        assert!(dir.join("palhelper.exe").exists());
+        assert!(dir.join("overpal.exe").exists());
         let cfg: Config = serde_json::from_str(&std::fs::read_to_string(dir.join(crate::config::CONFIG_FILE_NAME)).unwrap()).unwrap();
         assert_eq!(cfg.mode, Mode::Client);
         let c = cfg.client.unwrap();

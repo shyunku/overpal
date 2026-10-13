@@ -58,7 +58,7 @@ pub fn spawn(app: &AppHandle, labels: &'static [&'static str], always_show: bool
         let mut game = GameWindow::default();
         let mut ticks = 0u32;
         // development: keep the overlay click-through to check how it renders in that state
-        let force_click_through = std::env::var("PALHELPER_FORCE_CLICK_THROUGH").is_ok();
+        let force_click_through = std::env::var("OVERPAL_FORCE_CLICK_THROUGH").is_ok();
         loop {
             let mut s = sample(always_show, &mut game);
             if force_click_through {

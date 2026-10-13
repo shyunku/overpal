@@ -55,7 +55,7 @@ export function Launcher() {
       <div className="phead">
         <img className="plogo" src="/app-icon.png" alt="" draggable={false} />
         <div>
-          <div className="ptitle">PalHelper</div>
+          <div className="ptitle">Overpal</div>
           <div className="psub">{count ? "프로필을 선택해 주세요." : "처음 실행입니다. 새 프로필을 만들어 주세요."}</div>
         </div>
       </div>

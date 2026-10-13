@@ -6,13 +6,13 @@
 
   ```bat
   "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
-  set PALHELPER_CONFIG=E:\Workspace\Private\Labs\palworld-helper-mod\.local\palhelper.config.json
+  set OVERPAL_CONFIG=E:\Workspace\Private\Labs\palworld-helper-mod\.local\overpal.config.json
   cd app
   pnpm tauri dev
   ```
 
-- 앱 설정 파일은 `--config <경로>`, 환경 변수 `PALHELPER_CONFIG`, exe 옆 `palhelper.config.json`, 현재 폴더 순으로 찾는다.
-- 실제 설정과 토큰은 `.local/`(git 제외)에 둔다. `app/palhelper.config.example.json`이 형식 예시다.
+- 앱 설정 파일은 `--config <경로>`, 환경 변수 `OVERPAL_CONFIG`, exe 옆 `overpal.config.json`, 현재 폴더 순으로 찾는다.
+- 실제 설정과 토큰은 `.local/`(git 제외)에 둔다. `app/overpal.config.example.json`이 형식 예시다.
 - 빌드 로그의 `linker stdout: ... 라이브러리 및 ... 개체를 생성하고 있습니다` 경고는 MSVC 정보 메시지라 무시해도 된다.
 
 ## 테스트 서버
@@ -30,7 +30,7 @@
   - Tauri `Acrylic`(DWM 시스템 배경)은 창이 비활성이면 단색이 되는데, 오버레이 창은 늘 비활성이라 항상 불투명했다.
   - Tauri `Blur`는 웹뷰 아래에서 검은 단색으로 그려졌다.
   - 창 그림자(`shadow`)를 켜면 투명 처리가 깨질 수 있어 끈다. 그래서 Windows가 창 모서리를 둥글게 처리하지 않는다.
-- 비교용 환경 변수: `PALHELPER_EFFECT=none|blur|acrylic`(기본은 예전 Acrylic), `PALHELPER_FORCE_CLICK_THROUGH=1`(플레이 중처럼 항상 클릭 통과). `.local/try-effect.ps1`이 이 값들로 앱을 띄워 `.local/capture-overlay.ps1`로 창 영역을 캡처한다.
+- 비교용 환경 변수: `OVERPAL_EFFECT=none|blur|acrylic`(기본은 예전 Acrylic), `OVERPAL_FORCE_CLICK_THROUGH=1`(플레이 중처럼 항상 클릭 통과). `.local/try-effect.ps1`이 이 값들로 앱을 띄워 `.local/capture-overlay.ps1`로 창 영역을 캡처한다.
 - 클릭 통과는 창을 `WS_EX_LAYERED | WS_EX_TRANSPARENT`로 바꾸는 방식(tao)이다. 이 상태에서도 예전 Acrylic 블러는 유지된다.
 - 표시 규칙: 팰월드(`Palworld-Win64-Shipping.exe`) 창보다 z-order가 위인 창들의 영역(DWM 확장 프레임 기준)을 64×36 격자로 샘플링해 10% 이상 가려지면 숨긴다. 보이지 않거나 최소화되거나 cloaked(다른 가상 데스크톱 등)인 창, 팰월드와 이 앱의 창, `WS_EX_TRANSPARENT` 창은 제외한다. 오버레이는 팰월드가 있는 모니터에 뜬다.
 
@@ -56,7 +56,7 @@
 | | 위치 | 월드 ID | 용도 |
 | --- | --- | --- | --- |
 | A | 이 PC 협동 세이브 `SaveGames\<SteamID>\FF88CE01…` | `FF88CE01…` | 원본 보관, 더 플레이하지 않음 |
-| B | `E:\Games\Steam\steamapps\common\PalServer` | `7EEC10A2940A4812ADCE889EF63DB5C2` | 테스트. 개발 앱(`.local/palhelper.config.json`)과 `redeploy.ps1` 기본값 |
+| B | `E:\Games\Steam\steamapps\common\PalServer` | `7EEC10A2940A4812ADCE889EF63DB5C2` | 테스트. 개발 앱(`.local/overpal.config.json`)과 `redeploy.ps1` 기본값 |
 | C | `E:\Games\Palworld\servers\Pyundle261012-fork` | `FF88CE01…` | 친구와 하는 실제 서버. 앱은 `mod_apps\host`, 친구용은 `mod_appsriends\<이름>` |
 
 - B와 C는 포트(8211, 8212, 17993, 17994)가 같아 동시에 켤 수 없다.

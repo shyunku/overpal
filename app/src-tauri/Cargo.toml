@@ -1,5 +1,5 @@
 [package]
-name = "palhelper"
+name = "overpal"
 version = "0.1.0"
 description = "Palworld base storage overlay"
 authors = ["shyunku"]
@@ -8,7 +8,7 @@ edition = "2024"
 [lib]
 # The `_lib` suffix avoids a name clash with the bin target on Windows
 # (https://github.com/rust-lang/cargo/issues/8519)
-name = "palhelper_lib"
+name = "overpal_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

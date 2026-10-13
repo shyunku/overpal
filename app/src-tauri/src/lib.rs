@@ -51,14 +51,21 @@ fn parse_args() -> Result<Args, String> {
 
 /// Shows the error (there is no console) and quits.
 fn fail(msg: &str) -> ! {
-    eprintln!("palhelper: {msg}");
+    eprintln!("overpal: {msg}");
     #[cfg(windows)]
     {
         use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
         let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
-        unsafe { MessageBoxW(std::ptr::null_mut(), wide(msg).as_ptr(), wide("PalHelper").as_ptr(), MB_OK | MB_ICONERROR) };
+        unsafe { MessageBoxW(std::ptr::null_mut(), wide(msg).as_ptr(), wide("Overpal").as_ptr(), MB_OK | MB_ICONERROR) };
     }
     std::process::exit(1);
+}
+
+/// The app was called PalHelper with the id com.palworldhelper.mod; its folder (profiles, friend
+/// folders, layout, logs) moves to the new id's folder the first time. True when it moved.
+fn move_old_config_dir(config_dir: &std::path::Path) -> bool {
+    let old = config_dir.with_file_name("com.palworldhelper.mod");
+    !config_dir.exists() && old.is_dir() && std::fs::rename(&old, config_dir).is_ok()
 }
 
 /// How this run starts.
@@ -121,8 +128,12 @@ pub fn run() {
         .on_window_event(gui::on_window_event)
         .setup(move |app| {
             let config_dir = app.path().app_config_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let moved = move_old_config_dir(&config_dir);
             applog::set_dir(config_dir.join("logs"));
             applog::set_app(app.handle());
+            if moved {
+                applog::info(applog::Kind::App, "이전 이름(PalHelper)의 프로필과 설정을 옮겼습니다.");
+            }
             app.manage(Session(Mutex::new(SessionInner::new(config_dir, always_show))));
             app.manage(overlay::LayoutStore::load(app.handle()));
             overlay_watch::init(app.handle(), always_show);
