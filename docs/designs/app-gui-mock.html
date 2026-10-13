@@ -86,6 +86,21 @@
   .modal { width:420px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
   .modal h3 { margin:0 0 12px; font-size:16px; }
   .winwrap { position:relative; width:760px; }
+  .launch { display:flex; flex-direction:column; height:100%; }
+  .mcards { flex:1; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; min-height:0; }
+  .mcard { display:flex; flex-direction:column; align-items:center; text-align:center; padding:22px 16px 16px; border-radius:14px; border:1px solid var(--line); background:var(--panel); cursor:pointer; }
+  .mcard:hover { border-color:#4a5363; }
+  .mcard.on { border-color:var(--accent); background:linear-gradient(180deg, rgba(255,184,76,.12), rgba(255,184,76,.03)); box-shadow:0 0 0 1px var(--accent) inset; }
+  .mico { width:64px; height:64px; stroke:var(--muted); fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; margin-bottom:12px; }
+  .mcard.on .mico { stroke:var(--accent); }
+  .mname { font-size:24px; font-weight:700; }
+  .mwho { color:var(--muted); font-size:12px; margin-top:4px; }
+  .mdesc { font-size:13px; line-height:1.55; margin:14px 0 10px; color:#c9d1d9; }
+  .mpoints { list-style:none; margin:0; padding:0; font-size:12px; color:var(--muted); line-height:1.8; text-align:left; align-self:stretch; }
+  .mpoints li::before { content:"·"; margin-right:6px; color:var(--accent); }
+  .mstate { margin-top:auto; padding-top:12px; font-size:12px; color:var(--muted); }
+  .mstate.ok { color:#7ee787; }
+  .launch-foot { margin-top:14px; }
   aside h3 { margin:16px 0 6px; font-size:14px; } aside h3:first-child { margin-top:0; }
   aside ul { margin:0; padding-left:18px; color:#c9d1d9; line-height:1.6; font-size:12.5px; }
   aside .decide li { color:#ffd88a; }
@@ -105,7 +120,7 @@
   <aside>
     <h3>바뀌는 것</h3>
     <ul>
-      <li>exe 켜면 <b>시작 화면</b>에서 모드를 고름(지난번 모드가 미리 골라져 있음). 시작한 뒤엔 모드를 못 바꿈. 바꾸려면 앱을 다시 켜야 함</li>
+      <li>exe 켜면 <b>시작 화면</b>에서 모드를 고름. 큰 카드 3개(서버 / 오버레이 / 둘 다), 지난번 모드가 미리 골라져 있음. 시작한 뒤엔 모드를 못 바꿈. 바꾸려면 앱을 다시 켜야 함</li>
       <li>cmd 창 없음. 창 닫으면 앱(오버레이·앱 서버) 종료</li>
       <li><b>상태</b>: 앱 서버, 게임 서버(PalDefender), 모드 상태, 접속 중 플레이어, 친구 앱 접속, 최근 경고</li>
       <li><b>설정</b>: 지금 모드에 맞는 칸만 보임(모드는 보기만). 저장 누르면 같은 모드로 앱이 다시 켜짐</li>
@@ -154,21 +169,34 @@ const I = {
 const has = (m) => (m === "server" ? st.mode !== "client" : st.mode !== "server");
 const MODE_TEXT = { both: "서버 + 오버레이", server: "서버", client: "오버레이" };
 
+const MODE_ICON = {
+  server: '<rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 6.5h.01M8 17.5h.01M12 6.5h4M12 17.5h4"/>',
+  client: '<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8M12 17v4"/><rect x="13" y="6.5" width="6" height="4.5" rx="1"/><circle cx="7.5" cy="13" r="2"/>',
+  both: '<rect x="2" y="9" width="10" height="5" rx="1.5"/><rect x="2" y="16" width="10" height="5" rx="1.5"/><path d="M5 11.5h.01M5 18.5h.01"/><rect x="13" y="3" width="9.5" height="7" rx="1.5"/><path d="M15.5 12.5h4M17.75 10v2.5"/><path d="M12 6.5H9a2 2 0 0 0-2 2V9"/>',
+};
+const MODE_CARD = {
+  server: ["서버", "앱 서버만 실행합니다.", ["게임 서버와 같은 PC에서 실행", "친구들의 오버레이가 이 PC에 접속", "오버레이는 표시하지 않음"], "서버 전용 PC"],
+  client: ["오버레이", "다른 PC의 앱 서버에 접속해 게임 화면에 오버레이를 표시합니다.", ["앱 서버 주소와 접속 토큰 필요", "거점 아이템·팰·미니맵 표시", "게임 서버를 실행하지 않음"], "친구 PC"],
+  both: ["둘 다", "앱 서버를 실행하고, 이 PC의 게임 화면에도 오버레이를 표시합니다.", ["게임 서버와 같은 PC에서 실행", "친구들의 오버레이가 이 PC에 접속", "이 PC 게임 화면에 오버레이 표시"], "호스트 PC"],
+};
 function launch() {
   const first = st.state === "first";
-  const cards = [["both", "서버 + 오버레이", "이 PC에서 게임 서버와 앱 서버를 실행하고, 게임 화면에 오버레이를 표시합니다.", "호스트"],
-    ["server", "서버", "앱 서버만 실행합니다. 오버레이는 표시하지 않습니다.", "서버 전용 PC"],
-    ["client", "오버레이", "다른 PC의 앱 서버에 접속해 오버레이만 표시합니다.", "친구"]]
-    .map(([v, t, d, who]) => {
-      const ready = !first && v !== "server";
-      return `<div class="opt ${st.pick === v ? "on" : ""}" data-pick="${v}"><b>${v} <span class="muted" style="font-weight:400;font-size:12px">· ${t}</span></b><span>${d}</span><div style="margin-top:8px;font-size:12px" class="${ready ? "" : "muted"}">${who} · ${ready ? '<span style="color:#7ee787">설정 완료</span>' : "설정 필요"}</div></div>`;
-    }).join("");
-  const ready = !first && st.pick !== "server";
-  return `<div style="display:flex;flex-direction:column;height:100%"><h2>모드 선택</h2><p class="lead">${first ? "처음 실행입니다. 사용할 모드를 선택해 주세요." : "실행할 모드를 선택해 주세요. 실행 중에는 모드를 변경할 수 없습니다."}</p>
-    <div class="seg">${cards}</div>
-    <div class="help muted" style="font-size:12px;margin-top:12px;line-height:1.6">${ready ? "마지막으로 사용한 설정으로 시작합니다." : "시작 전에 이 모드의 설정을 입력해야 합니다."}</div>
-    <div style="flex:1"></div>
-    <div class="row" style="justify-content:flex-end"><button class="btn">${ready ? "설정 확인" : ""}${ready ? "" : "설정 입력"}</button><button class="btn primary">${ready ? "시작" : "설정 후 시작"}</button></div></div>`;
+  const isReady = (v) => !first && v !== "server";
+  const cards = ["server", "client", "both"].map((v) => {
+    const [name, desc, points, who] = MODE_CARD[v];
+    return `<div class="mcard ${st.pick === v ? "on" : ""}" data-pick="${v}">
+      <svg class="mico" viewBox="0 0 24 24">${MODE_ICON[v]}</svg>
+      <div class="mname">${name}</div>
+      <div class="mwho">${who} · ${v}</div>
+      <p class="mdesc">${desc}</p>
+      <ul class="mpoints">${points.map((x) => `<li>${x}</li>`).join("")}</ul>
+      <div class="mstate ${isReady(v) ? "ok" : ""}">${isReady(v) ? "설정 완료" : "설정 필요"}</div>
+    </div>`;
+  }).join("");
+  const ready = isReady(st.pick);
+  return `<div class="launch"><h2>모드 선택</h2><p class="lead">${first ? "처음 실행입니다. 사용할 모드를 선택해 주세요." : "실행할 모드를 선택해 주세요. 실행 중에는 모드를 변경할 수 없습니다."}</p>
+    <div class="mcards">${cards}</div>
+    <div class="row launch-foot"><span class="muted" style="flex:1;font-size:12px">${ready ? "마지막으로 사용한 설정으로 시작합니다." : "시작 전에 이 모드의 설정을 입력해야 합니다."}</span>${ready ? '<button class="btn">설정 확인</button>' : ""}<button class="btn primary">${ready ? "시작" : "설정 후 시작"}</button></div></div>`;
 }
 
 function status() {
