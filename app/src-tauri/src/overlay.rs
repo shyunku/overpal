@@ -143,12 +143,23 @@ fn no_frame_painting(window: &tauri::WebviewWindow) {
     use windows_sys::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass};
     use windows_sys::Win32::UI::WindowsAndMessaging::{WM_NCACTIVATE, WM_NCPAINT};
 
+    // undocumented: themed windows draw the caption and frame straight away on these (activation,
+    // title changes), past WM_NCPAINT; a click on the main window still drew the title bar
+    const WM_NCUAHDRAWCAPTION: u32 = 0xAE;
+    const WM_NCUAHDRAWFRAME: u32 = 0xAF;
+
     unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, _data: usize) -> LRESULT {
+        use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_INVALIDATE, RedrawWindow};
         match msg {
             // the window has no frame to paint
-            WM_NCPAINT => 0,
-            // let activation go on, but lParam -1 tells the default handling not to repaint the frame
-            WM_NCACTIVATE => unsafe { DefSubclassProc(hwnd, msg, wparam, -1) },
+            WM_NCPAINT | WM_NCUAHDRAWCAPTION | WM_NCUAHDRAWFRAME => 0,
+            // let activation go on, but lParam -1 tells the default handling not to repaint the frame;
+            // the page is repainted after it in case something was drawn over it anyway
+            WM_NCACTIVATE => unsafe {
+                let r = DefSubclassProc(hwnd, msg, wparam, -1);
+                RedrawWindow(hwnd, std::ptr::null(), std::ptr::null_mut(), RDW_INVALIDATE | RDW_ALLCHILDREN);
+                r
+            },
             _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
         }
     }
