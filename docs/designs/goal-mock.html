@@ -115,7 +115,7 @@
     <h3>바뀌는 것</h3>
     <ul>
       <li>메인 창에 <b>목표</b> 탭 추가 (장소 다음, 깃발 아이콘)</li>
-      <li><b>목표 목록</b>: 아이템 아이콘·이름·목표 수량, 진행 막대, "지금 n개 만들 수 있음". 다 모이면 초록</li>
+      <li><b>목표 목록</b>: 아이템 아이콘·이름·목표 수량, 진행 막대, "n개 제작 가능" (없으면 "재료 부족"). 다 모이면 초록</li>
       <li><b>진행도 기준</b>: 하위 재료까지 내려간 <b>기초 재료 기준</b>. 다 채운 중간 재료는 그걸 만드는 기초 재료만큼 완료로 치고, 부족한 중간 재료는 그 재료의 재료를 얼마나 가졌는지까지 셈 (보유량은 위 줄부터 사용)</li>
       <li><b>목표 상세의 재료마다 진행 막대</b> (같은 기준, 다 채우면 초록)</li>
       <li>기초 재료는 다 있는데 중간 재료(예: 금속 주괴)를 아직 안 만들었으면 목록에 '중간 재료 제작 필요'로 표시</li>
@@ -198,7 +198,7 @@ function list() {
     // all base materials are there, but some direct material still has to be made first
     const direct = need(id, n).every(([m, q]) => (HAVE[m] || 0) >= q);
     return `<div class="goal" data-open="${i}">${img(id)}<span class="nm"><span class="line"><b>${I[id][0]} ×${n}</b><small class="${done ? "ok" : ""}">${done ? (direct ? "재료 다 모임" : "중간 재료 제작 필요") : `재료 ${Math.round(r * 100)}%`}</small></span>
-      <span class="line"><small>${c > 0 ? `지금 ${c}개 만들 수 있음` : "아직 만들 수 없음"}</small><small>${BENCH[id] || ""}</small></span>
+      <span class="line"><small>${c > 0 ? `${c}개 제작 가능` : "재료 부족"}</small><small>${BENCH[id] || ""}</small></span>
       <span class="bar ${done ? "done" : ""}"><i style="width:${Math.min(100, r * 100)}%"></i></span></span></div>`;
   }).join("");
   return title("목표", baseSub) + `<div class="scroll"><div class="sec"><span>목표</span><span>${st.goals.length}</span></div>${rows}</div><div class="foot"><button class="btn primary" data-go="add">+ 목표 추가</button></div>`;
