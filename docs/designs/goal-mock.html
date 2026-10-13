@@ -61,6 +61,9 @@
   .mat .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mat .num { text-align: right; font-size: 14px; white-space: nowrap; }
   .mat .num small { display: block; font-size: 11px; }
+  .mat .rbar { grid-column: 3 / 5; height: 3px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; margin-top: -2px; }
+  .mat .rbar i { display: block; height: 100%; background: var(--orange); }
+  .mat .rbar.done i { background: var(--ok); }
   .mat.child { padding-left: 30px; }
   .mat.child2 { padding-left: 52px; }
   .mat:hover { background: rgba(255, 255, 255, 0.05); }
@@ -82,6 +85,13 @@
   .notes h3 { margin: 4px 0 6px; font-size: 14px; }
   .notes ul { margin: 0 0 10px; padding-left: 18px; }
   .notes .q { color: #e3b341; }
+  .pick { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 8px; border-radius: 10px; }
+  .pick .ico { width: 38px; height: 38px; }
+  .pick .tx { height: 38px; display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }
+  .pick .tx b { font-weight: 600; line-height: 19px; }
+  .pick .tx small { font-size: 12px; line-height: 16px; color: var(--glass-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .foot .btn, .foot .qty .s, .foot .qty .q { height: 30px; }
+  .foot .qty .q { display: grid; place-items: center; padding: 0 8px; }
   .ctx { position: absolute; z-index: 10; min-width: 150px; padding: 4px; border-radius: 8px; background: rgba(22, 27, 34, 0.96); border: 1px solid var(--glass-line); box-shadow: 0 6px 18px rgba(0,0,0,.45); font-size: 14px; }
   .ctx div { padding: 7px 10px; border-radius: 6px; display: flex; gap: 8px; align-items: center; }
   .ctx div.hi { background: rgba(255, 184, 76, 0.2); color: #ffd79a; }
@@ -105,7 +115,11 @@
     <h3>바뀌는 것</h3>
     <ul>
       <li>메인 창에 <b>목표</b> 탭 추가 (장소 다음, 깃발 아이콘)</li>
-      <li><b>목표 목록</b>: 아이템 아이콘·이름·목표 수량, 재료 충족 막대(모든 재료 보유/필요 비율), "지금 n개 만들 수 있음". 다 모이면 초록</li>
+      <li><b>목표 목록</b>: 아이템 아이콘·이름·목표 수량, 진행 막대, "지금 n개 만들 수 있음". 다 모이면 초록</li>
+      <li><b>진행도 기준</b>: 하위 재료까지 내려간 <b>기초 재료 기준</b>. 다 채운 중간 재료는 그걸 만드는 기초 재료만큼 완료로 치고, 부족한 중간 재료는 그 재료의 재료를 얼마나 가졌는지까지 셈 (보유량은 위 줄부터 사용)</li>
+      <li><b>목표 상세의 재료마다 진행 막대</b> (같은 기준, 다 채우면 초록)</li>
+      <li>기초 재료는 다 있는데 중간 재료(예: 금속 주괴)를 아직 안 만들었으면 목록에 '중간 재료 제작 필요'로 표시</li>
+      <li>검색으로 추가: 아이콘과 이름·재료 두 줄의 높이를 맞춤, 아래 수량·버튼 높이도 통일</li>
       <li><b>목표 상세</b>: 수량 조절(- / + 와 직접 입력), 만드는 곳(제작대), 재료별 <b>보유 / 필요</b>와 부족분(빨강). 다 채운 재료는 <b>완료</b>(초록)</li>
       <li><b>재료 펼치기</b>: 만들 수 있는 재료는 그 재료의 재료를 아래에 보여 줌. 하위 재료 수량은 <b>부족한 만큼만</b> 계산 (예: 금속 주괴 12개 부족 → 금속 광석 24개 필요)</li>
       <li><b>기본 접힘/펼침</b>: 부족한 재료는 펼쳐져 있고, 다 채운 재료는 접혀 있음. ▸/▾ 로 자유롭게 접고 펼 수 있음. 그 재료가 다 채워지거나 다시 부족해지면 기본 상태(채움 → 접힘, 부족 → 펼침)로 돌아감</li>
@@ -153,7 +167,23 @@ const st = { view: "list", mode: "side", goals: GOALS.slice(), open: 0, exp: {} 
 const img = (id, cls = "ico") => `<img class="${cls}" src="${IC}${I[id][1]}" alt="">`;
 const need = (id, n) => (R[id] || []).map(([m, q]) => [m, q * n]);
 const canMake = (id) => Math.min(...need(id, 1).map(([m, q]) => Math.floor((HAVE[m] || 0) / q)));
-const ratio = (id, n) => { const r = need(id, n); return r.reduce((a, [m, q]) => a + Math.min(HAVE[m] || 0, q), 0) / r.reduce((a, [, q]) => a + q, 0); };
+// base materials (all the way down) an amount of an item takes
+const leaves = (m, q) => (R[m] ? need(m, q).reduce((a, [x, y]) => a + leaves(x, y), 0) : q);
+// [done, total] in base materials: a filled row counts whole, a lacking one counts what it has
+// plus, for something craftable, how far its own materials are (stock used from the top)
+function prog(id, n, pool, rows) {
+  let done = 0, total = 0;
+  for (const [m, q] of rows || need(id, n)) {
+    const take = Math.min(pool[m] || 0, q);
+    pool[m] = (pool[m] || 0) - take;
+    const lack = q - take;
+    total += leaves(m, q);
+    done += leaves(m, take);
+    if (lack && R[m]) done += prog(m, lack, pool)[0];
+  }
+  return [done, total];
+}
+const ratio = (id, n) => { const [d, t] = prog(id, n, { ...HAVE }); return t ? d / t : 1; };
 const icon = (p) => `<svg class="ic" viewBox="0 0 24 24">${p}</svg>`;
 const RAIL = [['<path d="M21 8 12 3 3 8v8l9 5 9-5V8zM3 8l9 5 9-5M12 13v8"/>'], ['<circle cx="12" cy="13" r="6"/><circle cx="7" cy="5" r="2"/><circle cx="17" cy="5" r="2"/>'], ['<path d="M3 21h18M5 21V10l7-5 7 5v11M10 21v-6h4v6"/>'], ['<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>'], ['<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>', true]];
 function rail() { return `<nav class="rail">${RAIL.map(([p, goal]) => `<span class="rb ${goal ? "on new" : ""}">${icon(p)}</span>`).join("")}</nav>`; }
@@ -165,7 +195,9 @@ function list() {
   if (!st.goals.length) return title("목표", baseSub) + `<div class="empty">목표가 없습니다.<br>만들 아이템과 수량을 등록하면<br>필요한 재료를 모아 보여 줍니다.<br><br><button class="btn primary" data-go="add">+ 목표 추가</button></div>`;
   const rows = st.goals.map(([id, n], i) => {
     const r = ratio(id, n), c = canMake(id), done = r >= 1;
-    return `<div class="goal" data-open="${i}">${img(id)}<span class="nm"><span class="line"><b>${I[id][0]} ×${n}</b><small class="${done ? "ok" : ""}">${done ? "재료 다 모임" : `재료 ${Math.round(r * 100)}%`}</small></span>
+    // all base materials are there, but some direct material still has to be made first
+    const direct = need(id, n).every(([m, q]) => (HAVE[m] || 0) >= q);
+    return `<div class="goal" data-open="${i}">${img(id)}<span class="nm"><span class="line"><b>${I[id][0]} ×${n}</b><small class="${done ? "ok" : ""}">${done ? (direct ? "재료 다 모임" : "중간 재료 제작 필요") : `재료 ${Math.round(r * 100)}%`}</small></span>
       <span class="line"><small>${c > 0 ? `지금 ${c}개 만들 수 있음` : "아직 만들 수 없음"}</small><small>${BENCH[id] || ""}</small></span>
       <span class="bar ${done ? "done" : ""}"><i style="width:${Math.min(100, r * 100)}%"></i></span></span></div>`;
   }).join("");
@@ -175,14 +207,19 @@ function list() {
 // stock is used from the top row down: a material on several rows fills the first ones first
 function matRows(id, n, depth, pool, path) {
   return need(id, n).map(([m, q], idx) => {
+    const before = { ...pool };
     const take = Math.min(pool[m] || 0, q);
     pool[m] = (pool[m] || 0) - take;
     const lack = q - take, sub = R[m] && depth < 2, key = path + "/" + idx + m;
+    // this row's own progress, in base materials (its materials count when it is craftable)
+    const [pd, pt] = prog("__", 0, before, [[m, q]]);
+    const pr = pt ? pd / pt : 1;
     // default: lacking open, filled closed; a toggle holds until the row turns filled or lacking
     const o = st.exp[key];
     const open = sub && (o && o.lack === (lack > 0) ? o.open : lack > 0);
     const row = `<div class="mat ${depth === 1 ? "child" : depth === 2 ? "child2" : ""}"><span class="tw" ${sub ? `data-exp="${key}" data-lack="${lack > 0}" data-open="${open}"` : ""}>${sub ? (open ? "▾" : "▸") : ""}</span>${img(m, "ico sm")}<span class="nm">${I[m][0]}</span>
-      <span class="num tabular">${take}/${q}<small class="${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "완료"}</small></span></div>`;
+      <span class="num tabular">${take}/${q}<small class="${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "완료"}</small></span>
+      <span class="rbar ${lack ? "" : "done"}"><i style="width:${Math.round(Math.min(1, pr) * 100)}%"></i></span></div>`;
     // only the shortfall is made from the material's own materials
     // a filled row opened by hand shows its recipe for the whole amount, without using stock
     return row + (open ? (lack ? matRows(m, lack, depth + 1, pool, key) : matRows(m, q, depth + 1, { ...pool }, key)) : "");
@@ -199,8 +236,8 @@ function detail() {
 function add() {
   const hits = ["Metal_Armor", "Crossbow", "Cement", "Nail"];
   return title("목표 추가", "만들 아이템을 고르세요", true) + `<input class="search" value="금속" placeholder="아이템 검색">
-    <div class="scroll">${hits.map((h, i) => `<div class="goal" style="${i === 0 ? "background:rgba(255,255,255,.08)" : ""}">${img(h)}<span class="nm"><span class="line"><b>${I[h][0]}</b></span><span class="line"><small>${need(h, 1).map(([m, q]) => `${I[m][0]} ${q}`).join(" · ")}</small></span></span></div>`).join("")}</div>
-    <div class="foot" style="align-items:center"><span style="flex:1;font-size:13px;color:var(--glass-muted)">금속 갑옷</span><div class="qty" style="margin:0"><span class="s">−</span><span class="q tabular">2</span><span class="s">+</span></div><button class="btn primary">추가</button></div>`;
+    <div class="scroll">${hits.map((h, i) => `<div class="pick" style="${i === 0 ? "background:rgba(255,255,255,.08)" : ""}">${img(h)}<span class="tx"><b>${I[h][0]}</b><small>${need(h, 1).map(([m, q]) => `${I[m][0]} ${q}`).join(" · ")}</small></span></div>`).join("")}</div>
+    <div class="foot" style="align-items:center"><span style="flex:1;font-size:13px;line-height:30px;color:var(--glass-muted)">금속 갑옷</span><div class="qty" style="margin:0"><span class="s">−</span><span class="q tabular">2</span><span class="s">+</span></div><button class="btn primary">추가</button></div>`;
 }
 
 function ctxMenu(x, y) {
