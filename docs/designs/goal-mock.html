@@ -62,9 +62,16 @@
   .mat .num { text-align: right; font-size: 14px; white-space: nowrap; }
   .mat .num small { display: block; font-size: 11px; }
   /* icon, name, amount (X/Y over short/done) and a donut, each centered on the row */
-  .mat2 { display: grid; grid-template-columns: 16px 34px minmax(0, 1fr) auto 26px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; }
+  .mat2 { display: grid; grid-template-columns: 22px 34px minmax(0, 1fr) auto 26px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; }
   .mat2:hover { background: rgba(255, 255, 255, 0.05); }
-  .mat2 .tw { color: var(--glass-muted); font-size: 11px; cursor: pointer; text-align: center; }
+  .mat2 .tw { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; color: var(--glass-muted); cursor: pointer; }
+  .mat2 .tw:hover { background: var(--chip); color: var(--glass-fg); }
+  .mat2 .tw svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s ease; }
+  .mat2 .tw.open svg { transform: rotate(90deg); }
+  /* the goal's whole progress (for its amount) under the materials header */
+  .gbar { display: flex; align-items: center; gap: 10px; padding: 2px 8px 8px; }
+  .gbar .bar { flex: 1; height: 6px; }
+  .gbar span { font-size: 13px; min-width: 40px; text-align: right; }
   .mat2 .ico { width: 34px; height: 34px; }
   .mat2 .nm { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mat2 .amt { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
@@ -131,6 +138,8 @@
       <li><b>목표 목록</b>: 아이템 아이콘·이름·목표 수량, 진행 막대, "n개 제작 가능" (없으면 "재료 부족"). 다 모이면 초록</li>
       <li><b>진행도 기준</b>: 하위 재료까지 내려간 <b>기초 재료 기준</b>. 다 채운 중간 재료는 그걸 만드는 기초 재료만큼 완료로 치고, 부족한 중간 재료는 그 재료의 재료를 얼마나 가졌는지까지 셈 (보유량은 위 줄부터 사용)</li>
       <li><b>목표 상세의 재료마다 오른쪽 끝에 원형 진행도</b> (같은 기준, 다 채우면 초록)</li>
+      <li><b>목표 상세 전체 진행 막대</b>: '재료 · 보유/필요' 줄 바로 아래, 지금 정한 수량 기준 %. 수량을 바꾸면 같이 바뀜</li>
+      <li>펼치기 표시는 화살표 아이콘(16px)으로 키우고, 펼칠 때 부드럽게 돌아감</li>
       <li>기초 재료는 다 있는데 중간 재료(예: 금속 주괴)를 아직 안 만들었으면 목록에 '중간 재료 제작 필요'로 표시</li>
       <li>검색으로 추가: 아이콘과 이름·재료 두 줄의 높이를 맞춤, 아래 수량·버튼 높이도 통일</li>
       <li><b>목표 상세</b>: 수량 조절(- / + 와 직접 입력), 만드는 곳(제작대), 재료별 <b>보유 / 필요</b>와 부족분(빨강). 다 채운 재료는 <b>완료</b>(초록)</li>
@@ -235,7 +244,7 @@ function matRows(id, n, depth, pool, path) {
     // default: lacking open, filled closed; a toggle holds until the row turns filled or lacking
     const o = st.exp[key];
     const open = sub && (o && o.lack === (lack > 0) ? o.open : lack > 0);
-    const row = `<div class="mat2 ${depth === 1 ? "child" : depth === 2 ? "child2" : ""}"><span class="tw" ${sub ? `data-exp="${key}" data-lack="${lack > 0}" data-open="${open}"` : ""}>${sub ? (open ? "▾" : "▸") : ""}</span>${img(m)}
+    const row = `<div class="mat2 ${depth === 1 ? "child" : depth === 2 ? "child2" : ""}"><span class="tw ${open ? "open" : ""}" ${sub ? `data-exp="${key}" data-lack="${lack > 0}" data-open="${open}"` : ""}>${sub ? '<svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>' : ""}</span>${img(m)}
       <span class="nm">${I[m][0]}</span>
       <span class="amt"><span class="xy tabular">${take}/${q}</span><span class="st ${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "완료"}</span></span>
       ${donut(pr, !lack)}</div>`;
@@ -248,7 +257,9 @@ function detail() {
   const [id, n] = st.goals[st.open];
   return title(I[id][0], baseSub, true) + `<div style="padding:0 16px 6px;display:flex;gap:10px;align-items:center">${img(id)}<div style="flex:1"><div class="bench">만드는 곳: ${BENCH[id] || "-"}</div>
       <div class="qty"><span class="s">−</span><span class="q tabular">${n}</span><span class="s">+</span><span class="sp"></span><button class="btn danger">삭제</button></div></div></div>
-    <div class="scroll"><div class="sec"><span>재료</span><span>보유 / 필요</span></div>${matRows(id, n, 0, { ...HAVE }, "")}</div>`;
+    <div class="scroll"><div class="sec"><span>재료</span><span>보유 / 필요</span></div>
+      <div class="gbar"><span class="bar ${ratio(id, n) >= 1 ? "done" : ""}"><i style="width:${Math.round(Math.min(1, ratio(id, n)) * 100)}%"></i></span><span class="tabular ${ratio(id, n) >= 1 ? "ok" : ""}">${Math.round(ratio(id, n) * 100)}%</span></div>
+      ${matRows(id, n, 0, { ...HAVE }, "")}</div>`;
 }
 
 function add() {
