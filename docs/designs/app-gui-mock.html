@@ -166,6 +166,21 @@
   .ic.xl { width:40px; height:40px; stroke-width:1.5; margin-bottom:6px; }
   .flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:#c9d1d9; margin:0 0 10px; }
   .flow b { padding:3px 8px; border-radius:6px; background:#161b22; border:1px solid var(--page-line); font-weight:500; }
+  .finder { margin-top:8px; border:1px solid var(--line); border-radius:10px; background:#11151b; overflow:hidden; }
+  .fhead { display:flex; align-items:center; gap:7px; padding:8px 12px; font-size:12px; color:var(--fg); border-bottom:1px solid var(--line); }
+  .fhead .sp { flex:1; }
+  .fhead .fx { color:var(--muted); cursor:pointer; display:inline-flex; }
+  .fitem { display:grid; grid-template-columns:92px minmax(0,1fr) auto auto; align-items:center; gap:12px; padding:9px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .fitem:last-child { border-bottom:0; }
+  .fitem:hover { background:var(--panel); }
+  .fsrc { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); white-space:nowrap; }
+  .fmain { display:flex; flex-direction:column; gap:2px; min-width:0; font-size:13px; }
+  .fmain b { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fmain span { font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fchk { display:flex; gap:10px; font-size:11px; white-space:nowrap; }
+  .fchk span { display:inline-flex; align-items:center; gap:4px; }
+  .fchk .ok { color:#7ee787; } .fchk .no { color:#ffa198; }
+  .fchk .ic { width:12px; height:12px; }
   aside h3 { margin:16px 0 6px; font-size:14px; } aside h3:first-child { margin-top:0; }
   aside ul { margin:0; padding-left:18px; color:#c9d1d9; line-height:1.6; font-size:12.5px; }
   aside .decide li { color:#ffd88a; }
@@ -198,6 +213,7 @@
       <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
       <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
       <li>처음 실행(프로필 없음)이면 드롭다운에 New Profile만 있음</li>
+      <li><b>게임 서버 폴더 자동 찾기</b>(설정): 버튼을 누르면 실행 중인 서버 → 스팀 설치 위치 → 드라이브(몇 단계 깊이까지) 순으로 PalServer.exe가 있는 폴더를 찾아 후보로 보여줌. 후보마다 모드·PalDefender 확인 여부. 누르면 그 폴더로 채워짐</li>
       <li>프로필은 시작할 때만 고름. Home에서는 프로필 창이 다시 뜨지 않고 프로필을 바꿀 수 없음(바꾸려면 앱을 다시 실행). Home의 설정 메뉴는 고른 프로필의 설정을 고침</li>
       <li>화면 문구는 존댓말(제품 문구). 이 옆 설명만 반말</li>
       <li>토큰은 가려서 보여주고 복사 버튼만 둠</li>
@@ -218,7 +234,7 @@
   </aside>
 </div>
 <script>
-const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false };
+const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false, finder: false };
 const opts = {
   tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 홈"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
   mode: [["both", "both"], ["server", "server"], ["client", "client"]],
@@ -263,6 +279,7 @@ const IC = {
   save: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v5h7M8 21v-7h8v7"/>',
   sliders: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
   file: '<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
 };
 const ic = (n, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24">${IC[n]}</svg>`;
 const PROFILES = [
@@ -286,6 +303,20 @@ const MODE_CARD = {
   client: ["오버레이", "다른 PC의 앱 서버에 접속해 게임 화면에 오버레이를 표시합니다.", ["앱 서버 주소와 접속 토큰 필요", "거점 아이템·팰·미니맵 표시", "게임 서버를 실행하지 않음"], "친구 PC"],
   both: ["둘 다", "앱 서버를 실행하고, 이 PC의 게임 화면에도 오버레이를 표시합니다.", ["게임 서버와 같은 PC에서 실행", "친구들의 오버레이가 이 PC에 접속", "이 PC 게임 화면에 오버레이 표시"], "호스트 PC"],
 };
+const FOUND = [
+  { src: "실행 중", icon: "play", path: "E:\\Games\\Palworld\\servers\\Pyundle261012-fork", mod: true, pd: true },
+  { src: "스팀", icon: "game", path: "E:\\Games\\Steam\\steamapps\\common\\PalServer", mod: true, pd: true },
+  { src: "폴더 검색", icon: "search", path: "D:\\Servers\\PalServer-old", mod: false, pd: false },
+];
+function finderList() {
+  const rows = FOUND.map((f, i) => `<div class="fitem" data-pickdir="${i}">
+      <span class="fsrc">${ic(f.icon)}${f.src}</span>
+      <div class="fmain"><b>${f.path.split("\\").pop()}</b><span class="muted">${shortPath(f.path)}</span></div>
+      <div class="fchk"><span class="${f.mod ? "ok" : "no"}">${ic(f.mod ? "check" : "xcircle")}모드</span><span class="${f.pd ? "ok" : "no"}">${ic(f.pd ? "check" : "xcircle")}PalDefender</span></div>
+      <button class="btn small">선택</button></div>`).join("");
+  return `<div class="finder"><div class="fhead">${ic("search")}<span>찾은 게임 서버 ${FOUND.length}개</span><span class="sp"></span><span class="muted" style="font-size:11px">실행 중인 서버 → 스팀 설치 위치 → 드라이브 순으로 찾았습니다.</span><span class="fx" data-find="0">${ic("xcircle")}</span></div>${rows}</div>`;
+}
+
 function profileWin() {
   const list = st.state === "first" ? [] : PROFILES;
   const cur = list[st.prof];
@@ -360,7 +391,7 @@ function settings() {
   const server = has("server") ? `<div class="sec"><span>${ic("server")}앱 서버</span><span></span></div>
     <div class="field"><label>${ic("globe")}접속 허용</label><div><div class="switch"><span>이 PC만</span><span class="on">외부 접속 허용</span></div><div class="help">외부 접속을 허용하면 친구 PC에서 접속할 수 있습니다.<br>공유기에서 이 포트(TCP)를 이 PC로 포트포워딩해야 합니다.</div></div></div>
     <div class="field"><label>${ic("hash")}포트</label><div><input type="text" value="17994" style="width:120px"></div></div>
-    <div class="field"><label>${ic("folder")}게임 서버 폴더</label><div><div class="row"><input type="text" value="E:\\Games\\Palworld\\servers\\Pyundle261012-fork"><button class="btn">${ic("folder")}찾아보기</button></div><div class="help">모드 출력 폴더(…\\ue4ss\\Mods\\PalHelperMod)를 이 폴더에서 자동으로 찾습니다.<br><span style="color:#7ee787">확인됨</span></div></div></div>
+    <div class="field"><label>${ic("folder")}게임 서버 폴더</label><div><div class="row"><input type="text" value="${st.picked || "E:\\Games\\Palworld\\servers\\Pyundle261012-fork"}"><button class="btn" data-find="1">${ic("search")}자동 찾기</button><button class="btn">${ic("folder")}찾아보기</button></div>${st.finder ? finderList() : `<div class="help">모드 출력 폴더(…\\ue4ss\\Mods\\PalHelperMod)를 이 폴더에서 자동으로 찾습니다.<br><span style="color:#7ee787">확인됨</span></div>`}</div></div>
     <div class="field"><label>${ic("game")}PalDefender</label><div><div class="row"><input type="text" value="http://127.0.0.1:17993"><span class="mask">${ic("key")} ••••••a91f</span><button class="btn small">변경</button></div><div class="help">토큰은 게임 서버 폴더의 PalDefender 설정에서 자동으로 읽어옵니다.</div></div></div>` : "";
   const client = st.mode === "client" ? `<div class="sec"><span>${ic("link")}접속할 앱 서버</span><span></span></div>
     <div class="field"><label>${ic("globe")}주소</label><div><input type="text" value="http://203.0.113.24:17994"></div></div>
@@ -433,6 +464,8 @@ function render() {
   if (size && !isProfile && !prev.classList.contains("pw")) Object.assign(w.querySelector(".win").style, { width: size.w + "px", height: size.h + "px" });
   w.querySelectorAll("[data-prof]").forEach((e) => (e.onclick = () => { st.prof = Number(e.dataset.prof); st.dd = false; render(); }));
   w.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { const pf = PROFILES[st.prof]; if (!pf || pf.start === "ask") st.tab = "launch"; else { st.mode = pf.start; st.tab = "status"; } st.dd = false; render(); }));
+  w.querySelectorAll("[data-find]").forEach((e) => (e.onclick = () => { st.finder = e.dataset.find === "1"; render(); }));
+  w.querySelectorAll("[data-pickdir]").forEach((e) => (e.onclick = () => { st.picked = FOUND[Number(e.dataset.pickdir)].path; st.finder = false; render(); }));
   w.querySelectorAll("[data-dd]").forEach((e) => (e.onclick = () => { st.dd = !st.dd; render(); }));
   w.querySelectorAll("[data-tab]").forEach((e) => (e.onclick = () => { st.tab = e.dataset.tab; render(); }));
   w.querySelectorAll("[data-pick]").forEach((e) => (e.onclick = () => { st.pick = e.dataset.pick; render(); }));
