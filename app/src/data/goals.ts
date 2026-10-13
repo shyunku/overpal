@@ -107,9 +107,18 @@ export function craftableNow(recipe: Recipe | undefined, mats: [string, number][
 }
 
 let loading: Promise<Recipes> | null = null;
+let loaded: Recipes | null = null;
 
 /** Loads the recipes once per window. */
 export function loadRecipes(): Promise<Recipes> {
-  loading ??= fetch("/data/recipes.json").then((r) => (r.ok ? (r.json() as Promise<Recipes>) : {}));
+  loading ??= fetch("/data/recipes.json")
+    .then((r) => (r.ok ? (r.json() as Promise<Recipes>) : {}))
+    .then((r) => (loaded = r));
   return loading;
+}
+
+/** How many one craft of the item makes (1 until the recipes are loaded, or without a recipe). */
+export function recipeYield(id: string): number {
+  if (!loaded) loadRecipes();
+  return loaded?.[id]?.n ?? 1;
 }

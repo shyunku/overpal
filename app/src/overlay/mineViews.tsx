@@ -1,6 +1,7 @@
 // The main window's "내 것" (mine) views for pals, structures and places: this server's data in
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
+import { recipeYield } from "../data/goals";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
@@ -215,8 +216,10 @@ type Prod = Building & { made: number };
 function prodInfo(b: Prod) {
   const pr = b.production!;
   const on = pr.remain > 0;
-  const total = b.made + pr.remain;
-  const part = on && pr.workRequired > 0 ? Math.min(1, pr.work / pr.workRequired) : 0;
+  // the game counts what is left in crafts; one craft can make several (energy cartridges: 20)
+  const per = recipeYield(pr.recipe);
+  const total = b.made + pr.remain * per;
+  const part = on && pr.workRequired > 0 ? Math.min(1, pr.work / pr.workRequired) * per : 0;
   return {
     made: b.made,
     total,
