@@ -290,6 +290,17 @@ select:focus {
   background: rgba(63, 185, 80, 0.18);
   color: #7ee787;
 }
+/* friend's token: hidden value and the copy button on one centered line */
+.tokcell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.tokcell .mask {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .mask {
   font-family: Consolas, monospace;
   color: var(--muted);

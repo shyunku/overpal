@@ -392,6 +392,22 @@ function QuitDialog({ gs, onCancel }: { gs: GameServerStatus; onCancel: () => vo
 
 const PD_GRACE_SECS = 60;
 
+/** Copies `text` (e.g. a friend's token, which stays hidden on screen); says so for a moment. */
+function CopyButton({ text }: { text: string }) {
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (!done) return;
+    const t = window.setTimeout(() => setDone(false), 1500);
+    return () => window.clearTimeout(t);
+  }, [done]);
+  return (
+    <button className="btn small" onClick={() => navigator.clipboard.writeText(text).then(() => setDone(true))}>
+      <Icon name={done ? "check" : "copy"} />
+      {done ? "복사됨" : "복사"}
+    </button>
+  );
+}
+
 const ago = (secs: number) => (secs < 60 ? `${Math.max(0, Math.round(secs))}초 전` : secs < 3600 ? `${Math.round(secs / 60)}분 전` : `${Math.round(secs / 3600)}시간 전`);
 
 function Card({ icon, title, dot, big, children }: { icon: IconName; title: string; dot: "" | "warn" | "bad" | "off"; big: string; children?: ReactNode }) {
@@ -669,8 +685,13 @@ function FriendsView({ session, host, players, onProfile }: { session: SessionVi
                     </div>
                   </div>
                 </td>
-                <td className="mask">
-                  <Icon name="key" /> ••••{f.token.slice(-4)}
+                <td>
+                  <span className="tokcell">
+                    <span className="mask">
+                      <Icon name="key" /> ••••{f.token.slice(-4)}
+                    </span>
+                    <CopyButton text={f.token} />
+                  </span>
                 </td>
                 <td>{st?.connected ? <span className="tag on">접속 중</span> : <span className="tag">{st?.secondsAgo != null ? ago(st.secondsAgo) : "기록 없음"}</span>}</td>
                 <td className="r">
