@@ -266,7 +266,9 @@ function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
 
 /** search for an item or structure to add as a goal */
 function GoalSearch({ recipes, structs, onAdd, onBack }: { recipes: Recipes; structs: Map<string, DexStruct>; onAdd: (g: Goal) => void; onBack: () => void }) {
-  const [query, setQuery] = useState("");
+  // the box keeps what is typed (spaces too); the search uses it trimmed
+  const [typed, setQuery] = useState("");
+  const query = typed.trim();
   const [picked, setPicked] = useState<{ kind: "item" | "struct"; id: string } | null>(null);
   const [qty, setQty] = useState(1);
   const hits = useMemo(() => {
@@ -284,7 +286,7 @@ function GoalSearch({ recipes, structs, onAdd, onBack }: { recipes: Recipes; str
   return (
     <>
       <div className="gl-searchhead">
-        <input className="search" autoFocus placeholder="아이템·구조물 검색" value={query} onChange={(e) => setQuery(e.target.value.trim())} />
+        <input className="search" autoFocus placeholder="아이템·구조물 검색" value={typed} onChange={(e) => setQuery(e.target.value)} />
       </div>
       <div className="scroll">
         {hits.map((h) => {

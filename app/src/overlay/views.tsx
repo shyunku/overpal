@@ -225,7 +225,9 @@ function ItemsTab(props: {
 }) {
   const { data, mode, base, notice, detail, onOpen } = props;
   const [tab, setTab] = useState<"total" | "where">("total");
-  const [query, setQuery] = useState("");
+  // the box keeps what is typed (spaces too); the search uses it trimmed
+  const [typed, setQuery] = useState("");
+  const query = typed.trim();
   const [place, setPlace] = useState("all");
   const desc = useItemDesc();
   // hide the tooltip when this view goes away, the pointer leaves the window or the list scrolls
@@ -291,7 +293,7 @@ function ItemsTab(props: {
     ];
     body = (
       <>
-        <input className="search" placeholder="아이템 검색" value={query} onChange={(e) => setQuery(e.target.value.trim())} />
+        <input className="search" placeholder="아이템 검색" value={typed} onChange={(e) => setQuery(e.target.value)} />
         {notice}
         <div className={`full-body ${data.conn === "stale" ? "dim" : ""}`}>
           <div className="filters">
@@ -336,7 +338,7 @@ function ItemsTab(props: {
             위치별
           </b>
         </div>
-        {tab === "total" && <input className="search" placeholder="아이템 검색" value={query} onChange={(e) => setQuery(e.target.value.trim())} />}
+        {tab === "total" && <input className="search" placeholder="아이템 검색" value={typed} onChange={(e) => setQuery(e.target.value)} />}
         {notice}
         <div className={`scroll ${data.conn === "stale" ? "dim" : ""}`}>
           {tab === "where" ? (
@@ -423,7 +425,9 @@ interface OtherTabProps {
 }
 
 /** Pals, structures and places: "mine" (this server) or "dex" (game data); compact shows only "mine". */
-function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, captures, detail, onOpen, data, pals, base }: OtherTabProps) {
+function OtherTab({ tab, mode, sub, onSub, query: typed, onQuery, dex, captures, detail, onOpen, data, pals, base }: OtherTabProps) {
+  // the box keeps what is typed (spaces too); the lists search with it trimmed
+  const query = typed.trim();
   const mine = (head: ReactNode) => <MineView tab={tab} mode={mode} data={data} dex={dex} pals={pals} base={base} query={query} detail={detail} onOpen={onOpen} head={head} />;
   if (mode === "hud") return mine(null);
   if (detail && sub === "dex" && dex) return <DexDetail dex={dex} tab={tab} id={detail} />;
@@ -437,7 +441,7 @@ function OtherTab({ tab, mode, sub, onSub, query, onQuery, dex, captures, detail
       </b>
     </div>
   );
-  const search = <input className="search" placeholder="검색" value={query} onChange={(e) => onQuery(e.target.value.trim())} />;
+  const search = <input className="search" placeholder="검색" value={typed} onChange={(e) => onQuery(e.target.value)} />;
   if (sub === "dex") {
     return (
       <>

@@ -148,17 +148,34 @@ fn no_frame_painting(window: &tauri::WebviewWindow) {
     const WM_NCUAHDRAWCAPTION: u32 = 0xAE;
     const WM_NCUAHDRAWFRAME: u32 = 0xAF;
 
+    // a moment after activation the whole window (frame included) is painted again: in 0.1.3 the
+    // title bar still showed after clicking, and a full repaint like this one cleared it
+    const REDRAW_TIMER: usize = 0x5041;
+    const REDRAW_AFTER_MS: u32 = 60;
+
     unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, _data: usize) -> LRESULT {
-        use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_INVALIDATE, RedrawWindow};
+        use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer, WM_ACTIVATE, WM_ACTIVATEAPP, WM_KILLFOCUS, WM_SETFOCUS, WM_TIMER};
+        let full = RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW;
         match msg {
             // the window has no frame to paint
             WM_NCPAINT | WM_NCUAHDRAWCAPTION | WM_NCUAHDRAWFRAME => 0,
-            // let activation go on, but lParam -1 tells the default handling not to repaint the frame;
-            // the page is repainted after it in case something was drawn over it anyway
+            // let activation go on, but lParam -1 tells the default handling not to repaint the frame
             WM_NCACTIVATE => unsafe {
                 let r = DefSubclassProc(hwnd, msg, wparam, -1);
-                RedrawWindow(hwnd, std::ptr::null(), std::ptr::null_mut(), RDW_INVALIDATE | RDW_ALLCHILDREN);
+                RedrawWindow(hwnd, std::ptr::null(), std::ptr::null_mut(), full);
+                SetTimer(hwnd, REDRAW_TIMER, REDRAW_AFTER_MS, None);
                 r
+            },
+            WM_ACTIVATE | WM_ACTIVATEAPP | WM_SETFOCUS | WM_KILLFOCUS => unsafe {
+                let r = DefSubclassProc(hwnd, msg, wparam, lparam);
+                SetTimer(hwnd, REDRAW_TIMER, REDRAW_AFTER_MS, None);
+                r
+            },
+            WM_TIMER if wparam == REDRAW_TIMER => unsafe {
+                KillTimer(hwnd, REDRAW_TIMER);
+                RedrawWindow(hwnd, std::ptr::null(), std::ptr::null_mut(), full);
+                0
             },
             _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
         }
