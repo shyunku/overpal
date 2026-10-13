@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { craftableNow, goalKey, goalMaterials, loadRecipes, materialTree, treeProgress, type Goal, type MaterialNode, type Recipes } from "../data/goals";
 import { dexIconUrl, type Dex, type DexStruct } from "../data/dex";
 import type { BaseView } from "../data/snapshot";
-import { itemIconUrl, itemName, matchesItem } from "./labels";
+import { itemIconUrl, itemName, matchRank } from "./labels";
 import type { ItemMode } from "./layout";
 
 export function useRecipes(): Recipes | null {
@@ -271,13 +271,21 @@ function GoalSearch({ recipes, structs, onAdd, onBack }: { recipes: Recipes; str
   const query = typed.trim();
   const [picked, setPicked] = useState<{ kind: "item" | "struct"; id: string } | null>(null);
   const [qty, setQty] = useState(1);
+  // items and structures together, best matches first (a name starting with the text, then a word)
   const hits = useMemo(() => {
     if (!query) return [];
-    const items = Object.keys(recipes)
-      .filter((id) => itemName(id) !== id && matchesItem(id, query))
-      .map((id) => ({ kind: "item" as const, id }));
-    const builds = [...structs.values()].filter((s) => s.mats.length && s.name.includes(query)).map((s) => ({ kind: "struct" as const, id: s.id }));
-    return [...items, ...builds].slice(0, 60);
+    const all = [
+      ...Object.keys(recipes)
+        .filter((id) => itemName(id) !== id)
+        .map((id) => ({ kind: "item" as const, id, name: itemName(id) })),
+      ...[...structs.values()].filter((s) => s.mats.length).map((s) => ({ kind: "struct" as const, id: s.id, name: s.name })),
+    ];
+    return all
+      .map((h) => ({ h, r: matchRank(h.name, query) }))
+      .filter((x) => x.r >= 0)
+      .sort((a, b) => a.r - b.r || a.h.name.localeCompare(b.h.name, "ko"))
+      .slice(0, 80)
+      .map(({ h }) => ({ kind: h.kind, id: h.id }));
   }, [query, recipes, structs]);
   const matsText = (h: { kind: string; id: string }) =>
     (h.kind === "struct" ? (structs.get(h.id)?.mats.map((m) => [m.item, m.qty] as [string, number]) ?? []) : (recipes[h.id]?.mats ?? []))

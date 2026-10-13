@@ -14,9 +14,25 @@ export const buildingName = (id: string): string => BUILDING_NAMES[id] ?? BUILDI
 
 export const itemName = (id: string): string => ITEMS[id]?.[0] ?? id;
 
+/** text compared without spaces and case: "고대문명" finds "고대 문명 화로" */
+const squash = (s: string) => s.replace(/\s+/g, "").toLowerCase();
+
+/** Whether `text` contains the search text, spaces and case aside. */
+export const textMatches = (text: string, query: string): boolean => !query || squash(text).includes(squash(query));
+
+/** How well `text` matches: 0 starts with it, 1 a word starts with it, 2 contains it, -1 no match. */
+export function matchRank(text: string, query: string): number {
+  const t = squash(text);
+  const q = squash(query);
+  if (!q) return 0;
+  if (t.startsWith(q)) return 0;
+  const words = text.split(/\s+/);
+  if (words.some((_, i) => squash(words.slice(i).join("")).startsWith(q))) return 1;
+  return t.includes(q) ? 2 : -1;
+}
+
 /** Whether the search text matches the item's name or id. */
-export const matchesItem = (id: string, query: string): boolean =>
-  !query || itemName(id).includes(query) || id.toLowerCase().includes(query.toLowerCase());
+export const matchesItem = (id: string, query: string): boolean => !query || textMatches(itemName(id), query) || textMatches(id, query);
 
 /**
  * Items matching the search that are not in `have`, sorted by name. Items without a Korean name

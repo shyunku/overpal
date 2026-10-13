@@ -8,7 +8,7 @@ import type { PdPal } from "../data/paldefender";
 import type { BaseView, PlayerView } from "../data/snapshot";
 import type { Building } from "../types";
 import type { DexTab } from "./dexViews";
-import { buildingName, itemIconUrl, itemName } from "./labels";
+import { buildingName, itemIconUrl, itemName, textMatches } from "./labels";
 import type { ItemMode } from "./layout";
 import { mapPx, WORLD_PER_PX } from "./mapcoords";
 import type { OverlayData } from "./useOverlayData";
@@ -137,7 +137,7 @@ function issues(p: MinePal): string[] {
 const hungry = (p: MinePal) => p.maxHunger > 0 && p.hunger / p.maxHunger < HUNGRY;
 const needsCare = (p: MinePal) => issues(p).length > 0 || hungry(p);
 
-const matchesPal = (L: Lookups, p: MinePal, q: string) => !q || p.nick.includes(q) || speciesName(L, p).includes(q);
+const matchesPal = (L: Lookups, p: MinePal, q: string) => !q || textMatches(p.nick, q) || textMatches(speciesName(L, p), q);
 
 function meters(cm: number): string {
   const m = cm / 100;
@@ -547,9 +547,9 @@ function StructsList({ mode, data, base, query, onOpen, head, L }: Props) {
   if (!base) return <div className="empty">거점 없음</div>;
 
   const q = query;
-  const match = (id: string) => !q || structName(L, id).includes(q);
+  const match = (id: string) => textMatches(structName(L, id), q);
   const groups = groupBuildings(L, base.buildings.filter((b) => match(b.buildObjectId)));
-  const prods = productions(base).filter((b) => !q || match(b.buildObjectId) || itemName(b.production!.recipe).includes(q));
+  const prods = productions(base).filter((b) => !q || match(b.buildObjectId) || textMatches(itemName(b.production!.recipe), q));
 
   if (mode === "full") {
     const f = Math.min(filter, groups.length);
@@ -715,7 +715,7 @@ function PlacesList({ mode, data, dex, pals, query, onOpen, head, L }: Props) {
 
   const baseRows = bases
     .map((b, i) => ({ b, i }))
-    .filter(({ i }) => !q || `거점 ${i + 1}`.includes(q))
+    .filter(({ i }) => textMatches(`거점 ${i + 1}`, q))
     .map(({ b, i }) => (
       <div className="row mn-row two" key={b.campId} onClick={() => onOpen(`c:${b.campId}`)}>
         <PalBoxIcon L={L} />
@@ -735,7 +735,7 @@ function PlacesList({ mode, data, dex, pals, query, onOpen, head, L }: Props) {
     ));
   // offline players are left out
   const playerRows = members
-    .filter((p) => p.online && (!q || p.name.includes(q)))
+    .filter((p) => p.online && textMatches(p.name, q))
     .map((p) => (
       <div className="row mn-row two" key={p.uid} onClick={() => onOpen(`u:${p.uid}`)}>
         <PlayerMark p={p} me={me} />
@@ -755,7 +755,7 @@ function PlacesList({ mode, data, dex, pals, query, onOpen, head, L }: Props) {
     ));
   const fastRows = (n: number) =>
     fast
-      .filter((p) => !q || p.name.includes(q))
+      .filter((p) => textMatches(p.name, q))
       .slice(0, n)
       .map((p) => (
         <div className="row mn-row one" key={p.i} onClick={() => onOpen(`f:${p.i}`)}>

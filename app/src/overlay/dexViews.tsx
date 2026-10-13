@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { dexIconUrl, loadDex, type Dex, type DexPal, type DexStruct, type DexWork } from "../data/dex";
 import { fetchProgression, loadClientConfig } from "../api";
-import { itemIconUrl, itemName } from "./labels";
+import { itemIconUrl, itemName, textMatches } from "./labels";
 import type { ItemMode, SubTab } from "./layout";
 
 export type DexTab = SubTab;
@@ -107,8 +107,8 @@ function groupBy<T>(list: T[], key: (x: T) => string): [string, T[]][] {
   return [...m];
 }
 
-const palMatches = (p: DexPal, q: string) => !q || p.name.includes(q) || p.no.includes(q) || p.works.some((w) => w.name.includes(q));
-const structMatches = (s: DexStruct, q: string) => !q || s.name.includes(q) || (s.cat ?? "").includes(q);
+const palMatches = (p: DexPal, q: string) => !q || textMatches(p.name, q) || p.no.includes(q) || p.works.some((w) => textMatches(w.name, q));
+const structMatches = (s: DexStruct, q: string) => !q || textMatches(s.name, q) || textMatches(s.cat ?? "", q);
 
 // ---------------------------------------------------------------- lists
 
@@ -227,7 +227,7 @@ export function DexList({ dex, captures, tab, mode, query, onOpen }: ListProps) 
   const layers = MARKER_KEYS.filter((k) => !wide || filter === "전체" || dex.markers[k].label === filter);
   const rows = layers.map((k) => {
     const layer = dex.markers[k];
-    const points = layer.points.map((pt, i) => ({ ...pt, i })).filter((pt) => !query || (pt.n ?? layer.label).includes(query));
+    const points = layer.points.map((pt, i) => ({ ...pt, i })).filter((pt) => textMatches(pt.n ?? layer.label, query));
     return { k, layer, points };
   });
   const listView = (
