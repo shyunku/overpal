@@ -63,6 +63,8 @@ export interface Building {
     requested: number;
     /** still to make; 0 when the order is done */
     remain: number;
+    /** finished items still in the building, read with `remain` (newer mod output) */
+    made?: number;
     /** progress of the current item */
     work: number;
     workRequired: number;

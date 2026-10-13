@@ -326,7 +326,8 @@ function productions(base: BaseView | null): Prod[] {
     .map((x) => {
       // the building's storage has the same actor location as the building
       const store = base!.storages.find((s) => s.kind === "production" && sameSpot(s.location, x.location));
-      const made = (store?.items ?? []).filter((it) => it.item === x.production!.recipe).reduce((a, it) => a + it.count, 0);
+      // read by the mod together with what is left (made + remain stays the order); else from the storage
+      const made = x.production!.made ?? (store?.items ?? []).filter((it) => it.item === x.production!.recipe).reduce((a, it) => a + it.count, 0);
       return { ...x, made };
     });
 }

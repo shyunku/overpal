@@ -357,7 +357,7 @@ end
 
 -- ---------------------------------------------------------------- change push
 -- The last full scan, kept so a single container can be refreshed without scanning again.
-local current = { storages = {}, byId = {}, objects = {}, buildings = {}, buildingsById = {}, converters = {} }
+local current = { storages = {}, byId = {}, objects = {}, buildings = {}, buildingsById = {}, converters = {}, outputOf = {} }
 -- container ids flagged by the update hook since the last fast tick
 local dirty = {}
 -- set by the fast tick when a production building's storage changed
@@ -379,7 +379,12 @@ local function set_current(storages, by_object, buildings, converters)
     for _, s in ipairs(storages) do by_id[s.containerId] = s end
     local buildings_by_id = {}
     for _, b in ipairs(buildings) do buildings_by_id[b.id] = b end
-    current = { storages = storages, byId = by_id, objects = by_object, buildings = buildings, buildingsById = buildings_by_id, converters = converters }
+    -- a production building's own storage (finished items not taken out yet)
+    local output_of = {}
+    for _, s in ipairs(storages) do
+        if s.buildingId and converters[s.buildingId] then output_of[s.buildingId] = by_object[s.containerId] end
+    end
+    current = { storages = storages, byId = by_id, objects = by_object, buildings = buildings, buildingsById = buildings_by_id, converters = converters, outputOf = output_of }
 end
 
 -- ---------------------------------------------------------------- production orders
@@ -409,10 +414,20 @@ local function production_tick(force)
             local recipe = concrete.CurrentRecipeId:ToString()
             if recipe == "None" then return end
             local w = progress[concrete:GetAddress()]
+            -- finished items still in the building, read together with what is left: read apart
+            -- (storage output vs this file) the total made + remain jumped by one
+            local made = 0
+            local out = current.outputOf[id]
+            if out and out:IsValid() then
+                for _, it in ipairs(read_items(out)) do
+                    if it.item == recipe then made = made + it.count end
+                end
+            end
             p = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
                 remain = concrete.RemainProductNum,
+                made = made,
                 work = w and w.CurrentWorkAmount or 0,
                 workRequired = w and w.RequiredWorkAmount or 0,
             }
