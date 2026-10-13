@@ -49,7 +49,7 @@
   .sec { font-size:12px; color:var(--accent); font-weight:600; margin:14px 0 8px; display:flex; justify-content:space-between; }
   .sec span:last-child { color:var(--muted); font-weight:400; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
-  td, th { padding:7px 8px; border-bottom:1px solid var(--line); text-align:left; }
+  td, th { padding:7px 8px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; white-space:nowrap; }
   th { color:var(--muted); font-weight:500; font-size:12px; }
   td.r, th.r { text-align:right; }
   .muted { color:var(--muted); }
@@ -59,10 +59,15 @@
   .log .w { color:#f2cc60; } .log .e { color:#ffa198; } .log .i { color:var(--muted); }
   .form { display:grid; gap:12px; }
   .field { display:grid; grid-template-columns:150px minmax(0,1fr); gap:12px; align-items:start; }
-  .field > label { color:var(--muted); font-size:13px; padding-top:8px; }
-  .field .help { color:var(--muted); font-size:12px; margin-top:5px; line-height:1.5; }
+  .field > label { color:var(--muted); font-size:13px; line-height:34px; white-space:nowrap; }
+  .field .help { color:var(--muted); font-size:12px; margin-top:6px; line-height:1.5; }
   input[type=text], select { width:100%; height:34px; background:#0f1318; border:1px solid var(--line); border-radius:8px; color:var(--fg); font:inherit; font-size:13px; padding:0 10px; }
   .row { display:flex; gap:8px; align-items:center; }
+  .row > input { flex:1; min-width:0; }
+  .btn { display:inline-flex; align-items:center; justify-content:center; }
+  .card h4 { line-height:1; }
+  .card .big { line-height:1.2; }
+  .tag { display:inline-flex; align-items:center; height:20px; }
   .btn { height:34px; padding:0 14px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--fg); font:inherit; font-size:13px; white-space:nowrap; cursor:pointer; }
   .btn.primary { background:var(--accent); border-color:var(--accent); color:#1b1405; font-weight:600; }
   .btn.small { height:28px; padding:0 10px; font-size:12px; }
@@ -73,7 +78,8 @@
   .seg .opt b { display:block; font-size:14px; margin-bottom:3px; }
   .seg .opt span { color:var(--muted); font-size:12px; line-height:1.45; }
   .switch { display:flex; gap:6px; }
-  .switch span { padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); font-size:13px; color:var(--muted); cursor:pointer; }
+  .switch span { display:inline-flex; align-items:center; height:34px; padding:0 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); font-size:13px; color:var(--muted); cursor:pointer; }
+  .switch.small span { height:28px; font-size:12px; padding:0 10px; }
   .switch span.on { border-color:var(--blue); color:var(--fg); background:rgba(76,154,255,.12); }
   .savebar { position:sticky; bottom:-18px; margin:16px -20px -18px; padding:12px 20px; background:#161b23; border-top:1px solid var(--line); display:flex; align-items:center; gap:10px; }
   .savebar .msg { flex:1; color:var(--muted); font-size:13px; }
@@ -81,7 +87,7 @@
   .banner.warn { background:rgba(210,153,34,.12); border:1px solid rgba(210,153,34,.45); color:#f2cc60; }
   .banner.info { background:rgba(76,154,255,.1); border:1px solid rgba(76,154,255,.4); color:#a9cbff; }
   .banner .sp { flex:1; }
-  .mask { font-family:Consolas,monospace; color:var(--muted); }
+  .mask { font-family:Consolas,monospace; color:var(--muted); white-space:nowrap; }
   .modal-back { position:absolute; inset:32px 0 0 0; background:rgba(0,0,0,.5); display:grid; place-items:center; }
   .modal { width:420px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
   .modal h3 { margin:0 0 12px; font-size:16px; }
@@ -242,7 +248,7 @@ function settings() {
     <div class="field"><label>내 게임 닉네임</label><div><select><option>shyunku</option><option>친구 1</option><option>친구 2</option><option>친구 3</option></select><div class="help">미니맵과 '내 것' 화면이 이 플레이어를 기준으로 표시됩니다.</div></div></div>` : "";
   const dirty = st.dirty || first;
   return `<h2>설정</h2><p class="lead">${first ? "처음 실행입니다. 설정을 입력한 뒤 시작해 주세요." : "palhelper.config.json (실행 파일과 같은 폴더)"}</p>
-    <div class="form"><div class="seg">${seg}</div>${server}${client}${nick}</div>
+    <div class="form">${seg}${server}${client}${nick}</div>
     <div class="savebar"><span class="msg">${dirty ? (first ? "저장하면 이 설정으로 시작합니다." : "변경사항이 있습니다. 저장하면 앱이 다시 시작됩니다.") : "변경사항이 없습니다."}</span>${dirty && !first ? '<button class="btn">취소</button>' : ""}<button class="btn primary" ${dirty ? "" : 'style="opacity:.45"'}>${first ? "저장 후 시작" : "저장 후 다시 시작"}</button></div>`;
 }
 
@@ -273,7 +279,7 @@ function log() {
     ["i", "23:21:02  게임 서버(PalDefender) 다시 연결됨"],
   ];
   return `<h2>로그</h2><p class="lead">이번 실행의 기록입니다. 파일로도 저장됩니다. (실행 파일 옆 logs\\)</p>
-    <div class="row" style="margin-bottom:10px"><div class="switch"><span class="on">전체</span><span>경고</span><span>접속</span></div><span style="flex:1"></span><button class="btn small">로그 폴더 열기</button></div>
+    <div class="row" style="margin-bottom:10px"><div class="switch small"><span class="on">전체</span><span>경고</span><span>접속</span></div><span style="flex:1"></span><button class="btn small">로그 폴더 열기</button></div>
     <div class="log">${lines.map(([c, t]) => `<div class="${c}">${t}</div>`).join("")}</div>`;
 }
 
