@@ -70,12 +70,14 @@
   .mat2 .l1 { height: 19px; display: flex; align-items: center; gap: 8px; }
   .mat2 .l1 .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mat2 .l1 .xy { font-size: 14px; white-space: nowrap; }
-  /* bar of fixed width on the right, so every row's bar (also indented ones) lines up */
-  .mat2 .l2 { height: 13px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-  .mat2 .rbar { width: 120px; flex: none; height: 4px; border-radius: 2px; background: rgba(255,255,255,.1); overflow: hidden; }
+  .mat2 .l2 { height: 13px; display: flex; align-items: center; justify-content: flex-end; }
+  .mat2 .st { font-size: 11px; line-height: 13px; }
+  /* the bar runs along the bottom of the whole card, over its left padding and indent */
+  .mat2 { position: relative; overflow: hidden; }
+  .mat2 .rbar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.08); }
   .mat2 .rbar i { display: block; height: 100%; background: var(--orange); }
   .mat2 .rbar.done i { background: var(--ok); }
-  .mat2 .st { width: 52px; flex: none; text-align: right; font-size: 11px; line-height: 13px; }
+  .mat2 + .mat2 { margin-top: 2px; }
   .mat2.child { padding-left: 30px; }
   .mat2.child2 { padding-left: 52px; }
   .mat.child { padding-left: 30px; }
@@ -233,7 +235,8 @@ function matRows(id, n, depth, pool, path) {
     const open = sub && (o && o.lack === (lack > 0) ? o.open : lack > 0);
     const row = `<div class="mat2 ${depth === 1 ? "child" : depth === 2 ? "child2" : ""}"><span class="tw" ${sub ? `data-exp="${key}" data-lack="${lack > 0}" data-open="${open}"` : ""}>${sub ? (open ? "▾" : "▸") : ""}</span>${img(m)}
       <span class="body"><span class="l1"><span class="nm">${I[m][0]}</span><span class="xy tabular">${take}/${q}</span></span>
-      <span class="l2"><span class="rbar ${lack ? "" : "done"}"><i style="width:${Math.round(Math.min(1, pr) * 100)}%"></i></span><span class="st ${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "완료"}</span></span></span></div>`;
+      <span class="l2"><span class="st ${lack ? "lack" : "ok"}">${lack ? `${lack} 부족` : "완료"}</span></span></span>
+      <span class="rbar ${lack ? "" : "done"}"><i style="width:${Math.round(Math.min(1, pr) * 100)}%"></i></span></div>`;
     // only the shortfall is made from the material's own materials
     // a filled row opened by hand shows its recipe for the whole amount, without using stock
     return row + (open ? (lack ? matRows(m, lack, depth + 1, pool, key) : matRows(m, q, depth + 1, { ...pool }, key)) : "");
