@@ -99,18 +99,20 @@
       <div class="group" id="g-mode"><span>모드</span></div>
       <div class="group" id="g-state"><span>상황</span></div>
     </div>
-    <div class="hint">실제 창 크기(760×540). 이름·주소는 예시. 왼쪽 메뉴, 모드 카드, 버튼도 눌러 볼 수 있음.</div>
+    <div class="hint">실제 창 크기(760×540). 이름·주소는 예시. '시작 화면'에서 모드 카드, 나머지는 왼쪽 메뉴도 눌러 볼 수 있음.</div>
     <div class="desk"><div class="winwrap" id="winwrap"></div></div>
   </main>
   <aside>
     <h3>바뀌는 것</h3>
     <ul>
-      <li>exe 켜면 <b>이 창</b>이 뜸. cmd 창 없음. 창 닫으면 앱(오버레이·앱 서버) 종료</li>
+      <li>exe 켜면 <b>시작 화면</b>에서 모드를 고름(지난번 모드가 미리 골라져 있음). 시작한 뒤엔 모드를 못 바꿈. 바꾸려면 앱을 다시 켜야 함</li>
+      <li>cmd 창 없음. 창 닫으면 앱(오버레이·앱 서버) 종료</li>
       <li><b>상태</b>: 앱 서버, 게임 서버(PalDefender), 모드 상태, 접속 중 플레이어, 친구 앱 접속, 최근 경고</li>
-      <li><b>설정</b>: 모드 3개 중 선택 → 모드에 맞는 칸만 보임. 저장 누르면 앱이 스스로 다시 켜짐</li>
+      <li><b>설정</b>: 지금 모드에 맞는 칸만 보임(모드는 보기만). 저장 누르면 같은 모드로 앱이 다시 켜짐</li>
       <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
       <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
-      <li>처음 실행(설정 파일 없음)이면 설정 화면부터 열림</li>
+      <li>처음 실행(설정 파일 없음)이면 시작 화면에서 모드를 고른 뒤 그 모드 설정을 채우고 시작</li>
+      <li>화면 문구는 존댓말(제품 문구). 이 옆 설명만 반말</li>
       <li>토큰은 가려서 보여주고 복사 버튼만 둠</li>
     </ul>
     <h3>그대로인 것</h3>
@@ -121,6 +123,7 @@
     <h3>정할 것</h3>
     <ul class="decide">
       <li>창 크기(760×540)·디자인 톤</li>
+      <li>시작 화면을 매번 띄울지, '이 모드로 바로 시작' 체크를 둘지(지금 시안은 매번 띄움)</li>
       <li>'친구 앱 접속'은 토큰별 마지막 요청 시각으로 판단(접속 끊김 즉시 감지 아님)</li>
       <li>친구 폴더를 어디에 만들지(기본: exe 옆 <code>friends\이름</code>)</li>
       <li>client 모드에서 닉네임은 직접 입력 / 서버의 플레이어 목록에서 고르기</li>
@@ -128,9 +131,9 @@
   </aside>
 </div>
 <script>
-const st = { tab: "status", mode: "both", state: "ok", modal: false, dirty: false };
+const st = { tab: "launch", mode: "both", state: "ok", modal: false, dirty: false, pick: "both" };
 const opts = {
-  tab: [["status", "상태"], ["settings", "설정"], ["friends", "친구"], ["log", "로그"]],
+  tab: [["launch", "시작 화면"], ["status", "상태"], ["settings", "설정"], ["friends", "친구"], ["log", "로그"]],
   mode: [["both", "both"], ["server", "server"], ["client", "client"]],
   state: [["ok", "정상"], ["gameoff", "게임 서버 꺼짐"], ["first", "처음 실행"], ["dirty", "설정 바꾼 뒤(저장 전)"]],
 };
@@ -138,7 +141,7 @@ for (const [k, list] of Object.entries(opts)) {
   const g = document.getElementById("g-" + k);
   for (const [v, l] of list) {
     const b = document.createElement("button"); b.textContent = l; b.dataset.k = k; b.dataset.v = v;
-    b.onclick = () => { st[k] = v; if (k === "state") { st.dirty = v === "dirty"; if (v === "first" || v === "dirty") st.tab = "settings"; } if (k === "mode" && st.mode === "client" && st.tab === "friends") st.tab = "status"; st.modal = false; render(); };
+    b.onclick = () => { st[k] = v; if (k === "mode") st.pick = v; if (k === "state") { st.dirty = v === "dirty"; if (v === "first") st.tab = "launch"; if (v === "dirty") st.tab = "settings"; } if (k === "mode" && st.mode === "client" && st.tab === "friends") st.tab = "status"; st.modal = false; render(); };
     g.appendChild(b);
   }
 }
@@ -149,98 +152,115 @@ const I = {
   log: '<path d="M4 5h16M4 10h16M4 15h10M4 20h7"/>',
 };
 const has = (m) => (m === "server" ? st.mode !== "client" : st.mode !== "server");
-const MODE_TEXT = { both: "서버 + 오버레이", server: "서버만", client: "오버레이만" };
+const MODE_TEXT = { both: "서버 + 오버레이", server: "서버", client: "오버레이" };
+
+function launch() {
+  const first = st.state === "first";
+  const cards = [["both", "서버 + 오버레이", "이 PC에서 게임 서버와 앱 서버를 실행하고, 게임 화면에 오버레이를 표시합니다.", "호스트"],
+    ["server", "서버", "앱 서버만 실행합니다. 오버레이는 표시하지 않습니다.", "서버 전용 PC"],
+    ["client", "오버레이", "다른 PC의 앱 서버에 접속해 오버레이만 표시합니다.", "친구"]]
+    .map(([v, t, d, who]) => {
+      const ready = !first && v !== "server";
+      return `<div class="opt ${st.pick === v ? "on" : ""}" data-pick="${v}"><b>${v} <span class="muted" style="font-weight:400;font-size:12px">· ${t}</span></b><span>${d}</span><div style="margin-top:8px;font-size:12px" class="${ready ? "" : "muted"}">${who} · ${ready ? '<span style="color:#7ee787">설정 완료</span>' : "설정 필요"}</div></div>`;
+    }).join("");
+  const ready = !first && st.pick !== "server";
+  return `<div style="display:flex;flex-direction:column;height:100%"><h2>모드 선택</h2><p class="lead">${first ? "처음 실행입니다. 사용할 모드를 선택해 주세요." : "실행할 모드를 선택해 주세요. 실행 중에는 모드를 변경할 수 없습니다."}</p>
+    <div class="seg">${cards}</div>
+    <div class="help muted" style="font-size:12px;margin-top:12px;line-height:1.6">${ready ? "마지막으로 사용한 설정으로 시작합니다." : "시작 전에 이 모드의 설정을 입력해야 합니다."}</div>
+    <div style="flex:1"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn">${ready ? "설정 확인" : ""}${ready ? "" : "설정 입력"}</button><button class="btn primary">${ready ? "시작" : "설정 후 시작"}</button></div></div>`;
+}
 
 function status() {
   const off = st.state === "gameoff";
   const cards = [];
   if (has("server")) {
-    cards.push(`<div class="card"><h4>앱 서버</h4><div class="big"><span class="dot"></span>실행 중</div><div class="sub">0.0.0.0:17994 · 친구 접속 허용<br>토큰 4개</div></div>`);
-    cards.push(`<div class="card"><h4>게임 서버 (PalDefender)</h4><div class="big"><span class="dot ${off ? "bad" : ""}"></span>${off ? "연결 안 됨" : "연결됨"}</div><div class="sub">${off ? "127.0.0.1:17993 응답 없음<br>게임 서버가 꺼져 있는지 확인" : "127.0.0.1:17993 · 접속 2명 / 4명"}</div></div>`);
-    cards.push(`<div class="card"><h4>모드 (PalHelperMod)</h4><div class="big"><span class="dot ${off ? "off" : ""}"></span>${off ? "출력 없음" : "정상"}</div><div class="sub">${off ? "마지막 갱신 12분 전" : "8초 전 갱신 · 스캔 812ms<br>상자 1,083 · 건물 381"}</div></div>`);
-    cards.push(`<div class="card"><h4>서버 멈춤 (최근 10분)</h4><div class="big"><span class="dot ${off ? "off" : "warn"}"></span>${off ? "-" : "57번 · 최대 863ms"}</div><div class="sub">${off ? "" : "모드 스캔 중 55번, 그 외 2번"}</div></div>`);
+    cards.push(`<div class="card"><h4>앱 서버</h4><div class="big"><span class="dot"></span>실행 중</div><div class="sub">0.0.0.0:17994 · 외부 접속 허용<br>토큰 4개</div></div>`);
+    cards.push(`<div class="card"><h4>게임 서버 (PalDefender)</h4><div class="big"><span class="dot ${off ? "bad" : ""}"></span>${off ? "연결 안 됨" : "연결됨"}</div><div class="sub">${off ? "127.0.0.1:17993에서 응답이 없습니다.<br>게임 서버가 실행 중인지 확인해 주세요." : "127.0.0.1:17993 · 접속 2명 / 전체 4명"}</div></div>`);
+    cards.push(`<div class="card"><h4>모드 (PalHelperMod)</h4><div class="big"><span class="dot ${off ? "off" : ""}"></span>${off ? "출력 없음" : "정상"}</div><div class="sub">${off ? "마지막 갱신: 12분 전" : "마지막 갱신: 8초 전 · 스캔 812ms<br>보관함 1,083개 · 건물 381개"}</div></div>`);
+    cards.push(`<div class="card"><h4>서버 멈춤 (최근 10분)</h4><div class="big"><span class="dot ${off ? "off" : "warn"}"></span>${off ? "-" : "57회 · 최대 863ms"}</div><div class="sub">${off ? "" : "모드 스캔 중 55회, 기타 2회"}</div></div>`);
   }
   if (has("client")) {
-    cards.push(`<div class="card"><h4>오버레이</h4><div class="big"><span class="dot ${off ? "warn" : ""}"></span>${off ? "게임 서버 데이터 없음" : "게임 위에 표시 중"}</div><div class="sub">플레이어 shyunku · ${st.mode === "client" ? "203.0.113.24:17994에 연결" : "이 PC 앱 서버"}</div></div>`);
+    cards.push(`<div class="card"><h4>오버레이</h4><div class="big"><span class="dot ${off ? "warn" : ""}"></span>${off ? "게임 서버 데이터 없음" : "게임 화면에 표시 중"}</div><div class="sub">플레이어: shyunku · ${st.mode === "client" ? "203.0.113.24:17994" : "이 PC의 앱 서버"}</div></div>`);
   }
   if (st.mode === "client") {
-    cards.push(`<div class="card"><h4>앱 서버 연결</h4><div class="big"><span class="dot"></span>연결됨</div><div class="sub">http://203.0.113.24:17994 · 응답 18ms</div></div>`);
+    cards.push(`<div class="card"><h4>앱 서버 연결</h4><div class="big"><span class="dot"></span>연결됨</div><div class="sub">http://203.0.113.24:17994 · 응답 시간 18ms</div></div>`);
   }
   const players = off || !has("server") ? "" : `<div class="sec"><span>접속 중인 플레이어</span><span>2명</span></div>
     <table><tr><th>닉네임</th><th>친구 앱</th><th class="r">위치</th></tr>
     <tr><td>shyunku</td><td><span class="tag on">이 PC</span></td><td class="r muted">거점 2</td></tr>
     <tr><td>친구 3</td><td><span class="tag on">5초 전</span></td><td class="r muted">거점 2 근처</td></tr></table>`;
-  const recent = off ? "" : `<div class="sec"><span>최근 경고</span><span>로그 전체 →</span></div><div class="log">
-    <div class="w">23:12:04  게임 서버 멈춤 812ms (모드 스캔 중)</div>
-    <div class="w">23:11:53  게임 서버 멈춤 806ms (모드 스캔 중)</div>
-    <div class="w">23:10:21  게임 서버 멈춤 142ms</div></div>`;
-  return `<h2>상태</h2><p class="lead">${MODE_TEXT[st.mode]} 모드로 실행 중</p>
-    ${off ? '<div class="banner warn">게임 서버에 연결할 수 없음. 게임 서버를 켜면 자동으로 다시 연결됨.</div>' : ""}
+  const recent = off ? "" : `<div class="sec"><span>최근 경고</span><span>전체 로그 →</span></div><div class="log">
+    <div class="w">23:12:04  게임 서버 지연 812ms (모드 스캔 중)</div>
+    <div class="w">23:11:53  게임 서버 지연 806ms (모드 스캔 중)</div>
+    <div class="w">23:10:21  게임 서버 지연 142ms</div></div>`;
+  return `<h2>상태</h2><p class="lead">${st.mode} 모드(${MODE_TEXT[st.mode]})로 실행 중입니다.</p>
+    ${off ? '<div class="banner warn">게임 서버에 연결할 수 없습니다. 게임 서버가 켜지면 자동으로 다시 연결됩니다.</div>' : ""}
     <div class="cards">${cards.join("")}</div>${players}${recent}`;
 }
 
 function settings() {
   const first = st.state === "first";
-  const seg = [["both", "both", "이 PC에서 게임 서버를 돌리고 오버레이도 씀 (호스트)"], ["server", "server", "앱 서버만. 오버레이 없음 (서버 전용 PC)"], ["client", "client", "다른 PC의 앱 서버에 붙어서 오버레이만 씀 (친구)"]]
-    .map(([v, t, d]) => `<div class="opt ${st.mode === v ? "on" : ""}" data-mode="${v}"><b>${t}</b><span>${d}</span></div>`).join("");
+  const seg = `<div class="banner info" style="margin:0"><b>${st.mode}</b>&nbsp;모드(${MODE_TEXT[st.mode]})<span class="sp"></span>모드는 앱을 다시 실행할 때 변경할 수 있습니다.</div>`;
   const server = has("server") ? `<div class="sec"><span>앱 서버</span><span></span></div>
-    <div class="field"><label>접속 허용</label><div><div class="switch"><span>이 PC만</span><span class="on">친구도 (외부)</span></div><div class="help">친구도 = 0.0.0.0. 공유기에서 TCP 포트를 이 PC로 포워딩해야 함</div></div></div>
+    <div class="field"><label>접속 허용</label><div><div class="switch"><span>이 PC만</span><span class="on">외부 접속 허용</span></div><div class="help">외부 접속을 허용하면 친구 PC에서 접속할 수 있습니다. 공유기에서 이 포트(TCP)를 이 PC로 포트포워딩해야 합니다.</div></div></div>
     <div class="field"><label>포트</label><div><input type="text" value="17994" style="width:120px"></div></div>
-    <div class="field"><label>게임 서버 폴더</label><div><div class="row"><input type="text" value="E:\\Games\\Palworld\\servers\\Pyundle261012-fork"><button class="btn">찾아보기</button></div><div class="help">모드 출력 폴더(…\\ue4ss\\Mods\\PalHelperMod)는 여기서 자동으로 찾음 · <span style="color:#7ee787">찾음</span></div></div></div>
-    <div class="field"><label>PalDefender</label><div><div class="row"><input type="text" value="http://127.0.0.1:17993"><span class="mask">토큰 ••••••a91f</span><button class="btn small">변경</button></div><div class="help">토큰은 게임 서버 폴더의 PalDefender 설정에서 자동으로 읽음</div></div></div>` : "";
+    <div class="field"><label>게임 서버 폴더</label><div><div class="row"><input type="text" value="E:\\Games\\Palworld\\servers\\Pyundle261012-fork"><button class="btn">찾아보기</button></div><div class="help">모드 출력 폴더(…\\ue4ss\\Mods\\PalHelperMod)를 이 폴더에서 자동으로 찾습니다. · <span style="color:#7ee787">확인됨</span></div></div></div>
+    <div class="field"><label>PalDefender</label><div><div class="row"><input type="text" value="http://127.0.0.1:17993"><span class="mask">토큰 ••••••a91f</span><button class="btn small">변경</button></div><div class="help">토큰은 게임 서버 폴더의 PalDefender 설정에서 자동으로 읽어옵니다.</div></div></div>` : "";
   const client = st.mode === "client" ? `<div class="sec"><span>접속할 앱 서버</span><span></span></div>
     <div class="field"><label>주소</label><div><input type="text" value="http://203.0.113.24:17994"></div></div>
     <div class="field"><label>토큰</label><div><div class="row"><input type="text" value="••••••••••••••••••••7c2e"><button class="btn">붙여넣기</button><button class="btn">연결 확인</button></div></div></div>` : "";
   const nick = has("client") ? `<div class="sec"><span>오버레이</span><span></span></div>
-    <div class="field"><label>내 게임 닉네임</label><div><select><option>shyunku</option><option>친구 1</option><option>친구 2</option><option>친구 3</option></select><div class="help">서버 플레이어 목록에서 고름. 미니맵·'내 것'이 이 사람 기준</div></div></div>` : "";
+    <div class="field"><label>내 게임 닉네임</label><div><select><option>shyunku</option><option>친구 1</option><option>친구 2</option><option>친구 3</option></select><div class="help">미니맵과 '내 것' 화면이 이 플레이어를 기준으로 표시됩니다.</div></div></div>` : "";
   const dirty = st.dirty || first;
-  return `<h2>설정</h2><p class="lead">${first ? "처음 실행이라 설정부터 해야 함" : "palhelper.config.json (exe 옆)"}</p>
-    ${first ? '<div class="banner info">설정 파일이 없음. 모드를 고르고 저장하면 시작함.</div>' : ""}
+  return `<h2>설정</h2><p class="lead">${first ? "처음 실행입니다. 설정을 입력한 뒤 시작해 주세요." : "palhelper.config.json (실행 파일과 같은 폴더)"}</p>
     <div class="form"><div class="seg">${seg}</div>${server}${client}${nick}</div>
-    <div class="savebar"><span class="msg">${dirty ? (first ? "저장하면 이 설정으로 시작함" : "바뀐 설정이 있음. 저장하면 앱이 다시 켜짐(오버레이·앱 서버 잠깐 끊김)") : "바뀐 것 없음"}</span>${dirty && !first ? '<button class="btn">되돌리기</button>' : ""}<button class="btn primary" ${dirty ? "" : 'style="opacity:.45"'}>${first ? "저장하고 시작" : "저장하고 다시 켜기"}</button></div>`;
+    <div class="savebar"><span class="msg">${dirty ? (first ? "저장하면 이 설정으로 시작합니다." : "변경사항이 있습니다. 저장하면 앱이 다시 시작됩니다.") : "변경사항이 없습니다."}</span>${dirty && !first ? '<button class="btn">취소</button>' : ""}<button class="btn primary" ${dirty ? "" : 'style="opacity:.45"'}>${first ? "저장 후 시작" : "저장 후 다시 시작"}</button></div>`;
 }
 
 function friends() {
-  const rows = [["친구 1", "친구 1", "접속 중 · 5초 전", true], ["친구 2", "친구 2", "3시간 전", false], ["친구 3", "친구 3", "접속 기록 없음", false]]
-    .map(([n, g, seen, on]) => `<tr><td>${n}</td><td class="muted">${g}</td><td class="mask">••••${Math.random().toString(16).slice(2, 6)}</td><td><span class="tag ${on ? "on" : ""}">${seen}</span></td><td class="r"><button class="btn small">폴더 열기</button> <button class="btn small">토큰 다시</button> <button class="btn small danger">삭제</button></td></tr>`).join("");
-  return `<h2>친구</h2><p class="lead">친구마다 토큰 하나. 친구 폴더(exe + 설정)를 통째로 보내 주면 친구는 exe만 켜면 됨</p>
-    <div class="row" style="margin-bottom:10px"><button class="btn primary" data-add="1">+ 친구 추가</button><span class="muted" style="font-size:12px">공인 IP 203.0.113.24 · 친구 설정의 서버 주소에 들어감 <button class="btn small">다시 찾기</button></span></div>
+  const rows = [["친구 1", "친구 1", "접속 중", true], ["친구 2", "친구 2", "3시간 전", false], ["친구 3", "친구 3", "기록 없음", false]]
+    .map(([n, g, seen, on]) => `<tr><td>${n}</td><td class="muted">${g}</td><td class="mask">••••${Math.random().toString(16).slice(2, 6)}</td><td><span class="tag ${on ? "on" : ""}">${seen}</span></td><td class="r"><button class="btn small">폴더 열기</button> <button class="btn small">토큰 재발급</button> <button class="btn small danger">삭제</button></td></tr>`).join("");
+  return `<h2>친구</h2><p class="lead">친구마다 접속 토큰이 하나씩 발급됩니다. 친구 폴더(실행 파일 + 설정)를 전달하면 친구는 실행만 하면 됩니다.</p>
+    <div class="row" style="margin-bottom:10px"><button class="btn primary" data-add="1">+ 친구 추가</button><span class="muted" style="font-size:12px">공인 IP: 203.0.113.24 (친구 설정의 서버 주소로 사용됩니다) <button class="btn small">다시 확인</button></span></div>
     <table><tr><th>이름</th><th>게임 닉네임</th><th>토큰</th><th>마지막 접속</th><th></th></tr>${rows}</table>
-    <div class="help muted" style="font-size:12px;margin-top:10px;line-height:1.6">토큰 다시 = 새 토큰 + 폴더 설정 갱신, 이전 토큰은 바로 끊김 · 삭제 = 토큰 끊고 폴더는 남김<br>바꾸면 앱 서버가 다시 켜짐(오버레이 잠깐 끊김)</div>`;
+    <div class="help muted" style="font-size:12px;margin-top:10px;line-height:1.6">토큰 재발급: 새 토큰으로 친구 폴더의 설정을 갱신하며, 이전 토큰은 즉시 사용할 수 없습니다.<br>삭제: 토큰을 사용할 수 없게 하고, 친구 폴더는 남겨 둡니다.<br>변경 내용은 앱 서버를 다시 시작하면 적용됩니다.</div>`;
 }
 function modal() {
   return `<div class="modal-back"><div class="modal"><h3>친구 추가</h3><div class="form">
     <div class="field"><label>이름</label><div><input type="text" value="친구 4"></div></div>
-    <div class="field"><label>게임 닉네임</label><div><select><option>목록에서 고르기…</option><option>친구 4</option></select><div class="help">접속한 적 있는 플레이어 중에서 고름. 나중에 친구가 바꿀 수 있음</div></div></div>
-    <div class="field"><label>폴더</label><div class="help" style="margin:8px 0 0">exe 옆 friends\\친구 4\\ 에 palhelper.exe + 설정</div></div>
+    <div class="field"><label>게임 닉네임</label><div><select><option>목록에서 고르기…</option><option>친구 4</option></select><div class="help">서버에 접속한 적이 있는 플레이어 중에서 선택합니다.</div></div></div>
+    <div class="field"><label>폴더</label><div class="help" style="margin:8px 0 0">실행 파일 옆 friends\\친구 4\\ 에 실행 파일과 설정이 만들어집니다.</div></div>
     <div class="row" style="justify-content:flex-end"><button class="btn" data-close="1">취소</button><button class="btn primary" data-close="1">만들기</button></div></div></div></div>`;
 }
 function log() {
   const lines = [
-    ["i", "21:58:02  시작 · both 모드 · 0.0.0.0:17994"],
+    ["i", "21:58:02  시작: both 모드, 0.0.0.0:17994"],
     ["i", "21:58:04  게임 서버(PalDefender) 연결됨"],
     ["i", "22:03:40  친구 앱 접속: 친구 3"],
-    ["w", "22:10:21  게임 서버 멈춤 142ms"],
-    ["w", "23:11:53  게임 서버 멈춤 806ms (모드 스캔 중)"],
-    ["e", "23:20:15  게임 서버(PalDefender) 연결 안 됨"],
+    ["w", "22:10:21  게임 서버 지연 142ms"],
+    ["w", "23:11:53  게임 서버 지연 806ms (모드 스캔 중)"],
+    ["w", "23:12:04  게임 서버 지연 812ms (모드 스캔 중)"],
+    ["e", "23:20:15  게임 서버(PalDefender) 연결 끊김"],
     ["i", "23:21:02  게임 서버(PalDefender) 다시 연결됨"],
-    ["w", "23:12:04  게임 서버 멈춤 812ms (모드 스캔 중)"],
   ];
-  return `<h2>로그</h2><p class="lead">이번 실행 동안. 파일로도 남김 (exe 옆 logs\\)</p>
-    <div class="row" style="margin-bottom:10px"><div class="switch"><span class="on">전체</span><span>경고만</span><span>접속</span></div><span style="flex:1"></span><button class="btn small">로그 폴더 열기</button></div>
+  return `<h2>로그</h2><p class="lead">이번 실행의 기록입니다. 파일로도 저장됩니다. (실행 파일 옆 logs\\)</p>
+    <div class="row" style="margin-bottom:10px"><div class="switch"><span class="on">전체</span><span>경고</span><span>접속</span></div><span style="flex:1"></span><button class="btn small">로그 폴더 열기</button></div>
     <div class="log">${lines.map(([c, t]) => `<div class="${c}">${t}</div>`).join("")}</div>`;
 }
 
 function render() {
   document.querySelectorAll(".group button").forEach((b) => b.classList.toggle("on", st[b.dataset.k] === b.dataset.v));
-  const tabs = opts.tab.filter(([v]) => v !== "friends" || has("server"));
+  const tabs = opts.tab.filter(([v]) => v !== "launch" && (v !== "friends" || has("server")));
   const nav = tabs.map(([v, l]) => `<div class="item ${st.tab === v ? "on" : ""}" data-tab="${v}"><svg viewBox="0 0 24 24">${I[v]}</svg>${l}</div>`).join("");
-  const body = { status, settings, friends, log }[st.tab]();
+  const isLaunch = st.tab === "launch";
+  const body = { launch, status, settings, friends, log }[st.tab]();
+  const side = isLaunch ? "" : `<div class="nav">${nav}<div class="sp"></div><div class="modechip">모드 <b>${st.mode}</b><br>${MODE_TEXT[st.mode]}</div></div>`;
   document.getElementById("winwrap").innerHTML = `<div class="win"><div class="titlebar"><span class="logo"></span>PalHelper<span class="sp"></span><span class="wb">—</span><span class="wb">☐</span><span class="wb">✕</span></div>
-    <div class="body"><div class="nav">${nav}<div class="sp"></div><div class="modechip">모드 <b>${st.mode}</b><br>${MODE_TEXT[st.mode]}</div></div><div class="main">${body}</div></div></div>${st.modal ? modal() : ""}`;
+    <div class="body">${side}<div class="main">${body}</div></div></div>${st.modal ? modal() : ""}`;
   const w = document.getElementById("winwrap");
   w.querySelectorAll("[data-tab]").forEach((e) => (e.onclick = () => { st.tab = e.dataset.tab; render(); }));
-  w.querySelectorAll("[data-mode]").forEach((e) => (e.onclick = () => { st.mode = e.dataset.mode; st.dirty = true; render(); }));
+  w.querySelectorAll("[data-pick]").forEach((e) => (e.onclick = () => { st.pick = e.dataset.pick; render(); }));
   w.querySelectorAll("[data-add]").forEach((e) => (e.onclick = () => { st.modal = true; render(); }));
   w.querySelectorAll("[data-close]").forEach((e) => (e.onclick = () => { st.modal = false; render(); }));
 }
