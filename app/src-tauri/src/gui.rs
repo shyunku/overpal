@@ -225,8 +225,10 @@ pub fn profile_delete(session: tauri::State<'_, Session>, name: String) -> Resul
 }
 
 /// Opens Home with a saved profile, or a new one (`is_new`) by that name.
+/// Async (like every command that makes windows): a sync command runs on the main thread, and
+/// making a window there on Windows waits for that same thread, leaving a blank window.
 #[tauri::command]
-pub fn launcher_open(app: AppHandle, session: tauri::State<'_, Session>, name: String, is_new: bool) -> Result<(), String> {
+pub async fn launcher_open(app: AppHandle, session: tauri::State<'_, Session>, name: String, is_new: bool) -> Result<(), String> {
     let name = name.trim().to_string();
     {
         let mut s = session.0.lock().unwrap();
@@ -287,8 +289,9 @@ pub fn start_profile(app: &AppHandle, mode: Mode) -> Result<(), String> {
     start_services(app, &cfg, mode)
 }
 
+/// Async: starting makes the overlay windows (see launcher_open).
 #[tauri::command]
-pub fn session_start(app: AppHandle, mode: Mode) -> Result<(), String> {
+pub async fn session_start(app: AppHandle, mode: Mode) -> Result<(), String> {
     start_profile(&app, mode)
 }
 
