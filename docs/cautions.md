@@ -47,7 +47,7 @@
 
 - 협동 월드를 전용 서버로 옮길 때 원본(`%LOCALAPPDATA%\Pal\Saved\SaveGames\<SteamID>\<월드>`)은 읽기만 한다. 복사본을 `.local/backups`와 서버 `SaveGames/0/<월드>`에 두고 `GameUserSettings.ini`의 `DedicatedServerName`을 바꾼다.
 - 전용 서버는 월드 폴더에 `WorldOption.sav`가 있으면 `PalWorldSettings.ini` 대신 그것을 쓴다. 협동 월드의 것은 REST가 꺼져 있고 관리자 비밀번호가 비어 있다. `scripts/world_option_to_ini.py`로 게임 규칙만 ini에 옮기고(서버 이름·비밀번호·포트·REST·RCON·인증·크로스플레이는 서버 값 유지) 서버 쪽 복사본에서 `WorldOption.sav`를 지운다. 적용 값은 REST `/v1/api/settings`로 확인한다.
-- 협동 호스트는 항상 `00000000-…-00000001`이다. 전용 서버에서 한 번 접속해 임시 캐릭터를 만든 뒤 서버를 끄고, Palworld Save Pal(v1.4.3, `.local/tools/palworld-save-pal`)의 Player UID Swap으로 `…0001`과 내 ID(`E5EEB250…`)를 맞바꾼다. 친구 ID는 협동과 전용 서버가 같아서 그대로 이어진다.
+- 협동 호스트는 항상 `00000000-…-00000001`이다. 전용 서버에서 한 번 접속해 임시 캐릭터를 만든 뒤 서버를 끄고, Palworld Save Pal(v1.4.3, `E:GamesPalworld	oolspalworld-save-pal`, 사본 `.local/tools/palworld-save-pal`)의 Player UID Swap으로 `…0001`과 내 ID(`E5EEB250…`)를 맞바꾼다. 친구 ID는 협동과 전용 서버가 같아서 그대로 이어진다.
 - 친구와 할 때는 그 시점의 A로 위 과정을 다시 한다. 그 뒤로 A를 플레이하면 두 월드가 갈라진다.
 - 지도 밝힌 기록은 서버가 아니라 각 플레이어 PC의 `SaveGames\<SteamID>\<월드 ID>\LocalData.sav`에 있다. 전용 서버의 월드 ID가 협동 월드와 같으면, 호스트가 서버에 처음 접속할 때 협동 월드 폴더의 `LocalData.sav`를 새것으로 덮어써 지도가 비어 보인다(손님이던 친구는 그대로 이어진다). 옮기기 전에 백업해 두고, 게임을 끈 상태에서 원래 파일을 다시 넣으면 돌아온다(2026-10-12 확인).
 
