@@ -27,7 +27,7 @@ Real-time base storage data for a Palworld dedicated server, shown as an in-game
    - `--mode both`: both in one process
 3. The config is looked up from `--config <path>`, then `PALHELPER_CONFIG`, then next to the executable, then the current directory.
 
-Release build: `cd app && pnpm tauri build --no-bundle` (from a Visual Studio developer prompt) writes `app/src-tauri/target/release/palhelper.exe`, a single exe with the screens built in. Put `palhelper.config.json` next to it; `mode` in the config picks the mode when `--mode` is not given.
+Release build: `cd app && pnpm tauri build` (from a Visual Studio developer prompt) writes `app/src-tauri/target/release/palhelper.exe`, a single exe with the screens built in, and an installer `app/src-tauri/target/release/bundle/nsis/PalHelper_<version>_x64-setup.exe` (per-user, no admin rights). Started without a config file it opens the profile window; with `palhelper.config.json` next to it (or `--config`) it starts that config straight away.
 
 Development: `cd app && pnpm install && pnpm tauri dev`. On Windows, run it from a Visual Studio developer prompt (`vcvars64.bat`); see `docs/cautions.md`.
 
