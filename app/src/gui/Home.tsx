@@ -201,11 +201,11 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
   const [tab, setTab] = useState<Tab>("home");
   const mode = session.mode;
   const cfg = session.client;
-  const host = usePoll(cfg && hasServer(mode) ? () => getJson<HostStatus>(cfg, "/api/host-status") : null, 2000);
+  const host = usePoll(cfg && hasServer(mode) ? () => getJson<HostStatus>(cfg, "/api/host-status") : null, 1000);
   const mod = usePoll(cfg ? () => getJson<ModStatus>(cfg, "/api/mod-status") : null, 5000);
   const players = usePoll(cfg ? () => getJson<PdPlayers>(cfg, "/api/players") : null, 5000);
   const health = usePoll(cfg && mode === "client" ? () => getJson<{ ok: boolean }>(cfg, "/api/health") : null, 5000);
-  const gsPoll = usePoll(hasServer(mode) ? () => api.gsStatus() : null, 2000);
+  const gsPoll = usePoll(hasServer(mode) ? () => api.gsStatus() : null, 1000);
   const gs = gsPoll.value;
   const [quitAsk, setQuitAsk] = useState(false);
   const gsRef = useRef(gs);
@@ -247,7 +247,15 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
   const online = hasServer(mode) ? host.value?.palDefender.online : players.value?.Players.filter((p) => p.Status === "Online").length;
   // server modes: the game server's own state first (off, starting, stopping)
   const gst = hasServer(mode) ? gsState(gs) : null;
-  const game = gst && gst !== "on" && gst !== "norest" ? (
+  // PalDefender comes up a little after the game server; until a minute in, not having it yet is not an error
+  const pdWait = gst === "on" && !pdOk && gs?.uptime != null && gs.uptime < PD_GRACE_SECS;
+  const game = pdWait ? (
+    <span className="si">
+      <Icon name="game" />
+      <span className="dot warn" />
+      게임 서버 <b>연결 중</b>
+    </span>
+  ) : gst && gst !== "on" && gst !== "norest" ? (
     <span className="si">
       <Icon name="game" />
       <span className={`dot ${gst === "off" ? "off" : "warn"}`} />
@@ -381,6 +389,8 @@ function QuitDialog({ gs, onCancel }: { gs: GameServerStatus; onCancel: () => vo
     </div>
   );
 }
+
+const PD_GRACE_SECS = 60;
 
 const ago = (secs: number) => (secs < 60 ? `${Math.max(0, Math.round(secs))}초 전` : secs < 3600 ? `${Math.round(secs / 60)}분 전` : `${Math.round(secs / 3600)}시간 전`);
 

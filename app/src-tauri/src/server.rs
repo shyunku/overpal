@@ -27,7 +27,7 @@ const STALL_FILE: &str = "stalls.txt";
 /// how often the mod output file is checked for a new version
 const WATCH_EVERY: Duration = Duration::from_millis(150);
 /// how often PalDefender is asked whether the game server is up
-const PD_CHECK_EVERY: Duration = Duration::from_secs(5);
+const PD_CHECK_EVERY: Duration = Duration::from_secs(1);
 /// a friend app counts as connected while its last request is this recent
 const CONNECTED_WITHIN: Duration = Duration::from_secs(30);
 /// stalls kept for the Home window
