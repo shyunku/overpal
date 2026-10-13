@@ -198,7 +198,7 @@
       <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
       <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
       <li>처음 실행(프로필 없음)이면 드롭다운에 New Profile만 있음</li>
-      <li>Home 제목줄과 아래 상태줄에 지금 프로필 이름이 보임. Home의 설정 메뉴는 지금 프로필의 설정을 고침</li>
+      <li>프로필은 시작할 때만 고름. Home에서는 프로필 창이 다시 뜨지 않고 프로필을 바꿀 수 없음(바꾸려면 앱을 다시 실행). Home의 설정 메뉴는 고른 프로필의 설정을 고침</li>
       <li>화면 문구는 존댓말(제품 문구). 이 옆 설명만 반말</li>
       <li>토큰은 가려서 보여주고 복사 버튼만 둠</li>
     </ul>
@@ -220,7 +220,7 @@
 <script>
 const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false };
 const opts = {
-  tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 상태"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
+  tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 홈"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
   mode: [["both", "both"], ["server", "server"], ["client", "client"]],
   state: [["ok", "정상"], ["gameoff", "게임 서버 꺼짐"], ["first", "처음 실행(프로필 없음)"], ["dirty", "설정 바꾼 뒤(저장 전)"]],
 };
@@ -349,7 +349,7 @@ function status() {
     <div class="w">${ic("zap")}23:12:04  게임 서버 지연 812ms (모드 스캔 중)</div>
     <div class="w">${ic("zap")}23:11:53  게임 서버 지연 806ms (모드 스캔 중)</div>
     <div class="w">${ic("zap")}23:10:21  게임 서버 지연 142ms</div></div>`;
-  return `<h2>상태</h2><p class="lead">${st.mode} 모드(${MODE_TEXT[st.mode]})로 실행 중입니다.</p>
+  return `<h2>홈</h2><p class="lead">${st.mode} 모드(${MODE_TEXT[st.mode]})로 실행 중입니다.</p>
     ${off ? `<div class="banner warn">${ic("alert", "lg")}<span>게임 서버에 연결할 수 없습니다.<br>게임 서버가 켜지면 자동으로 다시 연결됩니다.</span></div>` : ""}
     <div class="cards">${cards.join("")}</div>${players}${recent}`;
 }
@@ -368,7 +368,7 @@ function settings() {
   const nick = has("client") ? `<div class="sec"><span>${ic("monitor")}오버레이</span><span></span></div>
     <div class="field"><label>${ic("user")}내 게임 닉네임</label><div><select><option>shyunku</option><option>친구 1</option><option>친구 2</option><option>친구 3</option></select><div class="help">미니맵과 '내 것' 화면이 이 플레이어를 기준으로 표시됩니다.</div></div></div>` : "";
   const dirty = st.dirty || first;
-  return `<h2>설정</h2><p class="lead">${first ? "처음 실행입니다. 설정을 입력한 뒤 시작해 주세요." : `프로필 '${profName()}'의 설정입니다.`}</p>
+  return `<h2>설정</h2><p class="lead">${first ? "처음 실행입니다. 설정을 입력한 뒤 시작해 주세요." : "변경한 설정은 저장하면 앱이 다시 시작되며 적용됩니다."}</p>
     <div class="form">${seg}${server}${client}${nick}</div>
     <div class="savebar"><span class="msg">${dirty ? (first ? "저장하면 이 설정으로 시작합니다." : "변경사항이 있습니다. 저장하면 앱이 다시 시작됩니다.") : "변경사항이 없습니다."}</span>${dirty && !first ? '<button class="btn">취소</button>' : ""}<button class="btn primary" ${dirty ? "" : 'style="opacity:.45"'}>${ic(first ? "play" : "save")}${first ? "저장 후 시작" : "저장 후 다시 시작"}</button></div>`;
 }
@@ -410,12 +410,13 @@ function statusbar() {
     ? `<span class="si">${ic("server")}<span class="dot"></span>앱 서버 <b>연결됨</b> 203.0.113.24:17994</span>`
     : `<span class="si">${ic("server")}<span class="dot"></span>앱 서버 <b>실행 중</b> 0.0.0.0:17994</span>`;
   const game = `<span class="si">${ic("game")}<span class="dot ${off ? "bad" : ""}"></span>게임 서버 <b>${off ? "연결 안 됨" : "연결됨"}</b>${off ? "" : " 접속 2명"}</span>`;
-  return `<div class="statusbar">${app}${game}<span class="sp"></span><span class="si">${ic("file")}${profName()}</span><span class="si">${ic(st.mode === "server" ? "server" : st.mode === "client" ? "monitor" : "sliders")}${st.mode} 모드</span></div>`;
+  return `<div class="statusbar">${app}${game}<span class="sp"></span><span class="si">${ic(st.mode === "server" ? "server" : st.mode === "client" ? "monitor" : "sliders")}${st.mode} 모드</span></div>`;
 }
 
 function render() {
   document.querySelectorAll(".group button").forEach((b) => b.classList.toggle("on", st[b.dataset.k] === b.dataset.v));
-  const tabs = opts.tab.filter(([v]) => v !== "launch" && (v !== "friends" || has("server")));
+  // Home's own menu; the profile window and mode select are not part of it
+  const tabs = [["status", "홈"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]].filter(([v]) => v !== "friends" || has("server"));
   const nav = tabs.map(([v, l]) => `<div class="item ${st.tab === v ? "on" : ""}" data-tab="${v}"><svg viewBox="0 0 24 24">${I[v]}</svg>${l}</div>`).join("");
   const isLaunch = st.tab === "launch";
   const isProfile = st.tab === "profile";
@@ -426,7 +427,7 @@ function render() {
   const size = prev && !prev.classList.contains("pw") ? { w: prev.offsetWidth, h: prev.offsetHeight } : null;
   document.getElementById("winwrap").innerHTML = isProfile
     ? `<div class="win pw"><div class="titlebar"><span class="sp"></span><span class="wb">—</span><span class="wb">✕</span></div><div class="body">${body}</div></div>`
-    : `<div class="win"><div class="titlebar"><span class="logo"></span>PalHelper${isLaunch ? "" : ` · ${profName()}`}<span class="sp"></span><span class="wb">—</span><span class="wb">☐</span><span class="wb">✕</span></div>
+    : `<div class="win"><div class="titlebar"><span class="logo"></span>PalHelper<span class="sp"></span><span class="wb">—</span><span class="wb">☐</span><span class="wb">✕</span></div>
     <div class="body">${side}<div class="mainwrap"><div class="main">${body}</div>${isLaunch ? "" : statusbar()}</div></div></div>${st.modal ? modal() : ""}`;
   const w = document.getElementById("winwrap");
   if (size && !isProfile && !prev.classList.contains("pw")) Object.assign(w.querySelector(".win").style, { width: size.w + "px", height: size.h + "px" });
