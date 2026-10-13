@@ -8,7 +8,19 @@ const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement)
 const view = new URLSearchParams(window.location.search).get("view") as View | null;
 
 // Each window loads only what it needs; the debug screen's CSS must not reach the transparent overlay windows.
-if (view && VIEWS.includes(view)) {
+const GUI_VIEWS = ["launcher", "home"] as const;
+type GuiView = (typeof GUI_VIEWS)[number];
+const gui = new URLSearchParams(window.location.search).get("view") as GuiView | null;
+
+if (gui && GUI_VIEWS.includes(gui)) {
+  import("./gui/GuiApp").then(({ GuiApp }) =>
+    root.render(
+      <React.StrictMode>
+        <GuiApp view={gui} />
+      </React.StrictMode>,
+    ),
+  );
+} else if (view && VIEWS.includes(view)) {
   import("./overlay/OverlayApp").then(({ OverlayApp }) =>
     root.render(
       <React.StrictMode>

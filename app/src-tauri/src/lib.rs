@@ -1,23 +1,30 @@
+mod applog;
 mod config;
-mod overlay;
+mod gui;
 mod hotkeys;
+mod overlay;
 mod overlay_watch;
+mod profiles;
 mod server;
 
-use config::{ClientConfig, Config, Mode};
+use config::{Config, Mode};
+use gui::{ClientState, Session, SessionInner};
+use std::sync::Mutex;
 use tauri::Manager;
 
 struct Args {
     mode: Option<Mode>,
     config: Option<String>,
+    /// start with this profile (the app restarting itself after settings were saved)
+    profile: Option<String>,
     /// show the overlay even when the game is not in front (development)
     always_show: bool,
 }
 
-/// Accepts `--mode <server|client|both>`, `--config <path>` (also `--key=value`) and `--always-show`.
-/// Unknown arguments are ignored so dev tooling can pass its own.
+/// Accepts `--mode <server|client|both>`, `--config <path>`, `--profile <name>` (also `--key=value`)
+/// and `--always-show`. Unknown arguments are ignored so dev tooling can pass its own.
 fn parse_args() -> Result<Args, String> {
-    let mut args = Args { mode: None, config: None, always_show: false };
+    let mut args = Args { mode: None, config: None, profile: None, always_show: false };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         let (key, inline) = match a.split_once('=') {
@@ -32,6 +39,9 @@ fn parse_args() -> Result<Args, String> {
             "--config" => {
                 args.config = Some(inline.or_else(|| it.next()).ok_or("--config needs a value")?);
             }
+            "--profile" => {
+                args.profile = Some(inline.or_else(|| it.next()).ok_or("--profile needs a value")?);
+            }
             "--always-show" => args.always_show = true,
             _ => {}
         }
@@ -39,62 +49,107 @@ fn parse_args() -> Result<Args, String> {
     Ok(args)
 }
 
+/// Shows the error (there is no console) and quits.
 fn fail(msg: &str) -> ! {
     eprintln!("palhelper: {msg}");
-    // started by double-click, the console closes with the process; keep the message readable
-    eprintln!("Press Enter to close.");
-    let _ = std::io::stdin().read_line(&mut String::new());
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
+        let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+        unsafe { MessageBoxW(std::ptr::null_mut(), wide(msg).as_ptr(), wide("PalHelper").as_ptr(), MB_OK | MB_ICONERROR) };
+    }
     std::process::exit(1);
 }
 
-struct ClientState(Option<ClientConfig>);
-
-#[tauri::command]
-fn client_config(state: tauri::State<'_, ClientState>) -> Result<ClientConfig, String> {
-    state.0.clone().ok_or_else(|| "client settings are missing in the config file".to_string())
+/// How this run starts.
+enum Start {
+    /// a config file: straight to Home, already started
+    Config(std::path::PathBuf, Config, Mode),
+    /// a profile by name (restart): straight to Home
+    Profile(String, Option<Mode>),
+    /// the profile window
+    Launcher,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let args = parse_args().unwrap_or_else(|e| fail(&e));
-    let path = config::resolve_path(args.config.as_deref());
-    let cfg: Config = config::load(&path).unwrap_or_else(|e| fail(&e));
-    let mode = args.mode.unwrap_or(cfg.mode);
-    eprintln!("PalHelper {} ({mode:?} mode, config {})", env!("CARGO_PKG_VERSION"), path.display());
-    eprintln!("Closing this window quits PalHelper. The overlay shows only while the game window is visible.");
-
-    let server_cfg = if mode.has_server() {
-        Some(cfg.server.clone().unwrap_or_else(|| fail("mode needs a \"server\" section in the config")))
-    } else {
-        None
-    };
-
-    if mode == Mode::Server {
-        let rt = tokio::runtime::Runtime::new().unwrap_or_else(|e| fail(&e.to_string()));
-        if let Err(e) = rt.block_on(server::serve(server_cfg.unwrap())) {
-            fail(&e);
+    let start = if let Some(name) = args.profile.clone() {
+        Start::Profile(name, args.mode)
+    } else if let Some(path) = config::find_path(args.config.as_deref()) {
+        let cfg: Config = config::load(&path).unwrap_or_else(|e| fail(&e));
+        let mode = args.mode.unwrap_or(cfg.mode);
+        if mode.has_server() && cfg.server.is_none() {
+            fail(&format!("{}: 이 모드에는 \"server\" 설정이 필요합니다.", path.display()));
         }
-        return;
-    }
-
-    let client = cfg.effective_client(mode);
+        Start::Config(path, cfg, mode)
+    } else {
+        Start::Launcher
+    };
     let always_show = args.always_show;
+
     tauri::Builder::default()
-        .manage(ClientState(client))
-        .invoke_handler(tauri::generate_handler![client_config, overlay::layout_get, overlay::layout_set, overlay::round_corners, overlay::click_through, overlay::set_shown, overlay_watch::overlay_state])
+        .plugin(tauri_plugin_dialog::init())
+        .manage(ClientState(Mutex::new(None)))
+        .invoke_handler(tauri::generate_handler![
+            gui::client_config,
+            gui::profiles_list,
+            gui::profile_delete,
+            gui::launcher_open,
+            gui::session_get,
+            gui::session_start,
+            gui::profile_update,
+            gui::detect_server_dir,
+            gui::players_in,
+            gui::pick_folder,
+            gui::open_path,
+            gui::public_ip,
+            gui::friend_add,
+            gui::friend_renew,
+            gui::friend_remove,
+            gui::friend_folder,
+            applog::log_lines,
+            applog::log_dir,
+            overlay::layout_get,
+            overlay::layout_set,
+            overlay::round_corners,
+            overlay::click_through,
+            overlay::set_shown,
+            overlay_watch::overlay_state
+        ])
+        .on_window_event(gui::on_window_event)
         .setup(move |app| {
-            if let Some(s) = server_cfg {
-                tauri::async_runtime::spawn(async move {
-                    if let Err(e) = server::serve(s).await {
-                        eprintln!("[server] {e}");
-                    }
-                });
-            }
+            let config_dir = app.path().app_config_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            applog::set_dir(config_dir.join("logs"));
+            applog::set_app(app.handle());
+            app.manage(Session(Mutex::new(SessionInner::new(config_dir, always_show))));
             app.manage(overlay::LayoutStore::load(app.handle()));
             overlay_watch::init(app.handle(), always_show);
-            overlay::create_windows(app.handle())?;
-            overlay_watch::spawn(app.handle(), &overlay::FOLLOW_CURSOR, always_show);
-            hotkeys::spawn(app.handle());
+            match start {
+                Start::Launcher => gui::open_launcher(app.handle())?,
+                Start::Profile(name, mode) => {
+                    let session = app.state::<Session>();
+                    let profile = session.0.lock().unwrap().store.get(&name);
+                    let Some(profile) = profile else { fail(&format!("프로필을 찾을 수 없습니다: {name}")) };
+                    // the mode of the run that restarted, else the profile's own
+                    let mode = mode.or(profile.start_mode.mode());
+                    session.0.lock().unwrap().profile = Some(profile);
+                    gui::open_home(app.handle())?;
+                    // not ready for the mode: Home shows the settings
+                    if let Some(mode) = mode {
+                        match gui::start_profile(app.handle(), mode) {
+                            Ok(()) => {}
+                            Err(e) if e == "settings" => {}
+                            Err(e) => fail(&e),
+                        }
+                    }
+                }
+                Start::Config(path, cfg, mode) => {
+                    app.state::<Session>().0.lock().unwrap().legacy = Some((path, cfg.clone()));
+                    gui::open_home(app.handle())?;
+                    gui::start_services(app.handle(), &cfg, mode).unwrap_or_else(|e| fail(&e));
+                }
+            }
             Ok(())
         })
         .run(tauri::generate_context!())

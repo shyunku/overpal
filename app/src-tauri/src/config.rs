@@ -36,7 +36,21 @@ pub struct PalDefenderConfig {
     /// e.g. http://127.0.0.1:17993
     pub url: String,
     /// file containing the PalDefender REST bearer token
-    pub token_file: PathBuf,
+    #[serde(default)]
+    pub token_file: Option<PathBuf>,
+    /// the token itself (profiles read it from PalDefender's own config); wins over token_file
+    #[serde(default)]
+    pub token: Option<String>,
+}
+
+impl PalDefenderConfig {
+    pub fn read_token(&self) -> Result<String, String> {
+        if let Some(t) = &self.token {
+            return Ok(t.clone());
+        }
+        let path = self.token_file.as_ref().ok_or("no PalDefender token or token file")?;
+        std::fs::read_to_string(path).map(|t| t.trim().to_string()).map_err(|e| format!("cannot read PalDefender token file {}: {e}", path.display()))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -47,8 +61,11 @@ pub struct ServerConfig {
     /// PalHelperMod folder inside the server's ue4ss/Mods
     pub mod_output_dir: PathBuf,
     pub pal_defender: Option<PalDefenderConfig>,
-    /// bearer tokens accepted by this server
+    /// bearer tokens accepted by this server; the first one is the host's own
     pub access_tokens: Vec<String>,
+    /// friend name per token, for the host's status and log
+    #[serde(default)]
+    pub token_names: std::collections::HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -88,22 +105,17 @@ impl Config {
     }
 }
 
-/// `--config <path>`, then $PALHELPER_CONFIG, then the file next to the executable,
-/// then the current directory.
-pub fn resolve_path(cli_path: Option<&str>) -> PathBuf {
+/// The config file of this run, if any: `--config <path>`, then $PALHELPER_CONFIG, then the file
+/// next to the executable. None means the app starts with the profile window.
+pub fn find_path(cli_path: Option<&str>) -> Option<PathBuf> {
     if let Some(p) = cli_path {
-        return PathBuf::from(p);
+        return Some(PathBuf::from(p));
     }
     if let Ok(p) = std::env::var(CONFIG_ENV) {
-        return PathBuf::from(p);
+        return Some(PathBuf::from(p));
     }
-    if let Some(dir) = std::env::current_exe().ok().as_deref().and_then(Path::parent) {
-        let p = dir.join(CONFIG_FILE_NAME);
-        if p.exists() {
-            return p;
-        }
-    }
-    PathBuf::from(CONFIG_FILE_NAME)
+    let p = std::env::current_exe().ok()?.parent()?.join(CONFIG_FILE_NAME);
+    p.exists().then_some(p)
 }
 
 pub fn load(path: &Path) -> Result<Config, String> {

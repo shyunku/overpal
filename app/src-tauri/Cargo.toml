@@ -22,12 +22,14 @@ axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "time", "sync"] }
 futures-util = "0.3"
 tower-http = { version = "0.6", features = ["cors"] }
+# folder picker for the game server folder (profile settings)
+tauri-plugin-dialog = "2"
 # PalDefender is reached over plain http on localhost, so no TLS backend is needed
 reqwest = { version = "0.12", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 # foreground window and cursor visibility checks for the overlay
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Graphics_Gdi", "Win32_Security_Cryptography", "Win32_System_LibraryLoader", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 
 # https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

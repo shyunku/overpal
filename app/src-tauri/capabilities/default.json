@@ -1,8 +1,8 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the overlay windows",
-  "windows": ["menubar", "items", "minimap", "settings", "tooltip"],
+  "description": "Capability for the overlay windows and the app's own windows (profile window, Home)",
+  "windows": ["menubar", "items", "minimap", "settings", "tooltip", "launcher", "home"],
   "permissions": [
     "core:default",
     "core:window:allow-set-size",
