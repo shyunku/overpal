@@ -45,6 +45,12 @@ export interface Detected {
   hasPalDefenderToken: boolean;
 }
 
+export interface FoundServer {
+  path: string;
+  hasMod: boolean;
+  hasPalDefender: boolean;
+}
+
 export interface LogLine {
   at: string;
   level: "info" | "warn" | "error";
@@ -61,6 +67,7 @@ export const api = {
   /** true when the app restarts to apply it */
   save: (profile: Profile) => invoke<boolean>("profile_update", { profile }),
   detect: (dir: string) => invoke<Detected>("detect_server_dir", { dir }),
+  findServers: () => invoke<FoundServer[]>("find_game_servers"),
   playersIn: (dir: string) => invoke<string[]>("players_in", { dir }),
   pickFolder: () => invoke<string | null>("pick_folder"),
   openPath: (path: string) => invoke<void>("open_path", { path }),

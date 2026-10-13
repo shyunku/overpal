@@ -100,6 +100,7 @@ pub fn run() {
             gui::session_start,
             gui::profile_update,
             gui::detect_server_dir,
+            gui::find_game_servers,
             gui::players_in,
             gui::pick_folder,
             gui::open_path,

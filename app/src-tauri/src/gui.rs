@@ -321,6 +321,12 @@ pub fn profile_update(app: AppHandle, session: tauri::State<'_, Session>, profil
     Ok(false)
 }
 
+/// Dedicated servers in the Steam libraries, for the settings' auto-find.
+#[tauri::command]
+pub async fn find_game_servers() -> Vec<profiles::FoundServer> {
+    profiles::find_steam_servers()
+}
+
 #[tauri::command]
 pub fn detect_server_dir(dir: String) -> profiles::Detected {
     profiles::detect_server(std::path::Path::new(&dir))

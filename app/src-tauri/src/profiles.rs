@@ -171,6 +171,65 @@ pub fn detect_server(dir: &Path) -> Detected {
     d
 }
 
+/// A dedicated server found in a Steam library.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FoundServer {
+    pub path: String,
+    pub has_mod: bool,
+    pub has_pal_defender: bool,
+}
+
+/// Dedicated servers in the Steam libraries (steamapps\common\PalServer), Steam's own folder first.
+pub fn find_steam_servers() -> Vec<FoundServer> {
+    let Some(steam) = steam_path() else { return Vec::new() };
+    let mut libraries = vec![steam.clone()];
+    if let Ok(text) = std::fs::read_to_string(steam.join(r"steamapps\libraryfolders.vdf")) {
+        libraries.extend(library_paths(&text));
+    }
+    let mut seen = std::collections::HashSet::new();
+    libraries
+        .into_iter()
+        .map(|lib| lib.join(r"steamapps\common\PalServer"))
+        .filter(|dir| dir.join("PalServer.exe").exists())
+        .filter(|dir| seen.insert(dir.to_string_lossy().to_lowercase()))
+        .map(|dir| {
+            let d = detect_server(&dir);
+            FoundServer { path: dir.display().to_string(), has_mod: d.has_mod, has_pal_defender: d.pal_defender_url.is_some() && d.has_pal_defender_token }
+        })
+        .collect()
+}
+
+/// The `"path"` values of libraryfolders.vdf, where backslashes are doubled.
+fn library_paths(vdf: &str) -> Vec<PathBuf> {
+    vdf.lines()
+        .filter_map(|l| {
+            let l = l.trim();
+            let rest = l.strip_prefix("\"path\"")?.trim();
+            Some(PathBuf::from(rest.trim_matches('"').replace("\\\\", "\\")))
+        })
+        .collect()
+}
+
+#[cfg(windows)]
+fn steam_path() -> Option<PathBuf> {
+    use windows_sys::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_SZ, RegGetValueW};
+    let wide = |s: &str| s.encode_utf16().chain(Some(0)).collect::<Vec<u16>>();
+    let mut buf = [0u16; 1024];
+    let mut len = (buf.len() * 2) as u32;
+    let r = unsafe { RegGetValueW(HKEY_CURRENT_USER, wide(r"Software\Valve\Steam").as_ptr(), wide("SteamPath").as_ptr(), RRF_RT_REG_SZ, std::ptr::null_mut(), buf.as_mut_ptr().cast(), &mut len) };
+    if r != 0 {
+        return None;
+    }
+    let s = String::from_utf16_lossy(&buf[..(len as usize / 2).saturating_sub(1)]);
+    Some(PathBuf::from(s.replace('/', "\\")))
+}
+
+#[cfg(not(windows))]
+fn steam_path() -> Option<PathBuf> {
+    None
+}
+
 /// A random 64-character hex token.
 pub fn new_token() -> String {
     let mut bytes = [0u8; 32];
@@ -276,6 +335,22 @@ mod tests {
     }
 
     #[test]
+    fn library_paths_from_vdf() {
+        let vdf = "\"libraryfolders\"
+{
+	\"0\"
+	{
+		\"path\"		\"C:\\Program Files (x86)\\Steam\"
+	}
+	\"1\"
+	{
+		\"path\"		\"E:\\Games\\Steam\"
+	}
+}";
+        assert_eq!(library_paths(vdf), vec![PathBuf::from(r"C:\Program Files (x86)\Steam"), PathBuf::from(r"E:\Games\Steam")]);
+    }
+
+    #[test]
     fn names() {
         assert!(valid_name("실제 서버"));
         assert!(!valid_name(""));
@@ -360,5 +435,16 @@ mod tests {
         store.delete("실제 서버").unwrap();
         assert!(store.list().is_empty());
         std::fs::remove_dir_all(d).unwrap();
+    }
+}
+
+/// Prints what auto-find sees on this PC: `cargo test --lib finds_on_this_pc -- --ignored --nocapture`.
+#[cfg(test)]
+#[test]
+#[ignore]
+fn finds_on_this_pc() {
+    println!("steam: {:?}", steam_path());
+    for s in find_steam_servers() {
+        println!("{s:?}");
     }
 }

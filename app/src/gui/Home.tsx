@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PdPlayers } from "../data/paldefender";
 import type { ClientConfig, ModStatus } from "../types";
 import { Icon, type IconName } from "./icons";
-import { api, errorText, MODE_NAME, type Detected, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
+import { api, errorText, MODE_NAME, shortPath, type Detected, type FoundServer, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
 
 // ---------------------------------------------------------------- data from the app server
 
@@ -634,6 +634,57 @@ function AddFriend({ names, busy, onCancel, onAdd }: { names: string[]; busy: bo
 
 // ---------------------------------------------------------------- settings
 
+/** Game servers found in the Steam libraries; picking one fills the folder. */
+function Finder({ found, onPick, onClose }: { found: FoundServer[]; onPick: (path: string) => void; onClose: () => void }) {
+  return (
+    <div className="finder">
+      <div className="fhead">
+        <Icon name="search" />
+        <span>찾은 게임 서버 {found.length}개</span>
+        <span className="sp" />
+        <span className="muted" style={{ fontSize: 11 }}>
+          스팀 라이브러리에서 찾았습니다.
+        </span>
+        <span className="fx" onClick={onClose}>
+          <Icon name="xcircle" />
+        </span>
+      </div>
+      {found.map((f) => (
+        <div key={f.path} className="fitem" onClick={() => onPick(f.path)}>
+          <span className="fsrc">
+            <Icon name="game" />
+            스팀
+          </span>
+          <div className="fmain">
+            <b>{f.path.split("\\").pop()}</b>
+            <span className="muted" title={f.path}>
+              {shortPath(f.path)}
+            </span>
+          </div>
+          <div className="fchk">
+            <span className={f.hasMod ? "ok" : "no"}>
+              <Icon name={f.hasMod ? "check" : "xcircle"} />
+              모드
+            </span>
+            <span className={f.hasPalDefender ? "ok" : "no"}>
+              <Icon name={f.hasPalDefender ? "check" : "xcircle"} />
+              PalDefender
+            </span>
+          </div>
+          <button className="btn small">선택</button>
+        </div>
+      ))}
+      {!found.length && (
+        <div className="fitem" style={{ cursor: "default" }}>
+          <span className="muted" style={{ gridColumn: "1 / -1", fontSize: 12 }}>
+            스팀 라이브러리에서 게임 서버를 찾지 못했습니다. '찾아보기'로 폴더를 선택해 주세요.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsView({ session, mode, prestart, onSaved }: { session: SessionView; mode: Mode; prestart?: boolean; onSaved: (p: Profile) => void }) {
   const original = session.profile;
   const [p, setP] = useState<Profile | null>(original);
@@ -642,6 +693,8 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
   const [check, setCheck] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  // auto-find results (Steam libraries); null while the list is closed
+  const [found, setFound] = useState<FoundServer[] | null>(null);
   const dirty = useMemo(() => JSON.stringify(p) !== JSON.stringify(original), [p, original]);
   const dir = p?.server?.gameServerDir ?? "";
 
@@ -778,12 +831,26 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
               <div>
                 <div className="row">
                   <input value={server.gameServerDir} onChange={(e) => setServer({ gameServerDir: e.target.value })} placeholder="PalServer.exe가 있는 폴더" />
+                  <button className="btn" onClick={() => api.findServers().then(setFound)}>
+                    <Icon name="search" />
+                    자동 찾기
+                  </button>
                   <button className="btn" onClick={() => api.pickFolder().then((d) => d && setServer({ gameServerDir: d }))}>
                     <Icon name="folder" />
                     찾아보기
                   </button>
                 </div>
-                {detected && (
+                {found && (
+                  <Finder
+                    found={found}
+                    onPick={(path) => {
+                      setServer({ gameServerDir: path });
+                      setFound(null);
+                    }}
+                    onClose={() => setFound(null)}
+                  />
+                )}
+                {!found && detected && (
                   <div className="help">
                     <span style={{ color: detected.hasServer ? "#7ee787" : "#ffa198" }}>{detected.hasServer ? "게임 서버 확인됨" : "PalServer.exe가 없습니다"}</span>
                     {" · "}

@@ -7,14 +7,21 @@ import "@fontsource/noto-sans-kr/400.css";
 import "@fontsource/noto-sans-kr/500.css";
 import "@fontsource/noto-sans-kr/700.css";
 import "./gui.css";
+import { useEffect, useState } from "react";
 import { Home } from "./Home";
+import { api } from "./session";
 import { Launcher } from "./Launcher";
 import { TitleBar } from "./TitleBar";
 
 export function GuiApp({ view }: { view: "launcher" | "home" }) {
+  // Home belongs to one profile for the whole run; its name goes in the title bar
+  const [profile, setProfile] = useState<string | null>(null);
+  useEffect(() => {
+    if (view === "home") api.session().then((s) => setProfile(s.profile?.name ?? null));
+  }, [view]);
   return (
     <div className="appwin">
-      <TitleBar resizable={view === "home"} />
+      <TitleBar resizable={view === "home"} profile={profile} />
       <div className="appbody">{view === "launcher" ? <Launcher /> : <Home />}</div>
     </div>
   );
