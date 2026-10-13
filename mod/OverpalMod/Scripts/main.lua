@@ -1,18 +1,17 @@
 -- OverpalMod (Overpal's server mod)
--- Reads base storage (chests, production buildings, guild storage, items dropped by players,
--- level pickups) from the
--- running dedicated server and writes it to base_storage.json next to this mod.
+-- Reads base storage (chests, production buildings, guild storage) from the running dedicated
+-- server and writes it to base_storage.json next to this mod, and the players' positions to
+-- positions.json.
 -- How the objects are linked is documented in docs/game-internals.md.
 
 local FIRST_DELAY_MS = 30000
--- full rescan: new/removed containers (dropped items), locations
+-- full rescan: new/removed containers, buildings, production progress (spread over slices, see
+-- "slicing")
 local REFRESH_MS = 10000
 -- containers flagged by the update hook are re-read this often
 local FAST_MS = 250
 -- called whenever a building's storage updates (also once a second for chests with timers)
 local UPDATE_HOOK = "/Script/Pal.PalMapObjectItemContainerModule:OnUpdateContents"
--- also write the raw containers/modules/buildings lists (for investigation)
-local DEBUG_DUMP = false
 -- How often buildings replicate to clients (class default of PalBuildObject, 3 in the game).
 -- The replication graph fixes each class's rate when it first sees the class, so this must be
 -- set at startup. Higher makes build/craft progress bars smoother and costs more server CPU;
@@ -25,8 +24,8 @@ local BUILD_NET_UPDATE_HZ = 20
 -- ("HH:MM:SS <late ms>[ scan]", "scan" when this mod's full scan ran in that time); the app
 -- server prints them as warnings.
 -- Player positions and camera directions go to positions.json this often (only when changed).
--- The controllers are found by the full scan (FindAllOf takes about 44 ms); reading them costs
--- about 10 us per player.
+-- The controllers come from the object lists (see "object lists"); reading them costs about
+-- 10 us per player.
 local POSITIONS_MS = 100
 local POSITIONS_FILE = "positions.json"
 
@@ -158,25 +157,126 @@ local function read_items(container)
     return items, #arr
 end
 
--- container id -> { kind, modelClass, modelRef }
-local function collect_modules()
-    local by_container = {}
-    for _, m in ipairs(FindAllOf("PalMapObjectItemContainerModule") or {}) do
-        if m:IsValid() then
-            local cid = try("module container", function() return guid_of(m.TargetContainer.ID.ID) end)
-            local model = try("module outer", function() return m:GetOuter() end)
-            if cid and model and model:IsValid() then
-                local cls = model:GetClass():GetFName():ToString()
-                by_container[cid] = {
-                    modelClass = cls,
-                    kind = KIND_BY_MODEL_CLASS[cls] or "other",
-                    -- concrete model -> map object actor link
-                    modelRef = try("model ref", function() return guid_of(model.ModelInstanceId) end),
-                }
-            end
+-- ---------------------------------------------------------------- object lists
+-- FindAllOf walks every object of the server (about 40 ms each, also for a class with one
+-- object), so the lists are found once and then kept up to date by NotifyOnNewObject; objects
+-- that went away are dropped when they turn invalid. One class is found again every
+-- RESYNC_EVERY scans in case a notification was missed (that one call stops the server about
+-- 50 ms; the notifications were seen working on the test server, 2026-10-13).
+local CLASSES = {
+    { key = "containers", name = "PalItemContainer", path = "/Script/Pal.PalItemContainer" },
+    { key = "modules", name = "PalMapObjectItemContainerModule", path = "/Script/Pal.PalMapObjectItemContainerModule" },
+    { key = "buildings", name = "PalBuildObject", path = "/Script/Pal.PalBuildObject" },
+    { key = "progress", name = "PalWorkProgress", path = "/Script/Pal.PalWorkProgress" },
+    { key = "players", name = "PalPlayerController", path = "/Script/Pal.PalPlayerController" },
+}
+local RESYNC_EVERY = 30
+-- key -> { [address] = object }
+local objects = {}
+-- objects announced by NotifyOnNewObject, added to `objects` when a scan step starts (a scan
+-- paused in the middle of going through a list must not see it grow)
+local pending = {}
+-- objects announced by NotifyOnNewObject since start, per key (status.json)
+local notified = {}
+-- per object address, what never changes once read: { id, group, skip } of a container,
+-- { cid, info } of a module, { buildObjectId, modelRef, location, model } of a building
+local known = {}
+
+local function find_all(c)
+    local set = {}
+    for _, o in ipairs(FindAllOf(c.name) or {}) do
+        if o:IsValid() then set[o:GetAddress()] = o end
+    end
+    objects[c.key] = set
+    -- what was read for the old objects is read again
+    for addr in pairs(known) do
+        if known[addr].key == c.key then known[addr] = nil end
+    end
+end
+
+local function take_pending(key)
+    for addr, o in pairs(pending[key]) do
+        objects[key][addr] = o
+        known[addr] = nil
+    end
+    pending[key] = {}
+end
+
+local function watch_new_objects()
+    for _, c in ipairs(CLASSES) do
+        pending[c.key] = {}
+        notified[c.key] = 0
+        local ok, err = pcall(function()
+            NotifyOnNewObject(c.path, function(o)
+                -- still being built here: only noted, read by the next scan
+                pending[c.key][o:GetAddress()] = o
+                notified[c.key] = notified[c.key] + 1
+            end)
+        end)
+        if not ok then
+            print("[OverpalMod] NotifyOnNewObject " .. c.name .. " failed: " .. tostring(err))
+            notified[c.key] = -1
         end
     end
-    return by_container
+end
+
+-- ---------------------------------------------------------------- slicing
+-- The scan goes through its lists a piece at a time: every SLICE_MS on the game thread it works
+-- for about SLICE_BUDGET_MS and continues there next time, so the server never stops for long in
+-- one go. (Not a coroutine: UE4SS cannot reach game objects from a coroutine's Lua state.)
+local SLICE_MS = 10
+local SLICE_BUDGET_MS = 4
+
+-- each value is a JSON piece kept until its table changes (fast tick or a new scan)
+local json_cache = setmetatable({}, { __mode = "k" })
+local function json_of(t)
+    local j = json_cache[t]
+    if not j then
+        j = to_json(t)
+        json_cache[t] = j
+    end
+    return j
+end
+
+-- ---------------------------------------------------------------- scan steps
+-- Each step reads one object into the scan state `st`; objects that went away leave the lists.
+
+-- st.modules: container id -> { kind, modelClass, modelRef }
+local function module_step(st, addr, m)
+    if not m:IsValid() then
+        objects.modules[addr] = nil
+        return
+    end
+    local k = known[addr]
+    if not k then
+        k = { key = "modules" }
+        k.cid = try("module container", function() return guid_of(m.TargetContainer.ID.ID) end)
+        local model = try("module outer", function() return m:GetOuter() end)
+        if k.cid and model and model:IsValid() then
+            local cls = model:GetClass():GetFName():ToString()
+            k.info = {
+                modelClass = cls,
+                kind = KIND_BY_MODEL_CLASS[cls] or "other",
+                -- concrete model -> map object actor link
+                modelRef = try("model ref", function() return guid_of(model.ModelInstanceId) end),
+            }
+        end
+        -- an unfinished module is read again next time
+        if k.info then known[addr] = k end
+    end
+    if k.info then st.modules[k.cid] = k.info end
+end
+
+-- st.progress: work progress by concrete model address
+local function progress_step(st, addr, w)
+    if not w:IsValid() then
+        objects.progress[addr] = nil
+        return
+    end
+    pcall(function()
+        local m = w.CachedOwnerMapObjectConcreteModel
+        if m and m:IsValid() then st.progress[m:GetAddress()] = w end
+    end)
 end
 
 -- production building's model by buildObjectId, filled by the full scan: the fast tick re-reads
@@ -185,15 +285,18 @@ local production_models = {}
 
 -- Building entry for the main window's "mine" structures: id, name given in game, location,
 -- guild, and for production buildings what they make and how far along it is.
--- `progress`: work progress by concrete model address (work_progress_by_model).
-local function building_entry(a, id, model, location, custom_name, progress)
-    local entry = { buildObjectId = id, group = guid_of(model.GroupIdBelongTo), location = location, customName = custom_name }
+local function building_entry(st, k)
+    local model = k.model
+    local entry = { buildObjectId = k.buildObjectId, group = guid_of(model.GroupIdBelongTo), location = k.location }
+    -- the name players give a building (e.g. a chest) in game, empty if none
+    local name = try("custom name", function() return model.CustomName:ToString() end)
+    if name and name ~= "" then entry.customName = name end
     local concrete = model.ConcreteModel
     if concrete and concrete:IsValid() and concrete:GetClass():GetFName():ToString() == "PalMapObjectConvertItemModel" then
         local recipe = concrete.CurrentRecipeId:ToString()
         if recipe ~= "None" then
-            local w = progress[concrete:GetAddress()]
-            production_models[id] = concrete
+            local w = st.progress[concrete:GetAddress()]
+            st.production[k.buildObjectId] = concrete
             entry.production = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
@@ -206,94 +309,70 @@ local function building_entry(a, id, model, location, custom_name, progress)
     return entry
 end
 
-local function work_progress_by_model()
-    local progress = {}
-    for _, w in ipairs(FindAllOf("PalWorkProgress") or {}) do
-        pcall(function()
-            local m = w.CachedOwnerMapObjectConcreteModel
-            if m and m:IsValid() then progress[m:GetAddress()] = w end
-        end)
+-- st.buildings (guild buildings) and st.located (the same by map object model instance id).
+-- Items dropped on the ground are not collected (their actors cost a FindAllOf of their own).
+local function building_step(st, addr, a)
+    if not a:IsValid() then
+        objects.buildings[addr] = nil
+        return
     end
-    return progress
+    local k = known[addr]
+    if not k then
+        k = { key = "buildings" }
+        k.modelRef = try("actor id", function() return guid_of(a.ModelInstanceId) end)
+        k.buildObjectId = try("build object id", function() return a.BuildObjectId:ToString() end)
+        k.model = a.MapObjectModel
+        local loc = a:K2_GetActorLocation()
+        k.location = { x = loc.X, y = loc.Y, z = loc.Z }
+        if not (k.modelRef and k.buildObjectId and k.model and k.model:IsValid()) then return end
+        known[addr] = k
+    end
+    if k.buildObjectId == "None" or not k.model:IsValid() then return end
+    local b = try("building", function() return building_entry(st, k) end)
+    if b then
+        st.buildings[#st.buildings + 1] = b
+        st.located[k.modelRef] = b
+    end
 end
 
--- map object model instance id -> { location, buildObjectId, customName }
--- Actor classes whose location is looked up: buildings and items dropped on the ground.
-local LOCATED_ACTOR_CLASSES = { "PalBuildObject", "PalMapObjectCommonDropItem3D" }
+-- the kinds not collected: items dropped on the ground and map pickups (not stored by players)
+local SKIP_KINDS = { dropped = true, pickup = true }
 
--- Also returns the guild buildings (building_entry), read in the same pass over the actors.
-local function collect_actor_locations()
-    production_models = {}
-    local by_model = {}
-    local buildings = {}
-    local progress = work_progress_by_model()
-    for _, class_name in ipairs(LOCATED_ACTOR_CLASSES) do
-        for _, a in ipairs(FindAllOf(class_name) or {}) do
-            if a:IsValid() then
-                local id = try("actor id", function() return guid_of(a.ModelInstanceId) end)
-                if id then
-                    local loc = a:K2_GetActorLocation()
-                    local entry = { location = { x = loc.X, y = loc.Y, z = loc.Z } }
-                    if class_name == "PalBuildObject" then
-                        entry.buildObjectId = try("build object id", function() return a.BuildObjectId:ToString() end)
-                        -- the name players give a building (e.g. a chest) in game, empty if none
-                        local model = a.MapObjectModel
-                        local name = try("custom name", function() return model.CustomName:ToString() end)
-                        if name and name ~= "" then entry.customName = name end
-                        if entry.buildObjectId and entry.buildObjectId ~= "None" then
-                            local b = try("building", function()
-                                return building_entry(a, entry.buildObjectId, model, entry.location, entry.customName, progress)
-                            end)
-                            if b then buildings[#buildings + 1] = b end
-                        end
-                    end
-                    by_model[id] = entry
-                end
-            end
-        end
+-- st.storages: guild containers only. Containers of no guild (map pickups and the like, most of
+-- them) are noted once and not read again.
+local function container_step(st, addr, c)
+    if not c:IsValid() then
+        objects.containers[addr] = nil
+        return
     end
-    return by_model, buildings
-end
-
-local function collect_storages(modules, buildings)
-    local storages = {}
-    local raw = {}
-    local objects = {}
-    for _, c in ipairs(FindAllOf("PalItemContainer") or {}) do
-        if c:IsValid() then
-            local id = try("container id", function() return guid_of(c.ID.ID) end)
-            local group = try("container group", function() return guid_of(c.BelongInfo.GroupId) end)
-            local items, slot_count = read_items(c)
-            if DEBUG_DUMP then
-                raw[#raw + 1] = { id = id, group = group, slotCount = slot_count, items = items }
-            end
-            if id and group and group ~= ZERO_GUID then
-                local m = modules[id]
-                local entry = {
-                    containerId = id,
-                    group = group,
-                    slotCount = slot_count,
-                    items = items,
-                }
-                if m then
-                    entry.kind = m.kind
-                    entry.modelClass = m.modelClass
-                    local b = m.modelRef and buildings[m.modelRef]
-                    if b then
-                        entry.location = b.location
-                        entry.buildObjectId = b.buildObjectId
-                        entry.customName = b.customName
-                    end
-                else
-                    -- the guild-wide storage has no owning map object
-                    entry.kind = "guildStorage"
-                end
-                storages[#storages + 1] = entry
-                objects[id] = c
-            end
-        end
+    local k = known[addr]
+    if not k then
+        local id = try("container id", function() return guid_of(c.ID.ID) end)
+        local group = try("container group", function() return guid_of(c.BelongInfo.GroupId) end)
+        if not (id and group) then return end
+        k = { key = "containers", id = id, group = group, skip = group == ZERO_GUID }
+        known[addr] = k
     end
-    return storages, raw, objects
+    if k.skip then return end
+    local m = st.modules[k.id]
+    if m and SKIP_KINDS[m.kind] then return end
+    local items, slot_count = read_items(c)
+    local entry = { containerId = k.id, group = k.group, slotCount = slot_count, items = items }
+    if m then
+        entry.kind = m.kind
+        entry.modelClass = m.modelClass
+        local b = m.modelRef and st.located[m.modelRef]
+        if b then
+            entry.location = b.location
+            entry.buildObjectId = b.buildObjectId
+            entry.customName = b.customName
+        end
+    else
+        -- the guild-wide storage has no owning map object
+        entry.kind = "guildStorage"
+    end
+    st.storages[#st.storages + 1] = entry
+    st.by_object[k.id] = c
 end
 
 -- ---------------------------------------------------------------- change push
@@ -304,17 +383,21 @@ local dirty = {}
 local hooked = false
 local seq = 0
 
+-- the file is put together from the cached JSON of each storage and building
 local function write_storage()
     seq = seq + 1
-    write_file("base_storage.json", to_json({ version = 1, updatedAt = os.time(), seq = seq, storages = current.storages, buildings = current.buildings }))
+    local s, b = {}, {}
+    for i, x in ipairs(current.storages) do s[i] = json_of(x) end
+    for i, x in ipairs(current.buildings) do b[i] = json_of(x) end
+    write_file("base_storage.json", ('{"buildings":[%s],"seq":%d,"storages":[%s],"updatedAt":%d,"version":1}'):format(table.concat(b, ","), seq, table.concat(s, ","), os.time()))
 end
 
-local function set_current(storages, objects, buildings)
+local function set_current(storages, by_object, buildings)
     local by_id = {}
     for _, s in ipairs(storages) do by_id[s.containerId] = s end
     local buildings_by_id = {}
     for _, b in ipairs(buildings) do buildings_by_id[b.buildObjectId] = b end
-    current = { storages = storages, byId = by_id, objects = objects, buildings = buildings, buildingsById = buildings_by_id }
+    current = { storages = storages, byId = by_id, objects = by_object, buildings = buildings, buildingsById = buildings_by_id }
 end
 
 local function try_hook()
@@ -341,6 +424,7 @@ local function fast_tick()
             local ok, items = pcall(read_items, obj)
             if ok and to_json(items) ~= to_json(entry.items) then
                 entry.items = items
+                json_cache[entry] = nil
                 changed = true
                 -- a production building's storage: the order's counts moved with it
                 local b = entry.buildObjectId and current.buildingsById[entry.buildObjectId]
@@ -350,6 +434,7 @@ local function fast_tick()
                         if model:IsValid() then
                             b.production.requested = model.RequestedProductNum
                             b.production.remain = model.RemainProductNum
+                            json_cache[b] = nil
                         end
                     end)
                 end
@@ -435,8 +520,11 @@ local last_positions = nil
 
 local function collect_players()
     local list = {}
-    for _, pc in ipairs(FindAllOf("PalPlayerController") or {}) do
-        if pc:IsValid() then
+    take_pending("players")
+    for addr, pc in pairs(objects.players) do
+        if not pc:IsValid() then
+            objects.players[addr] = nil
+        else
             local uid = try("player uid", function()
                 local ps = pc.PlayerState
                 return ps and ps:IsValid() and guid_of(ps.PlayerUId) or nil
@@ -466,40 +554,140 @@ local function write_positions()
     write_file(POSITIONS_FILE, text)
 end
 
--- end of the last full scan (os.clock), to tell the mod's own stalls apart
+-- ---------------------------------------------------------------- full scan
+-- the running scan (state, see PHASES), when the last one ended (os.clock), how many ran
+local scan = nil
 local scan_ended = -math.huge
+local scan_count = 0
+local last_status = nil
 
+-- the objects of a list as it is now (new ones join; the scan goes through this copy)
+local function list_of(key)
+    take_pending(key)
+    local list = {}
+    for addr, o in pairs(objects[key]) do list[#list + 1] = { addr, o } end
+    return list
+end
+
+-- the JSON pieces of the new storages and buildings, made a piece at a time
+local function json_list(st)
+    local list = {}
+    for _, x in ipairs(st.storages) do list[#list + 1] = { nil, x } end
+    for _, x in ipairs(st.buildings) do list[#list + 1] = { nil, x } end
+    return list
+end
+
+local PHASES = {
+    { key = "modules", step = module_step },
+    { key = "progress", step = progress_step },
+    { key = "buildings", step = building_step },
+    { key = "containers", step = container_step },
+    { list = json_list, step = function(_, _, x) json_of(x) end },
+}
+
+local function finish_scan(st)
+    production_models = st.production
+    set_current(st.storages, st.by_object, st.buildings)
+    collect_players()
+    -- containers flagged during the scan stay flagged: the fast tick reads them again
+    write_storage()
+    -- the hooked class exists once the world is loaded
+    try_hook()
+    local counts = {}
+    for _, c in ipairs(CLASSES) do
+        local n = 0
+        for _ in pairs(objects[c.key]) do n = n + 1 end
+        counts[c.key] = n
+    end
+    last_status = {
+        ok = #errors == 0,
+        -- game thread time spent on it, in slices of at most about SLICE_BUDGET_MS
+        elapsedMs = math.floor(st.work * 1000),
+        slices = st.slices,
+        longestSliceMs = math.floor(st.longest * 1000),
+        resyncMs = st.resync_ms,
+        wallMs = math.floor((os.clock() - st.started) * 1000),
+        objects = counts,
+        notified = notified,
+        storages = #st.storages,
+        buildings = #st.buildings,
+        errors = errors,
+    }
+end
+
+local function write_status()
+    local s = last_status or {}
+    s.updatedAt = os.time()
+    s.hooked = hooked
+    s.buildNetUpdateHz = build_rate
+    write_file("status.json", to_json(s))
+end
+
+-- every REFRESH_MS: starts a scan (unless one still runs)
 local function tick()
     if ENABLE_PROBE then
         local ok, err = pcall(run_probe)
         if not ok then print("[OverpalMod] probe failed: " .. tostring(err)) end
     end
+    if scan then return end
     errors = {}
-    local started = os.clock()
+    local st = {
+        phase = 0, list = nil, i = 0,
+        modules = {}, progress = {}, production = {}, located = {}, buildings = {}, storages = {}, by_object = {},
+        started = os.clock(), work = 0, slices = 0, longest = 0, resync_ms = 0,
+    }
+    -- one class found again (FindAllOf) per RESYNC_EVERY scans, in turn, in case a
+    -- notification was missed; this one call cannot be split
+    if scan_count > 0 and scan_count % RESYNC_EVERY == 0 then
+        local c = CLASSES[(scan_count // RESYNC_EVERY) % #CLASSES + 1]
+        local t = os.clock()
+        local ok, err = pcall(find_all, c)
+        if not ok then log_error("resync " .. c.name, err) end
+        st.resync_ms = math.floor((os.clock() - t) * 1000)
+    end
+    scan_count = scan_count + 1
+    scan = st
+end
+
+-- every SLICE_MS: works on the running scan for about SLICE_BUDGET_MS
+local function slice()
+    local st = scan
+    if not st then return end
+    local t0 = os.clock()
+    local done = false
     local ok, err = pcall(function()
-        local modules = collect_modules()
-        local located, buildings = collect_actor_locations()
-        local storages, raw, objects = collect_storages(modules, located)
-        set_current(storages, objects, buildings)
-        collect_players()
-        dirty = {}
-        write_storage()
-        -- the hooked class exists once the world is loaded
-        try_hook()
-        if DEBUG_DUMP then
-            write_file("debug_containers.json", to_json({ containers = raw }))
+        while (os.clock() - t0) * 1000 < SLICE_BUDGET_MS do
+            if st.list and st.i < #st.list then
+                st.i = st.i + 1
+                local e = st.list[st.i]
+                PHASES[st.phase].step(st, e[1], e[2])
+            else
+                st.phase = st.phase + 1
+                local p = PHASES[st.phase]
+                if not p then
+                    done = true
+                    return
+                end
+                st.list = p.key and list_of(p.key) or p.list(st)
+                st.i = 0
+            end
         end
     end)
-    if not ok then log_error("tick", err) end
-    scan_ended = os.clock()
-    write_file("status.json", to_json({
-        updatedAt = os.time(),
-        ok = ok and #errors == 0,
-        elapsedMs = math.floor((os.clock() - started) * 1000),
-        hooked = hooked,
-        buildNetUpdateHz = build_rate,
-        errors = errors,
-    }))
+    local spent = os.clock() - t0
+    st.work = st.work + spent
+    st.slices = st.slices + 1
+    if spent > st.longest then st.longest = spent end
+    if not ok then
+        log_error("scan", err)
+        done = true
+    end
+    if done then
+        local ok2, err2 = pcall(finish_scan, st)
+        if not ok2 then print("[OverpalMod] scan finish failed: " .. tostring(err2)) end
+        scan = nil
+        scan_ended = os.clock()
+        write_status()
+    end
 end
 
 print("[OverpalMod] loaded, output: " .. DIR)
@@ -511,7 +699,8 @@ LoopInGameThreadWithDelay(STALL_WATCH_MS, function()
     if last_watch then
         local late = (now - last_watch) * 1000 - STALL_WATCH_MS
         if late >= STALL_WARN_MS then
-            append_line(STALL_FILE, ("%s %d%s"):format(os.date("%H:%M:%S"), math.floor(late), scan_ended > last_watch and " scan" or ""))
+            local during_scan = scan ~= nil or scan_ended > last_watch
+            append_line(STALL_FILE, ("%s %d%s"):format(os.date("%H:%M:%S"), math.floor(late), during_scan and " scan" or ""))
         end
     end
     last_watch = now
@@ -531,13 +720,27 @@ end
 -- same Lua state as the update hook (game thread); at 250 ms that race corrupted the state
 -- ("Ref was not function") and crashed the server.
 ExecuteInGameThreadWithDelay(FIRST_DELAY_MS, function()
-    LoopInGameThreadWithDelay(REFRESH_MS, tick)
-    LoopInGameThreadWithDelay(FAST_MS, function()
-        local ok, err = pcall(fast_tick)
-        if not ok then print("[OverpalMod] fast tick failed: " .. tostring(err)) end
-    end)
-    LoopInGameThreadWithDelay(POSITIONS_MS, function()
-        local ok, err = pcall(write_positions)
-        if not ok then print("[OverpalMod] positions failed: " .. tostring(err)) end
+    -- the lists: found once (spread over a few slices), then kept by notifications
+    for _, c in ipairs(CLASSES) do objects[c.key] = {} end
+    watch_new_objects()
+    for i, c in ipairs(CLASSES) do
+        ExecuteInGameThreadWithDelay(i * 200, function()
+            local ok, err = pcall(find_all, c)
+            if not ok then print("[OverpalMod] FindAllOf " .. c.name .. " failed: " .. tostring(err)) end
+        end)
+    end
+    -- the first scan after the lists
+    ExecuteInGameThreadWithDelay((#CLASSES + 1) * 200, function()
+        tick()
+        LoopInGameThreadWithDelay(REFRESH_MS, tick)
+        LoopInGameThreadWithDelay(SLICE_MS, slice)
+        LoopInGameThreadWithDelay(FAST_MS, function()
+            local ok, err = pcall(fast_tick)
+            if not ok then print("[OverpalMod] fast tick failed: " .. tostring(err)) end
+        end)
+        LoopInGameThreadWithDelay(POSITIONS_MS, function()
+            local ok, err = pcall(write_positions)
+            if not ok then print("[OverpalMod] positions failed: " .. tostring(err)) end
+        end)
     end)
 end)
