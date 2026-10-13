@@ -34,6 +34,7 @@ const ICONS = {
   grid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />,
   bag: <path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2" />,
   chevron: <path d="m6 9 6 6 6-6" />,
+  grip: <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" />,
   paw: (
     <>
       <circle cx="8" cy="7" r="2" />
@@ -92,7 +93,10 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
     </button>
   );
   return (
-    <OverlayWindow view="menubar" layout={layout} onLayout={onLayout} className="glass menubar">
+    <OverlayWindow view="menubar" layout={layout} onLayout={onLayout} className="glass menubar" dragHandle=".grip">
+      <span className="grip" title="끌어서 옮기기">
+        <Icon name="grip" />
+      </span>
       <span className={`dot ${dotClass(data)}`} title={statusText(data)} />
       {btn("minimap", "map", "미니맵")}
       {btn("items", "box", "메인 창")}
@@ -586,7 +590,15 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   );
 
   return (
-    <OverlayWindow view="items" layout={layout} onLayout={onLayout} scale={ITEM_SCALE} className={`glass win items mode-${shownMode}${detail ? " is-detail" : ""}`}>
+    <OverlayWindow
+      view="items"
+      layout={layout}
+      onLayout={onLayout}
+      scale={ITEM_SCALE}
+      dragHandle=".wtitle"
+      sideAnchor
+      className={`glass win items mode-${shownMode}${detail ? " is-detail" : ""}${layout.windows.items.ax === "right" ? " rail-right" : ""}`}
+    >
       <nav className="rail">
         {TABS.map((x) => (
           <button key={x.id} className={tab === x.id ? "on" : ""} onClick={() => setTab(x.id)}>
@@ -790,8 +802,8 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
               <svg className="mk fan" viewBox="-1 -1 2 2" style={{ left: half, top: half, width: MINIMAP_SIZE, height: MINIMAP_SIZE, transform: `translate(-50%, -50%) rotate(${heading}rad)` }}>
                 <defs>
                   <radialGradient id="fan-fill" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stopColor="rgba(88, 166, 255, 0.4)" />
-                    <stop offset="1" stopColor="rgba(88, 166, 255, 0.06)" />
+                    <stop offset="0" stopColor="rgba(88, 166, 255, 0.6)" />
+                    <stop offset="1" stopColor="rgba(88, 166, 255, 0.18)" />
                   </radialGradient>
                 </defs>
                 <path d={`M0 0 L${-Math.sin(FAN / 2)} ${-Math.cos(FAN / 2)} A1 1 0 0 1 ${Math.sin(FAN / 2)} ${-Math.cos(FAN / 2)} Z`} fill="url(#fan-fill)" />

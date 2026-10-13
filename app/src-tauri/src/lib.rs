@@ -130,6 +130,7 @@ pub fn run() {
             overlay::round_corners,
             overlay::click_through,
             overlay::set_shown,
+            overlay::overlay_rects,
             overlay_watch::overlay_state
         ])
         .on_window_event(gui::on_window_event)

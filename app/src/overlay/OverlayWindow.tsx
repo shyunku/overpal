@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, PhysicalPosition } from "@tauri-apps/api/window";
 import { anchoredAt, cssZoom, getScreen, placeWindow, type MonitorRect, type ScreenInfo } from "./geometry";
 import { loadLayout, onLayoutChanged, saveLayout, type Layout, type ViewId } from "./layout";
 
@@ -56,6 +56,10 @@ interface Props {
    * In edit mode it shows and takes the mouse so it can be moved.
    */
   passive?: boolean;
+  /** while the game shows a cursor, dragging this part (a selector) moves the window also outside edit mode */
+  dragHandle?: string;
+  /** after a drag, anchor to the screen edge (left or right) of the half the window's middle is in */
+  sideAnchor?: boolean;
   children: ReactNode;
 }
 
@@ -63,7 +67,7 @@ interface Props {
  * Hosts one overlay window: zooms the content to the screen, fits the native window around it,
  * keeps it at its anchored place, shows/hides it, and lets the user drag it in edit mode.
  */
-export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "", passive = false, children }: Props) {
+export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "", passive = false, dragHandle, sideAnchor = false, children }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<ScreenInfo | null>(null);
   const dragging = useRef(false);
@@ -126,33 +130,52 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
     };
   }, []);
 
-  // after a drag, store the new place relative to the window's anchors
-  useEffect(() => {
-    if (!screen) return;
-    const native = getCurrentWindow();
-    let timer: number | undefined;
-    const un = native.onMoved(() => {
-      if (!dragging.current) return;
-      window.clearTimeout(timer);
-      timer = window.setTimeout(async () => {
-        dragging.current = false;
-        const [pos, size] = await Promise.all([native.innerPosition(), native.innerSize()]);
-        const cur = latest.current;
-        const moved = anchoredAt(screen, cur.windows[view], pos.x, pos.y, size.width, size.height);
-        onLayout({ ...cur, windows: { ...cur.windows, [view]: moved } });
-      }, 400);
-    });
-    return () => {
-      window.clearTimeout(timer);
-      un.then((f) => f());
-    };
-  }, [screen]);
-
-  const onMouseDown = (e: MouseEvent) => {
-    if (!layout.editMode || e.button !== 0) return;
-    if ((e.target as HTMLElement).closest("button, input, [data-nodrag]")) return;
+  // dragged here (not the system's move loop) so the window can snap while it moves; on release
+  // the new place is stored relative to the window's anchors
+  const onPointerDown = async (e: PointerEvent) => {
+    if (e.button !== 0 || !screen || dragging.current) return;
+    const target = e.target as HTMLElement;
+    const byHandle = interactive && !!dragHandle && !!target.closest(dragHandle);
+    if (!layout.editMode && !byHandle) return;
+    if (target.closest("button, input, [data-nodrag]")) return;
+    const el = e.currentTarget as HTMLElement;
+    const pointerId = e.pointerId;
+    el.setPointerCapture(pointerId);
     dragging.current = true;
-    getCurrentWindow().startDragging();
+    const dpr = window.devicePixelRatio || 1;
+    let mouse = { x: e.screenX * dpr, y: e.screenY * dpr };
+    const native = getCurrentWindow();
+    const [inner, outer, size, others] = await Promise.all([native.innerPosition(), native.outerPosition(), native.innerSize(), invoke<[number, number, number, number][]>("overlay_rects")]);
+    const start = { x: inner.x, y: inner.y, mx: mouse.x, my: mouse.y };
+    const at = { x: inner.x, y: inner.y };
+    let frame = 0;
+    const place = () => {
+      frame = 0;
+      const p = snap(screen, others, start.x + mouse.x - start.mx, start.y + mouse.y - start.my, size.width, size.height);
+      if (p.x === at.x && p.y === at.y) return;
+      Object.assign(at, p);
+      native.setPosition(new PhysicalPosition(p.x - (inner.x - outer.x), p.y - (inner.y - outer.y)));
+    };
+    const move = (m: globalThis.PointerEvent) => {
+      mouse = { x: m.screenX * dpr, y: m.screenY * dpr };
+      if (!frame) frame = requestAnimationFrame(place);
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      if (frame) cancelAnimationFrame(frame);
+      place();
+      const cur = latest.current;
+      const win = cur.windows[view];
+      const ax = sideAnchor ? (at.x + size.width / 2 < screen.x + screen.w / 2 ? "left" : "right") : win.ax;
+      const moved = anchoredAt(screen, { ...win, ax }, at.x, at.y, size.width, size.height);
+      dragging.current = false;
+      onLayout({ ...cur, windows: { ...cur.windows, [view]: moved } });
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
   };
 
   const style = {
@@ -165,8 +188,36 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
   } as CSSProperties;
 
   return (
-    <div ref={ref} className={`ow ${className} ${layout.editMode ? "editing" : ""}`} style={style} onMouseDown={onMouseDown}>
+    <div ref={ref} className={`ow ${className} ${layout.editMode ? "editing" : ""} ${interactive ? "live" : ""}`} style={style} onPointerDown={onPointerDown}>
       {children}
     </div>
   );
 }
+
+/** gap kept to the screen edges and to other overlay windows, and how far from it a window snaps (physical px) */
+const SNAP_GAP = 15;
+const SNAP_RANGE = 15;
+
+/** Where a window dragged to (x, y) lands: snapped to the screen edges and beside other windows. */
+function snap(screen: ScreenInfo, others: [number, number, number, number][], x: number, y: number, w: number, h: number) {
+  const nearest = (v: number, targets: number[]) => {
+    let best = v;
+    let dist = SNAP_RANGE + 1;
+    for (const t of targets) {
+      if (Math.abs(t - v) < dist) {
+        dist = Math.abs(t - v);
+        best = t;
+      }
+    }
+    return Math.round(best);
+  };
+  const xs = [screen.x + SNAP_GAP, screen.x + screen.w - SNAP_GAP - w];
+  const ys = [screen.y + SNAP_GAP, screen.y + screen.h - SNAP_GAP - h];
+  for (const [ox, oy, ow, oh] of others) {
+    // beside another window only where the two overlap on the other axis
+    if (oy < y + h && oy + oh > y) xs.push(ox + ow + SNAP_GAP, ox - SNAP_GAP - w);
+    if (ox < x + w && ox + ow > x) ys.push(oy + oh + SNAP_GAP, oy - SNAP_GAP - h);
+  }
+  return { x: nearest(x, xs), y: nearest(y, ys) };
+}
+

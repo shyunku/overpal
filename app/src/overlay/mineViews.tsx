@@ -245,7 +245,7 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
         </small>
         <small className="tabular">{x.on ? `${x.share.toFixed(1)}%` : x.made > 0 ? "완료 · 꺼내기 대기" : "완료"}</small>
       </span>
-      <span className="mn-bar">
+      <span className={`mn-bar ${x.on ? "" : "done"}`}>
         <i style={{ width: `${x.share}%` }} />
       </span>
     </>
@@ -567,7 +567,7 @@ function StructsList({ mode, data, base, query, onOpen, head, L }: Props) {
                   <DexIcon name={L.struct(x.id)?.icon} />
                   <span className="tn">{structName(L, x.id)}</span>
                   {pb && (
-                    <span className="mn-bar tile">
+                    <span className={`mn-bar tile ${prodInfo(pb).on ? "" : "done"}`}>
                       <i style={{ width: `${prodInfo(pb).share}%` }} />
                     </span>
                   )}

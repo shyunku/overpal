@@ -1478,6 +1478,11 @@ svg.mk.fan {
   background: #ff9a3c;
   transition: width 0.4s ease;
 }
+/* a finished order fills green */
+.mn-bar.done i {
+  width: 100% !important;
+  background: var(--ok);
+}
 .mn-bar.tile {
   position: absolute;
   left: 8px;
@@ -1572,3 +1577,53 @@ svg.mk.fan {
   width: 36px;
   height: 36px;
 }
+
+/* ---------------------------------------------------------------- moving without edit mode */
+/* the menu bar's handle: faint while playing, dragged while the game shows a cursor */
+.menubar .grip {
+  width: 10px;
+  height: 18px;
+  margin-right: -1px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  color: rgba(242, 245, 249, 0.38);
+}
+.menubar .grip svg.ic {
+  width: 10px;
+  height: 10px;
+  stroke-width: 4.5;
+}
+.ow.live .grip {
+  cursor: grab;
+  color: var(--glass-muted);
+}
+.ow.live .grip:hover {
+  background: var(--chip);
+  color: var(--glass-fg);
+}
+/* the main window moves by its title lines */
+.ow.live:not(.editing).items .wtitle {
+  cursor: grab;
+}
+.ow.live:not(.editing).items .wtitle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* main window on the right half of the screen: the tab rail on its right */
+.items.rail-right {
+  flex-direction: row-reverse;
+}
+.items.rail-right .rail {
+  border-right: 0;
+  border-left: 1px solid var(--glass-line);
+}
+.items.rail-right .rail button.on::before {
+  left: auto;
+  right: -8px;
+}
+.items.rail-right .rail .tip {
+  left: auto;
+  right: 46px;
+}
+

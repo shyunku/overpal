@@ -198,6 +198,21 @@ pub fn set_click_through(window: &tauri::WebviewWindow, on: bool) {
 
 /// Shows (without activating) or hides an overlay window. tao's show/hide rewrite the whole window
 /// style like set_ignore_cursor_events does, bringing back the caption (see set_click_through).
+/// Visible content rects (x, y, w, h in physical px) of the other shown overlay windows, for snapping.
+#[tauri::command]
+pub fn overlay_rects(app: AppHandle, window: tauri::WebviewWindow) -> Vec<[i32; 4]> {
+    ["menubar", "items", "minimap", "settings"]
+        .iter()
+        .filter(|l| **l != window.label())
+        .filter_map(|l| app.get_webview_window(l))
+        .filter(|w| w.is_visible().unwrap_or(false))
+        .filter_map(|w| {
+            let (p, s) = (w.inner_position().ok()?, w.inner_size().ok()?);
+            Some([p.x, p.y, s.width as i32, s.height as i32])
+        })
+        .collect()
+}
+
 #[tauri::command]
 pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
     #[cfg(windows)]
