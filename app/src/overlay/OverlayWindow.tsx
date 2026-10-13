@@ -163,39 +163,50 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
 
   // dragged here (not the system's move loop) so the window can snap while it moves; on release
   // the new place is stored relative to the window's anchors
-  const onPointerDown = async (e: PointerEvent) => {
+  const onPointerDown = (e: PointerEvent) => {
     if (e.button !== 0 || !screen || dragging.current) return;
     const target = e.target as HTMLElement;
     const byHandle = interactive && !!dragHandle && !!target.closest(dragHandle);
     if (!layout.editMode && !byHandle) return;
     if (target.closest("button, input, [data-nodrag]")) return;
     const el = e.currentTarget as HTMLElement;
-    const pointerId = e.pointerId;
-    el.setPointerCapture(pointerId);
+    el.setPointerCapture(e.pointerId);
     dragging.current = true;
     const dpr = window.devicePixelRatio || 1;
-    let mouse = { x: e.screenX * dpr, y: e.screenY * dpr };
+    const startMouse = { x: e.screenX * dpr, y: e.screenY * dpr };
+    let mouse = startMouse;
     const native = getCurrentWindow();
-    const [inner, outer, size, others] = await Promise.all([native.innerPosition(), native.outerPosition(), native.innerSize(), invoke<[number, number, number, number][]>("overlay_rects")]);
-    const start = { x: inner.x, y: inner.y, mx: mouse.x, my: mouse.y };
-    const at = { x: inner.x, y: inner.y };
+    // the listeners go on right away (a quick release must not be missed); the window's place and
+    // the other windows arrive a moment later and moving starts then
+    const info = Promise.all([native.innerPosition(), native.outerPosition(), native.innerSize(), invoke<[number, number, number, number][]>("overlay_rects")]).then(
+      ([inner, outer, size, others]) => ({ inner, outer, size, others, at: { x: inner.x, y: inner.y } }),
+    );
+    let ready: Awaited<typeof info> | null = null;
     let frame = 0;
     const place = () => {
       frame = 0;
-      const p = snap(screen, others, start.x + mouse.x - start.mx, start.y + mouse.y - start.my, size.width, size.height);
+      if (!ready) return;
+      const { inner, outer, size, others, at } = ready;
+      const p = snap(screen, others, inner.x + mouse.x - startMouse.x, inner.y + mouse.y - startMouse.y, size.width, size.height);
       if (p.x === at.x && p.y === at.y) return;
       Object.assign(at, p);
       native.setPosition(new PhysicalPosition(p.x - (inner.x - outer.x), p.y - (inner.y - outer.y)));
     };
+    info.then((i) => {
+      ready = i;
+      if (moved && !done) place();
+    });
     // a click that does not move (e.g. on the title) leaves the window where it is, unsnapped
     let moved = false;
+    let done = false;
     const move = (m: globalThis.PointerEvent) => {
       mouse = { x: m.screenX * dpr, y: m.screenY * dpr };
-      if (!moved && Math.hypot(mouse.x - start.mx, mouse.y - start.my) < DRAG_START_PX * dpr) return;
+      if (!moved && Math.hypot(mouse.x - startMouse.x, mouse.y - startMouse.y) < DRAG_START_PX * dpr) return;
       moved = true;
       if (!frame) frame = requestAnimationFrame(place);
     };
-    const up = () => {
+    const up = async () => {
+      done = true;
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
       el.removeEventListener("pointercancel", up);
@@ -204,12 +215,14 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
         dragging.current = false;
         return;
       }
+      const i = await info;
+      ready = i;
       place();
       const cur = latest.current;
       const win = cur.windows[view];
-      const ax = sideAnchor ? (at.x + size.width / 2 < screen.x + screen.w / 2 ? "left" : "right") : win.ax;
+      const ax = sideAnchor ? (i.at.x + i.size.width / 2 < screen.x + screen.w / 2 ? "left" : "right") : win.ax;
       const ay = sideAnchor ? "top" : win.ay;
-      const next = anchoredAt(screen, { ...win, ax, ay }, at.x, at.y, size.width, size.height);
+      const next = anchoredAt(screen, { ...win, ax, ay }, i.at.x, i.at.y, i.size.width, i.size.height);
       dragging.current = false;
       onLayout({ ...cur, windows: { ...cur.windows, [view]: next } });
     };
