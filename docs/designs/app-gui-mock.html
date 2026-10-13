@@ -126,22 +126,36 @@
   .log div { display:flex; align-items:center; gap:7px; }
   .log .ic { width:13px; height:13px; }
   .statusbar .ic { width:14px; height:14px; }
-  .win.pw { width:720px; height:500px; min-width:640px; min-height:440px; }
-  .pwin { flex:1; display:flex; min-height:0; }
-  .plist { width:250px; flex:none; border-right:1px solid var(--line); background:#11151b; padding:14px 10px; display:flex; flex-direction:column; gap:6px; overflow:auto; }
-  .pitem { padding:10px 12px; border-radius:10px; border:1px solid transparent; cursor:pointer; }
-  .pitem:hover { background:var(--panel); }
-  .pitem.on { background:var(--panel2); border-color:var(--accent); }
-  .pname { display:flex; align-items:center; gap:8px; font-weight:600; font-size:14px; }
-  .pmeta { display:flex; align-items:center; gap:8px; margin-top:6px; font-size:11px; color:var(--muted); }
-  .psub { margin-top:4px; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .pright { flex:1; min-width:0; display:flex; flex-direction:column; }
-  .pedit { flex:1; overflow:auto; padding:16px 18px; }
-  .pedit .field { grid-template-columns:120px minmax(0,1fr); }
-  .pfoot { flex:none; display:flex; align-items:center; gap:8px; padding:12px 18px; border-top:1px solid var(--line); background:#161b23; }
-  .pfoot .msg { flex:1; color:var(--muted); font-size:13px; }
-  .pempty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--muted); }
-  .pempty b { color:var(--fg); font-size:15px; }
+  .win.pw { width:460px; height:auto; min-width:0; min-height:0; resize:none; }
+  .pwin { flex:1; min-width:0; display:flex; flex-direction:column; gap:16px; padding:8px 28px 24px; }
+  .pwin > * { min-width:0; }
+  .phead { display:flex; align-items:center; gap:12px; }
+  .plogo { width:40px; height:40px; border-radius:11px; background:linear-gradient(135deg,#ffcf7a,#ff9a3c); box-shadow:0 6px 16px rgba(255,154,60,.25); flex:none; }
+  .ptitle { font-size:20px; font-weight:700; line-height:1.2; }
+  .psub { color:var(--muted); font-size:13px; }
+  .pfield label, .pnew label { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+  .dd { position:relative; }
+  .ddbtn { width:100%; height:44px; display:flex; align-items:center; gap:10px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#0f1318; color:var(--fg); font:inherit; font-size:14px; cursor:pointer; text-align:left; }
+  .ddbtn:hover { border-color:#4a5363; }
+  .ddname { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
+  .ddmode { font-size:11px; padding:2px 7px; border-radius:5px; background:var(--panel2); color:var(--muted); flex:none; }
+  .ddchev { color:var(--muted); }
+  .ddmenu { position:absolute; left:0; right:0; top:48px; z-index:5; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.45); }
+  .dditem { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; cursor:pointer; font-size:14px; }
+  .dditem:hover { background:var(--panel2); }
+  .dditem.on { background:rgba(255,184,76,.12); }
+  .ddused { font-size:11px; color:var(--muted); flex:none; }
+  .ddsep { height:1px; background:var(--line); margin:5px 4px; }
+  .pinfo { display:grid; gap:8px; padding:12px 14px; border-radius:10px; background:var(--panel); border:1px solid var(--line); font-size:13px; }
+  .pinfo div { display:flex; align-items:baseline; gap:10px; min-width:0; }
+  .pinfo span { color:var(--muted); width:92px; flex:none; display:inline-flex; align-items:center; gap:6px; }
+  .pinfo b { font-weight:500; min-width:0; }
+  .pinfo b.path { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:rtl; text-align:left; }
+  .pnew input { height:40px; }
+  .pnew .help { color:var(--muted); font-size:12px; line-height:1.6; margin-top:8px; }
+  .pfoot { display:flex; align-items:center; gap:8px; margin-top:4px; }
+  .pfoot .sp { flex:1; }
+  .btn.big { height:42px; padding:0 22px; font-size:14px; }
   .ic.xl { width:40px; height:40px; stroke-width:1.5; margin-bottom:6px; }
   .flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:#c9d1d9; margin:0 0 10px; }
   .flow b { padding:3px 8px; border-radius:6px; background:#161b22; border:1px solid var(--page-line); font-weight:500; }
@@ -158,14 +172,15 @@
       <div class="group" id="g-mode"><span>모드</span></div>
       <div class="group" id="g-state"><span>상황</span></div>
     </div>
-    <div class="flow">흐름: <b>① 프로필 창</b> → 시작 모드가 정해져 있으면 → <b>③ Home</b> / '매번 선택'이면 → <b>② 모드 선택</b> → <b>③ Home</b></div>
+    <div class="flow">흐름: <b>① 프로필 창</b> → 저장된 프로필(시작 모드 있음) → <b>③ Home</b> / New Profile 또는 '매번 선택' → <b>② 모드 선택</b> → <b>③ Home</b></div>
     <div class="hint">실제 기본 창 크기(912×702). 오른쪽 아래 모서리를 끌면 크기 조절됨(최소 760×540). 이름·주소는 예시. '시작 화면'에서 모드 카드, 나머지는 왼쪽 메뉴도 눌러 볼 수 있음.</div>
     <div class="desk"><div class="winwrap" id="winwrap"></div></div>
   </main>
   <aside>
     <h3>바뀌는 것</h3>
     <ul>
-      <li>exe 켜면 먼저 <b>프로필 창</b>(별도 창, 720×500)이 뜸. 왼쪽 목록에서 프로필을 고르고, 오른쪽에서 이름·시작 모드·서버 폴더(또는 접속 주소·토큰)·닉네임을 고쳐 '저장'. '새 프로필', '복제', '삭제'</li>
+      <li>exe 켜면 먼저 작은 <b>프로필 창</b>(460px)이 뜸. 드롭다운에서 프로필을 고르고 '시작하기'. 기본값은 <b>New Profile</b>(이름만 입력)</li>
+      <li>저장된 프로필을 고르면 시작 모드·서버·마지막 사용이 요약으로 보임. 프로필 설정 수정은 Home의 설정 메뉴에서 하고, 거기서 저장하면 그 프로필에 저장됨</li>
       <li>프로필 = 설정 묶음 + 시작 모드. 시작 모드를 정해 두면 '열기'로 바로 Home, '매번 선택'이면 모드 선택 화면을 거침. 예: 실제 서버(둘 다), 테스트 서버(매번 선택), 친구 서버 접속(오버레이)</li>
       <li>모드 선택 화면: 큰 카드 3개(서버 / 오버레이 / 둘 다), 지난번 모드가 미리 골라져 있음. 시작한 뒤엔 모드를 못 바꿈. 바꾸려면 앱을 다시 켜야 함</li>
       <li>cmd 창 없음. 창 닫으면 앱(오버레이·앱 서버) 종료</li>
@@ -175,7 +190,7 @@
       <li><b>설정</b>: 지금 모드에 맞는 칸만 보임(모드는 보기만). 저장 누르면 같은 모드로 앱이 다시 켜짐</li>
       <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
       <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
-      <li>처음 실행(프로필 없음)이면 프로필 창에 '새 프로필 만들기'만 보임</li>
+      <li>처음 실행(프로필 없음)이면 드롭다운에 New Profile만 있음</li>
       <li>Home 제목줄과 아래 상태줄에 지금 프로필 이름이 보임. Home의 설정 메뉴는 지금 프로필의 설정을 고침</li>
       <li>화면 문구는 존댓말(제품 문구). 이 옆 설명만 반말</li>
       <li>토큰은 가려서 보여주고 복사 버튼만 둠</li>
@@ -196,7 +211,7 @@
   </aside>
 </div>
 <script>
-const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: 0, profDirty: false };
+const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false };
 const opts = {
   tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 상태"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
   mode: [["both", "both"], ["server", "server"], ["client", "client"]],
@@ -248,6 +263,7 @@ const PROFILES = [
   { name: "테스트 서버", start: "ask", sub: "E:\\Games\\Steam\\steamapps\\common\\PalServer", used: "어제" },
   { name: "친구 서버 접속", start: "client", sub: "http://203.0.113.24:17994", used: "3일 전" },
 ];
+const profName = () => (PROFILES[st.prof] ? PROFILES[st.prof].name : "새 프로필");
 const START_TEXT = { both: "둘 다", server: "서버", client: "오버레이", ask: "매번 선택" };
 const has = (m) => (m === "server" ? st.mode !== "client" : st.mode !== "server");
 const MODE_TEXT = { both: "서버 + 오버레이", server: "서버", client: "오버레이" };
@@ -263,32 +279,28 @@ const MODE_CARD = {
   both: ["둘 다", "앱 서버를 실행하고, 이 PC의 게임 화면에도 오버레이를 표시합니다.", ["게임 서버와 같은 PC에서 실행", "친구들의 오버레이가 이 PC에 접속", "이 PC 게임 화면에 오버레이 표시"], "호스트 PC"],
 };
 function profileWin() {
-  const empty = st.state === "first";
-  const list = empty ? [] : PROFILES;
+  const list = st.state === "first" ? [] : PROFILES;
   const cur = list[st.prof];
-  const items = list.map((pf, i) => `<div class="pitem ${i === st.prof ? "on" : ""}" data-prof="${i}">
-      <div class="pname">${ic(pf.start === "client" ? "monitor" : pf.start === "server" ? "server" : pf.start === "both" ? "sliders" : "play")}${pf.name}</div>
-      <div class="pmeta"><span class="tag ${pf.start === "ask" ? "" : "on"}">${START_TEXT[pf.start]}</span><span>${pf.used}</span></div>
-      <div class="psub">${pf.sub}</div></div>`).join("");
-  const startOpt = (v) => `<span class="${cur && cur.start === v ? "on" : ""}">${START_TEXT[v]}</span>`;
-  const editor = cur ? `<div class="pedit">
-      <div class="row" style="margin-bottom:12px"><input type="text" value="${cur.name}" style="font-size:15px;font-weight:600"><button class="btn small">${ic("plus")}복제</button><button class="btn small danger">${ic("trash")}삭제</button></div>
-      <div class="form">
-        <div class="field"><label>${ic("play")}시작 모드</label><div><div class="switch">${["ask", "server", "client", "both"].map(startOpt).join("")}</div><div class="help">정해 두면 열 때 바로 Home으로 갑니다.<br>'매번 선택'이면 모드 선택 화면을 거칩니다.</div></div></div>
-        ${cur.start === "client" ? `<div class="field"><label>${ic("globe")}앱 서버 주소</label><div><input type="text" value="${cur.sub}"></div></div>
-        <div class="field"><label>${ic("key")}토큰</label><div><input type="text" value="••••••••••••••••7c2e"></div></div>`
-        : `<div class="field"><label>${ic("folder")}게임 서버 폴더</label><div><div class="row"><input type="text" value="${cur.sub}"><button class="btn">${ic("folder")}찾아보기</button></div><div class="help" style="color:#7ee787">모드 출력 폴더와 PalDefender 토큰 확인됨</div></div></div>
-        <div class="field"><label>${ic("globe")}접속 허용</label><div><div class="switch"><span>이 PC만</span><span class="on">외부 접속 허용</span></div></div></div>
-        <div class="field"><label>${ic("users")}친구</label><div class="muted" style="line-height:34px">3명 (Home의 친구 메뉴에서 관리)</div></div>`}
-        <div class="field"><label>${ic("user")}내 게임 닉네임</label><div><input type="text" value="shyunku"></div></div>
-      </div></div>` : `<div class="pempty">${ic("file", "xl")}<b>프로필이 없습니다.</b><span>새 프로필을 만들어 시작해 주세요.</span><button class="btn primary" style="margin-top:14px">${ic("plus")}새 프로필 만들기</button></div>`;
-  const willAsk = cur && cur.start === "ask";
-  return `<div class="pwin"><div class="plist"><div class="sec" style="margin:0 0 8px"><span>${ic("file")}프로필</span><span>${list.length}</span></div>${items}
-      <button class="btn small" style="margin-top:auto">${ic("plus")}새 프로필</button></div>
-    <div class="pright">${editor}
-      ${cur ? `<div class="pfoot"><span class="msg">${st.profDirty ? "변경사항이 있습니다." : "변경사항이 없습니다."}</span>
-        <button class="btn" ${st.profDirty ? "" : 'style="opacity:.45"'}>${ic("save")}저장</button>
-        <button class="btn primary" data-open="1">${ic("play")}${willAsk ? "열기 (모드 선택)" : "열기"}</button></div>` : ""}</div></div>`;
+  const label = (pf) => `${ic(pf.start === "client" ? "monitor" : pf.start === "server" ? "server" : pf.start === "both" ? "sliders" : "play")}<span class="ddname">${pf.name}</span><span class="ddmode">${START_TEXT[pf.start]}</span>`;
+  const shown = cur ? label(cur) : `${ic("plus")}<span class="ddname">New Profile</span>`;
+  const menu = st.dd ? `<div class="ddmenu">
+      <div class="dditem ${st.prof < 0 ? "on" : ""}" data-prof="-1">${ic("plus")}<span class="ddname">New Profile</span></div>
+      ${list.length ? '<div class="ddsep"></div>' : ""}
+      ${list.map((pf, i) => `<div class="dditem ${i === st.prof ? "on" : ""}" data-prof="${i}">${label(pf)}<span class="ddused">${pf.used}</span></div>`).join("")}
+    </div>` : "";
+  const detail = cur
+    ? `<div class="pinfo">
+        <div><span>${ic("play")}시작 모드</span><b>${START_TEXT[cur.start]}${cur.start === "ask" ? " (모드 선택 화면을 거칩니다)" : ""}</b></div>
+        <div><span>${ic(cur.start === "client" ? "globe" : "folder")}${cur.start === "client" ? "앱 서버" : "게임 서버"}</span><b class="path">${cur.sub}</b></div>
+        <div><span>${ic("refresh")}마지막 사용</span><b>${cur.used}</b></div>
+      </div>`
+    : `<div class="pnew"><label>프로필 이름</label><input type="text" placeholder="예: 실제 서버"><div class="help">시작하면 모드를 고르고 설정을 입력합니다.<br>설정은 이 이름으로 저장되어 다음부터 목록에서 바로 불러올 수 있습니다.</div></div>`;
+  return `<div class="pwin">
+    <div class="phead"><span class="plogo"></span><div><div class="ptitle">PalHelper</div><div class="psub">프로필을 선택해 주세요.</div></div></div>
+    <div class="pfield"><label>프로필</label><div class="dd"><button class="ddbtn" data-dd="1">${shown}<svg class="ic ddchev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>${menu}</div></div>
+    ${detail}
+    <div class="pfoot">${cur ? `<button class="btn small danger">${ic("trash")}삭제</button>` : ""}<span class="sp"></span><button class="btn primary big" data-open="1">${ic("play")}시작하기</button></div>
+  </div>`;
 }
 
 function launch() {
@@ -306,7 +318,7 @@ function launch() {
     </div>`;
   }).join("");
   const ready = isReady(st.pick);
-  return `<div class="launch"><h2>모드 선택 <span class="muted" style="font-size:13px;font-weight:400">· ${PROFILES[st.prof].name}</span></h2><p class="lead">${first ? "처음 실행입니다. 사용할 모드를 선택해 주세요." : "실행할 모드를 선택해 주세요.<br>실행 중에는 모드를 변경할 수 없습니다."}</p>
+  return `<div class="launch"><h2>모드 선택 <span class="muted" style="font-size:13px;font-weight:400">· ${profName()}</span></h2><p class="lead">${first ? "처음 실행입니다. 사용할 모드를 선택해 주세요." : "실행할 모드를 선택해 주세요.<br>실행 중에는 모드를 변경할 수 없습니다."}</p>
     <div class="mcards">${cards}</div>
     <div class="row launch-foot"><span class="muted" style="flex:1;font-size:12px">${ready ? "마지막으로 사용한 설정으로 시작합니다." : "시작 전에 이 모드의 설정을 입력해야 합니다."}</span>${ready ? `<button class="btn">${ic("sliders")}설정 확인</button>` : ""}<button class="btn primary">${ic("play")}${ready ? "시작" : "설정 후 시작"}</button></div></div>`;
 }
@@ -348,7 +360,7 @@ function settings() {
   const nick = has("client") ? `<div class="sec"><span>${ic("monitor")}오버레이</span><span></span></div>
     <div class="field"><label>${ic("user")}내 게임 닉네임</label><div><select><option>shyunku</option><option>친구 1</option><option>친구 2</option><option>친구 3</option></select><div class="help">미니맵과 '내 것' 화면이 이 플레이어를 기준으로 표시됩니다.</div></div></div>` : "";
   const dirty = st.dirty || first;
-  return `<h2>설정</h2><p class="lead">${first ? "처음 실행입니다. 설정을 입력한 뒤 시작해 주세요." : `프로필 '${PROFILES[st.prof].name}'의 설정입니다.`}</p>
+  return `<h2>설정</h2><p class="lead">${first ? "처음 실행입니다. 설정을 입력한 뒤 시작해 주세요." : `프로필 '${profName()}'의 설정입니다.`}</p>
     <div class="form">${seg}${server}${client}${nick}</div>
     <div class="savebar"><span class="msg">${dirty ? (first ? "저장하면 이 설정으로 시작합니다." : "변경사항이 있습니다. 저장하면 앱이 다시 시작됩니다.") : "변경사항이 없습니다."}</span>${dirty && !first ? '<button class="btn">취소</button>' : ""}<button class="btn primary" ${dirty ? "" : 'style="opacity:.45"'}>${ic(first ? "play" : "save")}${first ? "저장 후 시작" : "저장 후 다시 시작"}</button></div>`;
 }
@@ -390,7 +402,7 @@ function statusbar() {
     ? `<span class="si">${ic("server")}<span class="dot"></span>앱 서버 <b>연결됨</b> 203.0.113.24:17994</span>`
     : `<span class="si">${ic("server")}<span class="dot"></span>앱 서버 <b>실행 중</b> 0.0.0.0:17994</span>`;
   const game = `<span class="si">${ic("game")}<span class="dot ${off ? "bad" : ""}"></span>게임 서버 <b>${off ? "연결 안 됨" : "연결됨"}</b>${off ? "" : " 접속 2명"}</span>`;
-  return `<div class="statusbar">${app}${game}<span class="sp"></span><span class="si">${ic("file")}${PROFILES[st.prof].name}</span><span class="si">${ic(st.mode === "server" ? "server" : st.mode === "client" ? "monitor" : "sliders")}${st.mode} 모드</span></div>`;
+  return `<div class="statusbar">${app}${game}<span class="sp"></span><span class="si">${ic("file")}${profName()}</span><span class="si">${ic(st.mode === "server" ? "server" : st.mode === "client" ? "monitor" : "sliders")}${st.mode} 모드</span></div>`;
 }
 
 function render() {
@@ -405,13 +417,14 @@ function render() {
   const prev = document.querySelector("#winwrap .win");
   const size = prev && !prev.classList.contains("pw") ? { w: prev.offsetWidth, h: prev.offsetHeight } : null;
   document.getElementById("winwrap").innerHTML = isProfile
-    ? `<div class="win pw"><div class="titlebar"><span class="logo"></span>PalHelper · 프로필<span class="sp"></span><span class="wb">—</span><span class="wb">✕</span></div><div class="body">${body}</div></div>`
-    : `<div class="win"><div class="titlebar"><span class="logo"></span>PalHelper${isLaunch ? "" : ` · ${PROFILES[st.prof].name}`}<span class="sp"></span><span class="wb">—</span><span class="wb">☐</span><span class="wb">✕</span></div>
+    ? `<div class="win pw"><div class="titlebar"><span class="sp"></span><span class="wb">—</span><span class="wb">✕</span></div><div class="body">${body}</div></div>`
+    : `<div class="win"><div class="titlebar"><span class="logo"></span>PalHelper${isLaunch ? "" : ` · ${profName()}`}<span class="sp"></span><span class="wb">—</span><span class="wb">☐</span><span class="wb">✕</span></div>
     <div class="body">${side}<div class="mainwrap"><div class="main">${body}</div>${isLaunch ? "" : statusbar()}</div></div></div>${st.modal ? modal() : ""}`;
   const w = document.getElementById("winwrap");
   if (size && !isProfile && !prev.classList.contains("pw")) Object.assign(w.querySelector(".win").style, { width: size.w + "px", height: size.h + "px" });
-  w.querySelectorAll("[data-prof]").forEach((e) => (e.onclick = () => { st.prof = Number(e.dataset.prof); render(); }));
-  w.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { const pf = PROFILES[st.prof]; if (pf.start === "ask") st.tab = "launch"; else { st.mode = pf.start; st.tab = "status"; } render(); }));
+  w.querySelectorAll("[data-prof]").forEach((e) => (e.onclick = () => { st.prof = Number(e.dataset.prof); st.dd = false; render(); }));
+  w.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { const pf = PROFILES[st.prof]; if (!pf || pf.start === "ask") st.tab = "launch"; else { st.mode = pf.start; st.tab = "status"; } st.dd = false; render(); }));
+  w.querySelectorAll("[data-dd]").forEach((e) => (e.onclick = () => { st.dd = !st.dd; render(); }));
   w.querySelectorAll("[data-tab]").forEach((e) => (e.onclick = () => { st.tab = e.dataset.tab; render(); }));
   w.querySelectorAll("[data-pick]").forEach((e) => (e.onclick = () => { st.pick = e.dataset.pick; render(); }));
   w.querySelectorAll("[data-add]").forEach((e) => (e.onclick = () => { st.modal = true; render(); }));
