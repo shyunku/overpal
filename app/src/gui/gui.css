@@ -65,11 +65,13 @@ textarea {
   font-size: 12px;
   color: var(--muted);
 }
+/* trimmed to cap height so the text's glyphs, not its line box, center on the logo */
+.ttext {
+  text-box: trim-both cap alphabetic;
+}
 .tlogo {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  background: linear-gradient(135deg, #ffcf7a, #ff9a3c);
+  width: 16px;
+  height: 16px;
 }
 .titlebar .sp {
   flex: 1;
@@ -295,11 +297,9 @@ select:focus {
   gap: 12px;
 }
 .plogo {
-  width: 40px;
-  height: 40px;
-  border-radius: 11px;
-  background: linear-gradient(135deg, #ffcf7a, #ff9a3c);
-  box-shadow: 0 6px 16px rgba(255, 154, 60, 0.25);
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 6px 12px rgba(255, 154, 60, 0.25));
   flex: none;
 }
 .ptitle {

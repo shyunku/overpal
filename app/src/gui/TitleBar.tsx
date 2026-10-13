@@ -6,7 +6,7 @@ export function TitleBar({ resizable }: { resizable: boolean }) {
   const win = getCurrentWindow();
   return (
     <div className="titlebar" data-tauri-drag-region>
-      <span className="tlogo" data-tauri-drag-region />
+      <img className="tlogo" src="/app-icon.png" alt="" draggable={false} data-tauri-drag-region />
       <span className="ttext" data-tauri-drag-region>
         PalHelper
       </span>

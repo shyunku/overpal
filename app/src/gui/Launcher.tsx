@@ -53,7 +53,7 @@ export function Launcher() {
   return (
     <div className="pwin" onClick={() => open && setOpen(false)}>
       <div className="phead">
-        <span className="plogo" />
+        <img className="plogo" src="/app-icon.png" alt="" draggable={false} />
         <div>
           <div className="ptitle">PalHelper</div>
           <div className="psub">{count ? "프로필을 선택해 주세요." : "처음 실행입니다. 새 프로필을 만들어 주세요."}</div>
