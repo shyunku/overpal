@@ -181,6 +181,10 @@
   .fchk span { display:inline-flex; align-items:center; gap:4px; }
   .fchk .ok { color:#7ee787; } .fchk .no { color:#ffa198; }
   .fchk .ic { width:12px; height:12px; }
+  .gsinfo { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px 16px; padding:12px 14px; border-radius:10px; background:var(--panel); border:1px solid var(--line); font-size:13px; }
+  .gsinfo .kvr { display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .gsinfo .kvr > span { color:var(--muted); font-size:11px; }
+  .gsinfo .kvr b { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .gscard { display:flex; align-items:center; gap:14px; padding:14px 16px; margin-bottom:12px; border-radius:12px; border:1px solid var(--line); background:linear-gradient(180deg,#1e2430,#1a1f28); }
   .gsicon { width:40px; height:40px; border-radius:10px; display:grid; place-items:center; background:var(--panel2); color:var(--accent); flex:none; }
   .gsicon .ic { translate:none; }
@@ -224,7 +228,7 @@
       <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
       <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
       <li>처음 실행(프로필 없음)이면 드롭다운에 New Profile만 있음</li>
-      <li><b>게임 서버 켜기/끄기</b>(홈, 서버가 있는 모드만): 홈 맨 위 '게임 서버' 카드에 상태(켜짐/켜는 중/끄는 중/꺼짐)·실행 시간·접속 인원과 켜기/끄기 버튼. 끄기는 확인 창을 거쳐 월드를 저장한 뒤 정상 종료(관리 API, 비밀번호는 서버 설정 파일에서 읽음). 켜기는 그 폴더의 PalServer.exe를 따로 띄움. PalHelper를 꺼도 게임 서버는 계속 돎. 아래 상태줄도 꺼짐/켜는 중/끄는 중을 보여줌</li>
+      <li><b>게임 서버 메뉴</b>(홈 다음, 서버가 있는 모드만): 맨 위 카드에 상태(켜짐/켜는 중/끄는 중/꺼짐)·실행 시간·접속 인원과 켜기/끄기 버튼. 끄기는 확인 창을 거쳐 월드를 저장한 뒤 정상 종료(관리 API, 비밀번호는 서버 설정 파일에서 읽음). 켜기는 그 폴더의 PalServer.exe를 따로 띄움. PalHelper를 꺼도 게임 서버는 계속 돎. 아래 상태줄도 꺼짐/켜는 중/끄는 중을 보여줌. 그 아래 서버 정보(폴더·서버 이름·버전·실행 시간·접속·FPS)와 서버 로그(PalDefender 로그 / 모드 UE4SS 로그 전환, 새 줄이 생기면 따라 내려감)</li>
       <li><b>게임 서버 폴더 자동 찾기</b>(설정, 서버가 있는 모드만): 버튼을 누르면 스팀 라이브러리(여러 개면 전부)의 steamapps\common\PalServer를 찾아 후보로 보여줌. 후보마다 모드·PalDefender 확인 여부. 누르면 그 폴더로 채워짐. 스팀 밖에 둔 서버는 '찾아보기'로 고름</li>
       <li>프로필은 시작할 때만 고름. Home에서는 프로필 창이 다시 뜨지 않고 프로필을 바꿀 수 없음(바꾸려면 앱을 다시 실행). Home의 설정 메뉴는 고른 프로필의 설정을 고침</li>
       <li>화면 문구는 존댓말(제품 문구). 이 옆 설명만 반말</li>
@@ -246,9 +250,9 @@
   </aside>
 </div>
 <script>
-const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false, finder: false, gs: "on", gsConfirm: false };
+const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false, finder: false, gs: "on", gsConfirm: false, gsLog: "pd" };
 const opts = {
-  tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 홈"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
+  tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 홈"], ["gameserver", "게임 서버"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
   mode: [["both", "both"], ["server", "server"], ["client", "client"]],
   gs: [["on", "켜짐"], ["starting", "켜는 중"], ["stopping", "끄는 중"], ["off", "꺼짐"]],
   state: [["ok", "정상"], ["gameoff", "게임 서버 꺼짐"], ["first", "처음 실행(프로필 없음)"], ["dirty", "설정 바꾼 뒤(저장 전)"]],
@@ -266,6 +270,7 @@ const I = {
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
   friends: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2c3 .2 5.5 2.2 5.5 5.3"/>',
   log: '<path d="M4 5h16M4 10h16M4 15h10M4 20h7"/>',
+  gameserver: '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
 };
 const IC = {
   server: '<rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01"/>',
@@ -294,6 +299,7 @@ const IC = {
   file: '<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
   power: '<path d="M12 3v9"/><path d="M6.3 7.3a8 8 0 1 0 11.4 0"/>',
+  log: '<path d="M4 5h16M4 10h16M4 15h10M4 20h7"/>',
 };
 const ic = (n, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24">${IC[n]}</svg>`;
 const PROFILES = [
@@ -398,6 +404,40 @@ function gameServerCard() {
       <div class="row" style="justify-content:flex-end"><button class="btn" data-gs="cancel">취소</button><button class="btn primary danger-fill" data-gs="stopok">${ic("power")}저장 후 끄기</button></div></div></div>` : ""}`;
 }
 
+function gameServerPage() {
+  const on = st.gs === "on";
+  const kv = (k, v) => `<span class="kvr"><span>${k}</span><b>${v}</b></span>`;
+  const info = `<div class="gsinfo">
+      ${kv("폴더", '<span title="E:\\Games\\Palworld\\servers\\Pyundle261012-fork">…\\servers\\Pyundle261012-fork</span>')}
+      ${kv("서버 이름", "Pyundle")}
+      ${kv("버전", "v0.6.5")}
+      ${kv("실행 시간", on ? "2시간 14분" : "-")}
+      ${kv("접속", on ? "2명 / 4명" : "-")}
+      ${kv("서버 FPS", on ? "60" : "-")}
+    </div>`;
+  const pd = [
+    ["20:40:19", "Starting PalDefender Anti Cheat v1.9.3"],
+    ["20:40:24", "REST API started on port 8212"],
+    ["20:40:25", "PalDefender Anti Cheat v1.9.3 loaded!"],
+    ["20:52:10", "shyunku joined the server"],
+    ["20:58:41", "친구 1 joined the server"],
+    ["21:03:07", "[Chat] 친구 1: ㅎㅇ"],
+    ["21:30:55", "친구 1 left the server"],
+  ];
+  const mod = [
+    ["20:40:20", "[PalHelperMod] loaded, output: …\\Mods\\PalHelperMod\\"],
+    ["20:40:50", "[RegisterHook] Registered native hook for PalMapObjectItemContainerModule:OnUpdateContents"],
+    ["21:12:04", "[PalHelperMod] fast tick failed: …"],
+  ];
+  const lines = (st.gsLog === "pd" ? pd : mod).map(([t, x]) => `<div class="info">${t}  ${x}</div>`).join("");
+  return `<h2>게임 서버</h2><p class="lead">이 프로필의 게임 서버를 켜고 끄고, 서버 로그를 봅니다.</p>
+    ${gameServerCard()}
+    <div class="sec"><span>${ic("info")}서버 정보</span><span></span></div>${info}
+    <div class="sec"><span>${ic("log")}서버 로그</span><span></span></div>
+    <div class="row" style="margin-bottom:8px"><div class="switch small"><span class="${st.gsLog === "pd" ? "on" : ""}" data-gslog="pd">서버 (PalDefender)</span><span class="${st.gsLog === "mod" ? "on" : ""}" data-gslog="mod">모드 (UE4SS)</span></div><span style="flex:1"></span><span class="muted" style="font-size:11px">${st.gsLog === "pd" ? "PalDefender\\Logs\\12.10 20.40.19.log" : "ue4ss\\UE4SS.log"}</span><button class="btn small">${ic("folder")}로그 폴더 열기</button></div>
+    <div class="log" style="height:180px;overflow:auto">${lines}</div>`;
+}
+
 function status() {
   const off = st.state === "gameoff";
   const cards = [];
@@ -417,7 +457,7 @@ function status() {
     <div class="w">${ic("zap")}23:11:53  게임 서버 지연 806ms (모드 스캔 중)</div>
     <div class="w">${ic("zap")}23:10:21  게임 서버 지연 142ms</div></div>`;
   return `<h2>홈</h2><p class="lead">${st.mode} 모드(${MODE_TEXT[st.mode]})로 실행 중입니다.</p>
-    ${has("server") ? gameServerCard() : ""}
+
     ${off ? `<div class="banner warn">${ic("alert", "lg")}<span>게임 서버에 연결할 수 없습니다.<br>게임 서버가 켜지면 자동으로 다시 연결됩니다.</span></div>` : ""}
     <div class="cards">${cards.join("")}</div>${players}${recent}`;
 }
@@ -487,11 +527,11 @@ function statusbar() {
 function render() {
   document.querySelectorAll(".group button").forEach((b) => b.classList.toggle("on", st[b.dataset.k] === b.dataset.v));
   // Home's own menu; the profile window and mode select are not part of it
-  const tabs = [["status", "홈"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]].filter(([v]) => v !== "friends" || has("server"));
+  const tabs = [["status", "홈"], ["gameserver", "게임 서버"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]].filter(([v]) => (v !== "friends" && v !== "gameserver") || has("server"));
   const nav = tabs.map(([v, l]) => `<div class="item ${st.tab === v ? "on" : ""}" data-tab="${v}"><svg viewBox="0 0 24 24">${I[v]}</svg>${l}</div>`).join("");
   const isLaunch = st.tab === "launch";
   const isProfile = st.tab === "profile";
-  const body = { profile: profileWin, launch, status, settings, friends, log }[st.tab]();
+  const body = { profile: profileWin, launch, status, gameserver: gameServerPage, settings, friends, log }[st.tab]();
   const side = isLaunch ? "" : `<div class="nav">${nav}</div>`;
   // keep a size the viewer dragged to across re-renders
   const prev = document.querySelector("#winwrap .win");
@@ -504,6 +544,7 @@ function render() {
   if (size && !isProfile && !prev.classList.contains("pw")) Object.assign(w.querySelector(".win").style, { width: size.w + "px", height: size.h + "px" });
   w.querySelectorAll("[data-prof]").forEach((e) => (e.onclick = () => { st.prof = Number(e.dataset.prof); st.dd = false; render(); }));
   w.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { const pf = PROFILES[st.prof]; if (!pf || pf.start === "ask") st.tab = "launch"; else { st.mode = pf.start; st.tab = "status"; } st.dd = false; render(); }));
+  w.querySelectorAll("[data-gslog]").forEach((e) => (e.onclick = () => { st.gsLog = e.dataset.gslog; render(); }));
   w.querySelectorAll("[data-gs]").forEach((e) => (e.onclick = () => {
     const a = e.dataset.gs;
     if (a === "stop") st.gsConfirm = true;
