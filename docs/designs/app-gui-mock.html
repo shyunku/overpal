@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App GUI mock</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Oxanium:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --page-bg:#0d1117; --page-fg:#e6edf3; --page-muted:#8b949e; --page-line:#30363d;
+    --bg:#14181f; --panel:#1b2029; --panel2:#222834; --line:#2d3441; --fg:#e8edf3; --muted:#8d97a5; --accent:#ffb84c; --blue:#4c9aff;
+    --ok:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page-bg); color:var(--page-fg); font-family:"Oxanium","Noto Sans KR","Malgun Gothic",system-ui,sans-serif; font-size:14px; }
+  .page { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:20px; padding:16px; }
+  @media (max-width:1240px) { .page { grid-template-columns:1fr; } }
+  .controls { display:flex; flex-wrap:wrap; gap:14px; margin-bottom:12px; }
+  .group { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .group > span { color:var(--page-muted); font-size:12px; margin-right:2px; }
+  .group button { background:#161b22; color:var(--page-fg); border:1px solid var(--page-line); border-radius:6px; padding:5px 10px; font:inherit; font-size:13px; cursor:pointer; }
+  .group button.on { background:#1f6feb; border-color:#1f6feb; }
+  .hint { color:var(--page-muted); font-size:12px; margin:-4px 0 10px; }
+  .desk { border-radius:8px; border:1px solid var(--page-line); padding:24px; background:linear-gradient(135deg,#1d2a3a,#0f1620); overflow:auto; }
+  /* the app window: 760 x 540 */
+  .win { width:760px; height:540px; background:var(--bg); color:var(--fg); border-radius:8px; border:1px solid #3a4250; box-shadow:0 20px 50px rgba(0,0,0,.5); display:flex; flex-direction:column; overflow:hidden; }
+  .titlebar { height:32px; display:flex; align-items:center; padding:0 0 0 12px; gap:8px; background:#10141a; font-size:12px; color:var(--muted); flex:none; }
+  .titlebar .logo { width:14px; height:14px; border-radius:4px; background:var(--accent); }
+  .titlebar .sp { flex:1; }
+  .titlebar .wb { width:44px; height:32px; display:grid; place-items:center; color:var(--muted); }
+  .body { flex:1; display:flex; min-height:0; }
+  .nav { width:168px; flex:none; background:#11151b; border-right:1px solid var(--line); padding:12px 8px; display:flex; flex-direction:column; gap:2px; }
+  .nav .item { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; color:var(--muted); cursor:pointer; font-size:14px; }
+  .nav .item.on { background:var(--panel2); color:var(--fg); }
+  .nav .item svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .nav .sp { flex:1; }
+  .nav .modechip { margin:0 4px; padding:8px 10px; border-radius:8px; background:var(--panel); font-size:12px; color:var(--muted); line-height:1.5; }
+  .nav .modechip b { color:var(--fg); font-weight:600; }
+  .main { flex:1; min-width:0; overflow:auto; padding:18px 20px; scrollbar-width:thin; scrollbar-color:#3a4250 transparent; }
+  h2 { margin:0 0 4px; font-size:18px; }
+  .lead { color:var(--muted); font-size:13px; margin:0 0 14px; }
+  .cards { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin-bottom:12px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .card h4 { margin:0 0 8px; font-size:12px; color:var(--muted); font-weight:500; display:flex; align-items:center; gap:7px; }
+  .card .big { font-size:16px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .card .sub { color:var(--muted); font-size:12px; margin-top:4px; line-height:1.5; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--ok); box-shadow:0 0 6px var(--ok); flex:none; }
+  .dot.warn { background:var(--warn); box-shadow:0 0 6px var(--warn); }
+  .dot.bad { background:var(--bad); box-shadow:0 0 6px var(--bad); }
+  .dot.off { background:#555d6b; box-shadow:none; }
+  .sec { font-size:12px; color:var(--accent); font-weight:600; margin:14px 0 8px; display:flex; justify-content:space-between; }
+  .sec span:last-child { color:var(--muted); font-weight:400; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  td, th { padding:7px 8px; border-bottom:1px solid var(--line); text-align:left; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  td.r, th.r { text-align:right; }
+  .muted { color:var(--muted); }
+  .tag { font-size:11px; padding:1px 6px; border-radius:4px; background:var(--panel2); color:var(--muted); }
+  .tag.on { background:rgba(63,185,80,.18); color:#7ee787; }
+  .log { background:#0f1318; border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-family:Consolas,"Noto Sans KR",monospace; font-size:12px; line-height:1.7; }
+  .log .w { color:#f2cc60; } .log .e { color:#ffa198; } .log .i { color:var(--muted); }
+  .form { display:grid; gap:12px; }
+  .field { display:grid; grid-template-columns:150px minmax(0,1fr); gap:12px; align-items:start; }
+  .field > label { color:var(--muted); font-size:13px; padding-top:8px; }
+  .field .help { color:var(--muted); font-size:12px; margin-top:5px; line-height:1.5; }
+  input[type=text], select { width:100%; height:34px; background:#0f1318; border:1px solid var(--line); border-radius:8px; color:var(--fg); font:inherit; font-size:13px; padding:0 10px; }
+  .row { display:flex; gap:8px; align-items:center; }
+  .btn { height:34px; padding:0 14px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--fg); font:inherit; font-size:13px; white-space:nowrap; cursor:pointer; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#1b1405; font-weight:600; }
+  .btn.small { height:28px; padding:0 10px; font-size:12px; }
+  .btn.danger { color:#ffa198; }
+  .seg { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .seg .opt { border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--panel); cursor:pointer; }
+  .seg .opt.on { border-color:var(--accent); background:rgba(255,184,76,.08); }
+  .seg .opt b { display:block; font-size:14px; margin-bottom:3px; }
+  .seg .opt span { color:var(--muted); font-size:12px; line-height:1.45; }
+  .switch { display:flex; gap:6px; }
+  .switch span { padding:6px 12px; border-radius:8px; border:1px solid var(--line); background:var(--panel); font-size:13px; color:var(--muted); cursor:pointer; }
+  .switch span.on { border-color:var(--blue); color:var(--fg); background:rgba(76,154,255,.12); }
+  .savebar { position:sticky; bottom:-18px; margin:16px -20px -18px; padding:12px 20px; background:#161b23; border-top:1px solid var(--line); display:flex; align-items:center; gap:10px; }
+  .savebar .msg { flex:1; color:var(--muted); font-size:13px; }
+  .banner { border-radius:10px; padding:10px 12px; margin-bottom:12px; font-size:13px; display:flex; gap:10px; align-items:center; }
+  .banner.warn { background:rgba(210,153,34,.12); border:1px solid rgba(210,153,34,.45); color:#f2cc60; }
+  .banner.info { background:rgba(76,154,255,.1); border:1px solid rgba(76,154,255,.4); color:#a9cbff; }
+  .banner .sp { flex:1; }
+  .mask { font-family:Consolas,monospace; color:var(--muted); }
+  .modal-back { position:absolute; inset:32px 0 0 0; background:rgba(0,0,0,.5); display:grid; place-items:center; }
+  .modal { width:420px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .modal h3 { margin:0 0 12px; font-size:16px; }
+  .winwrap { position:relative; width:760px; }
+  aside h3 { margin:16px 0 6px; font-size:14px; } aside h3:first-child { margin-top:0; }
+  aside ul { margin:0; padding-left:18px; color:#c9d1d9; line-height:1.6; font-size:12.5px; }
+  aside .decide li { color:#ffd88a; }
+</style>
+</head>
+<body>
+<div class="page">
+  <main>
+    <div class="controls">
+      <div class="group" id="g-tab"><span>화면</span></div>
+      <div class="group" id="g-mode"><span>모드</span></div>
+      <div class="group" id="g-state"><span>상황</span></div>
+    </div>
+    <div class="hint">실제 창 크기(760×540). 이름·주소는 예시. 왼쪽 메뉴, 모드 카드, 버튼도 눌러 볼 수 있음.</div>
+    <div class="desk"><div class="winwrap" id="winwrap"></div></div>
+  </main>
+  <aside>
+    <h3>바뀌는 것</h3>
+    <ul>
+      <li>exe 켜면 <b>이 창</b>이 뜸. cmd 창 없음. 창 닫으면 앱(오버레이·앱 서버) 종료</li>
+      <li><b>상태</b>: 앱 서버, 게임 서버(PalDefender), 모드 상태, 접속 중 플레이어, 친구 앱 접속, 최근 경고</li>
+      <li><b>설정</b>: 모드 3개 중 선택 → 모드에 맞는 칸만 보임. 저장 누르면 앱이 스스로 다시 켜짐</li>
+      <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
+      <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
+      <li>처음 실행(설정 파일 없음)이면 설정 화면부터 열림</li>
+      <li>토큰은 가려서 보여주고 복사 버튼만 둠</li>
+    </ul>
+    <h3>그대로인 것</h3>
+    <ul>
+      <li>게임 위 오버레이(메뉴바·메인 창·미니맵·설정), 앱 서버 기능</li>
+      <li>설정 파일 <code>palhelper.config.json</code>(exe 옆). GUI가 대신 써 줄 뿐 손으로 고쳐도 됨</li>
+    </ul>
+    <h3>정할 것</h3>
+    <ul class="decide">
+      <li>창 크기(760×540)·디자인 톤</li>
+      <li>'친구 앱 접속'은 토큰별 마지막 요청 시각으로 판단(접속 끊김 즉시 감지 아님)</li>
+      <li>친구 폴더를 어디에 만들지(기본: exe 옆 <code>friends\이름</code>)</li>
+      <li>client 모드에서 닉네임은 직접 입력 / 서버의 플레이어 목록에서 고르기</li>
+    </ul>
+  </aside>
+</div>
+<script>
+const st = { tab: "status", mode: "both", state: "ok", modal: false, dirty: false };
+const opts = {
+  tab: [["status", "상태"], ["settings", "설정"], ["friends", "친구"], ["log", "로그"]],
+  mode: [["both", "both"], ["server", "server"], ["client", "client"]],
+  state: [["ok", "정상"], ["gameoff", "게임 서버 꺼짐"], ["first", "처음 실행"], ["dirty", "설정 바꾼 뒤(저장 전)"]],
+};
+for (const [k, list] of Object.entries(opts)) {
+  const g = document.getElementById("g-" + k);
+  for (const [v, l] of list) {
+    const b = document.createElement("button"); b.textContent = l; b.dataset.k = k; b.dataset.v = v;
+    b.onclick = () => { st[k] = v; if (k === "state") { st.dirty = v === "dirty"; if (v === "first" || v === "dirty") st.tab = "settings"; } if (k === "mode" && st.mode === "client" && st.tab === "friends") st.tab = "status"; st.modal = false; render(); };
+    g.appendChild(b);
+  }
+}
+const I = {
+  status: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  friends: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M16 14.2c3 .2 5.5 2.2 5.5 5.3"/>',
+  log: '<path d="M4 5h16M4 10h16M4 15h10M4 20h7"/>',
+};
+const has = (m) => (m === "server" ? st.mode !== "client" : st.mode !== "server");
+const MODE_TEXT = { both: "서버 + 오버레이", server: "서버만", client: "오버레이만" };
+
+function status() {
+  const off = st.state === "gameoff";
+  const cards = [];
+  if (has("server")) {
+    cards.push(`<div class="card"><h4>앱 서버</h4><div class="big"><span class="dot"></span>실행 중</div><div class="sub">0.0.0.0:17994 · 친구 접속 허용<br>토큰 4개</div></div>`);
+    cards.push(`<div class="card"><h4>게임 서버 (PalDefender)</h4><div class="big"><span class="dot ${off ? "bad" : ""}"></span>${off ? "연결 안 됨" : "연결됨"}</div><div class="sub">${off ? "127.0.0.1:17993 응답 없음<br>게임 서버가 꺼져 있는지 확인" : "127.0.0.1:17993 · 접속 2명 / 4명"}</div></div>`);
+    cards.push(`<div class="card"><h4>모드 (PalHelperMod)</h4><div class="big"><span class="dot ${off ? "off" : ""}"></span>${off ? "출력 없음" : "정상"}</div><div class="sub">${off ? "마지막 갱신 12분 전" : "8초 전 갱신 · 스캔 812ms<br>상자 1,083 · 건물 381"}</div></div>`);
+    cards.push(`<div class="card"><h4>서버 멈춤 (최근 10분)</h4><div class="big"><span class="dot ${off ? "off" : "warn"}"></span>${off ? "-" : "57번 · 최대 863ms"}</div><div class="sub">${off ? "" : "모드 스캔 중 55번, 그 외 2번"}</div></div>`);
+  }
+  if (has("client")) {
+    cards.push(`<div class="card"><h4>오버레이</h4><div class="big"><span class="dot ${off ? "warn" : ""}"></span>${off ? "게임 서버 데이터 없음" : "게임 위에 표시 중"}</div><div class="sub">플레이어 shyunku · ${st.mode === "client" ? "203.0.113.24:17994에 연결" : "이 PC 앱 서버"}</div></div>`);
+  }
+  if (st.mode === "client") {
+    cards.push(`<div class="card"><h4>앱 서버 연결</h4><div class="big"><span class="dot"></span>연결됨</div><div class="sub">http://203.0.113.24:17994 · 응답 18ms</div></div>`);
+  }
+  const players = off || !has("server") ? "" : `<div class="sec"><span>접속 중인 플레이어</span><span>2명</span></div>
+    <table><tr><th>닉네임</th><th>친구 앱</th><th class="r">위치</th></tr>
+    <tr><td>shyunku</td><td><span class="tag on">이 PC</span></td><td class="r muted">거점 2</td></tr>
+    <tr><td>친구 3</td><td><span class="tag on">5초 전</span></td><td class="r muted">거점 2 근처</td></tr></table>`;
+  const recent = off ? "" : `<div class="sec"><span>최근 경고</span><span>로그 전체 →</span></div><div class="log">
+    <div class="w">23:12:04  게임 서버 멈춤 812ms (모드 스캔 중)</div>
+    <div class="w">23:11:53  게임 서버 멈춤 806ms (모드 스캔 중)</div>
+    <div class="w">23:10:21  게임 서버 멈춤 142ms</div></div>`;
+  return `<h2>상태</h2><p class="lead">${MODE_TEXT[st.mode]} 모드로 실행 중</p>
+    ${off ? '<div class="banner warn">게임 서버에 연결할 수 없음. 게임 서버를 켜면 자동으로 다시 연결됨.</div>' : ""}
+    <div class="cards">${cards.join("")}</div>${players}${recent}`;
+}
+
+function settings() {
+  const first = st.state === "first";
+  const seg = [["both", "both", "이 PC에서 게임 서버를 돌리고 오버레이도 씀 (호스트)"], ["server", "server", "앱 서버만. 오버레이 없음 (서버 전용 PC)"], ["client", "client", "다른 PC의 앱 서버에 붙어서 오버레이만 씀 (친구)"]]
+    .map(([v, t, d]) => `<div class="opt ${st.mode === v ? "on" : ""}" data-mode="${v}"><b>${t}</b><span>${d}</span></div>`).join("");
+  const server = has("server") ? `<div class="sec"><span>앱 서버</span><span></span></div>
+    <div class="field"><label>접속 허용</label><div><div class="switch"><span>이 PC만</span><span class="on">친구도 (외부)</span></div><div class="help">친구도 = 0.0.0.0. 공유기에서 TCP 포트를 이 PC로 포워딩해야 함</div></div></div>
+    <div class="field"><label>포트</label><div><input type="text" value="17994" style="width:120px"></div></div>
+    <div class="field"><label>게임 서버 폴더</label><div><div class="row"><input type="text" value="E:\\Games\\Palworld\\servers\\Pyundle261012-fork"><button class="btn">찾아보기</button></div><div class="help">모드 출력 폴더(…\\ue4ss\\Mods\\PalHelperMod)는 여기서 자동으로 찾음 · <span style="color:#7ee787">찾음</span></div></div></div>
+    <div class="field"><label>PalDefender</label><div><div class="row"><input type="text" value="http://127.0.0.1:17993"><span class="mask">토큰 ••••••a91f</span><button class="btn small">변경</button></div><div class="help">토큰은 게임 서버 폴더의 PalDefender 설정에서 자동으로 읽음</div></div></div>` : "";
+  const client = st.mode === "client" ? `<div class="sec"><span>접속할 앱 서버</span><span></span></div>
+    <div class="field"><label>주소</label><div><input type="text" value="http://203.0.113.24:17994"></div></div>
+    <div class="field"><label>토큰</label><div><div class="row"><input type="text" value="••••••••••••••••••••7c2e"><button class="btn">붙여넣기</button><button class="btn">연결 확인</button></div></div></div>` : "";
+  const nick = has("client") ? `<div class="sec"><span>오버레이</span><span></span></div>
+    <div class="field"><label>내 게임 닉네임</label><div><select><option>shyunku</option><option>친구 1</option><option>친구 2</option><option>친구 3</option></select><div class="help">서버 플레이어 목록에서 고름. 미니맵·'내 것'이 이 사람 기준</div></div></div>` : "";
+  const dirty = st.dirty || first;
+  return `<h2>설정</h2><p class="lead">${first ? "처음 실행이라 설정부터 해야 함" : "palhelper.config.json (exe 옆)"}</p>
+    ${first ? '<div class="banner info">설정 파일이 없음. 모드를 고르고 저장하면 시작함.</div>' : ""}
+    <div class="form"><div class="seg">${seg}</div>${server}${client}${nick}</div>
+    <div class="savebar"><span class="msg">${dirty ? (first ? "저장하면 이 설정으로 시작함" : "바뀐 설정이 있음. 저장하면 앱이 다시 켜짐(오버레이·앱 서버 잠깐 끊김)") : "바뀐 것 없음"}</span>${dirty && !first ? '<button class="btn">되돌리기</button>' : ""}<button class="btn primary" ${dirty ? "" : 'style="opacity:.45"'}>${first ? "저장하고 시작" : "저장하고 다시 켜기"}</button></div>`;
+}
+
+function friends() {
+  const rows = [["친구 1", "친구 1", "접속 중 · 5초 전", true], ["친구 2", "친구 2", "3시간 전", false], ["친구 3", "친구 3", "접속 기록 없음", false]]
+    .map(([n, g, seen, on]) => `<tr><td>${n}</td><td class="muted">${g}</td><td class="mask">••••${Math.random().toString(16).slice(2, 6)}</td><td><span class="tag ${on ? "on" : ""}">${seen}</span></td><td class="r"><button class="btn small">폴더 열기</button> <button class="btn small">토큰 다시</button> <button class="btn small danger">삭제</button></td></tr>`).join("");
+  return `<h2>친구</h2><p class="lead">친구마다 토큰 하나. 친구 폴더(exe + 설정)를 통째로 보내 주면 친구는 exe만 켜면 됨</p>
+    <div class="row" style="margin-bottom:10px"><button class="btn primary" data-add="1">+ 친구 추가</button><span class="muted" style="font-size:12px">공인 IP 203.0.113.24 · 친구 설정의 서버 주소에 들어감 <button class="btn small">다시 찾기</button></span></div>
+    <table><tr><th>이름</th><th>게임 닉네임</th><th>토큰</th><th>마지막 접속</th><th></th></tr>${rows}</table>
+    <div class="help muted" style="font-size:12px;margin-top:10px;line-height:1.6">토큰 다시 = 새 토큰 + 폴더 설정 갱신, 이전 토큰은 바로 끊김 · 삭제 = 토큰 끊고 폴더는 남김<br>바꾸면 앱 서버가 다시 켜짐(오버레이 잠깐 끊김)</div>`;
+}
+function modal() {
+  return `<div class="modal-back"><div class="modal"><h3>친구 추가</h3><div class="form">
+    <div class="field"><label>이름</label><div><input type="text" value="친구 4"></div></div>
+    <div class="field"><label>게임 닉네임</label><div><select><option>목록에서 고르기…</option><option>친구 4</option></select><div class="help">접속한 적 있는 플레이어 중에서 고름. 나중에 친구가 바꿀 수 있음</div></div></div>
+    <div class="field"><label>폴더</label><div class="help" style="margin:8px 0 0">exe 옆 friends\\친구 4\\ 에 palhelper.exe + 설정</div></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" data-close="1">취소</button><button class="btn primary" data-close="1">만들기</button></div></div></div></div>`;
+}
+function log() {
+  const lines = [
+    ["i", "21:58:02  시작 · both 모드 · 0.0.0.0:17994"],
+    ["i", "21:58:04  게임 서버(PalDefender) 연결됨"],
+    ["i", "22:03:40  친구 앱 접속: 친구 3"],
+    ["w", "22:10:21  게임 서버 멈춤 142ms"],
+    ["w", "23:11:53  게임 서버 멈춤 806ms (모드 스캔 중)"],
+    ["e", "23:20:15  게임 서버(PalDefender) 연결 안 됨"],
+    ["i", "23:21:02  게임 서버(PalDefender) 다시 연결됨"],
+    ["w", "23:12:04  게임 서버 멈춤 812ms (모드 스캔 중)"],
+  ];
+  return `<h2>로그</h2><p class="lead">이번 실행 동안. 파일로도 남김 (exe 옆 logs\\)</p>
+    <div class="row" style="margin-bottom:10px"><div class="switch"><span class="on">전체</span><span>경고만</span><span>접속</span></div><span style="flex:1"></span><button class="btn small">로그 폴더 열기</button></div>
+    <div class="log">${lines.map(([c, t]) => `<div class="${c}">${t}</div>`).join("")}</div>`;
+}
+
+function render() {
+  document.querySelectorAll(".group button").forEach((b) => b.classList.toggle("on", st[b.dataset.k] === b.dataset.v));
+  const tabs = opts.tab.filter(([v]) => v !== "friends" || has("server"));
+  const nav = tabs.map(([v, l]) => `<div class="item ${st.tab === v ? "on" : ""}" data-tab="${v}"><svg viewBox="0 0 24 24">${I[v]}</svg>${l}</div>`).join("");
+  const body = { status, settings, friends, log }[st.tab]();
+  document.getElementById("winwrap").innerHTML = `<div class="win"><div class="titlebar"><span class="logo"></span>PalHelper<span class="sp"></span><span class="wb">—</span><span class="wb">☐</span><span class="wb">✕</span></div>
+    <div class="body"><div class="nav">${nav}<div class="sp"></div><div class="modechip">모드 <b>${st.mode}</b><br>${MODE_TEXT[st.mode]}</div></div><div class="main">${body}</div></div></div>${st.modal ? modal() : ""}`;
+  const w = document.getElementById("winwrap");
+  w.querySelectorAll("[data-tab]").forEach((e) => (e.onclick = () => { st.tab = e.dataset.tab; render(); }));
+  w.querySelectorAll("[data-mode]").forEach((e) => (e.onclick = () => { st.mode = e.dataset.mode; st.dirty = true; render(); }));
+  w.querySelectorAll("[data-add]").forEach((e) => (e.onclick = () => { st.modal = true; render(); }));
+  w.querySelectorAll("[data-close]").forEach((e) => (e.onclick = () => { st.modal = false; render(); }));
+}
+render();
+</script>
+</body>
+</html>
