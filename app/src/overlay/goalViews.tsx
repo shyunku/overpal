@@ -116,10 +116,10 @@ export function GoalsTab({ goals, onGoals, mode, base, dex, detail, onOpen }: Pr
             <span>보유 / 필요</span>
           </div>
           <div className="gl-total">
-            <span className={`gl-bar ${v.progress >= 1 ? "done" : ""}`}>
+            <span className={`gl-bar ${v.direct ? "done" : ""}`}>
               <i style={{ width: `${Math.round(Math.min(1, v.progress) * 100)}%` }} />
             </span>
-            <span className={`tabular ${v.progress >= 1 ? "gl-ok" : ""}`}>{Math.floor(v.progress * 100)}%</span>
+            <span className={`tabular ${v.direct ? "gl-ok" : ""}`}>{Math.floor(v.progress * 100)}%</span>
           </div>
           <MaterialLines nodes={v.tree} />
         </div>
@@ -170,7 +170,8 @@ export function GoalsTab({ goals, onGoals, mode, base, dex, detail, onOpen }: Pr
             {goals.map((g) => {
               const info = goalInfo(g, recipes, structs);
               const v = view(g);
-              const done = v.progress >= 1;
+              // green only when every direct material is there (else something is still to be made)
+              const done = v.direct;
               return (
                 <div className="row mn-row two gl-goal" key={goalKey(g)} onClick={() => onOpen(goalKey(g))}>
                   <Ico url={info.icon} />
@@ -179,7 +180,7 @@ export function GoalsTab({ goals, onGoals, mode, base, dex, detail, onOpen }: Pr
                       <span className="n">
                         {info.name} ×{g.qty}
                       </span>
-                      <small className={done ? "gl-ok" : ""}>{done ? (v.direct ? "재료 다 모임" : "중간 재료 제작 필요") : `재료 ${Math.floor(v.progress * 100)}%`}</small>
+                      <small className={done ? "gl-ok" : ""}>{done ? "재료 다 모임" : v.progress >= 1 ? "중간 재료 제작 필요" : `재료 ${Math.floor(v.progress * 100)}%`}</small>
                     </span>
                     <span className="line">
                       <small>{v.now > 0 ? `${v.now}개 제작 가능` : "재료 부족"}</small>
@@ -231,8 +232,12 @@ function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
       const o = own[n.key];
       const open = n.craftable && (o && o.lack === lacking ? o.open : lacking);
       lines.push(
-        <div className={`gl-mat d${Math.min(depth, 3)}`} key={n.key}>
-          <span className={`gl-tw ${open ? "open" : ""}`} onClick={n.craftable ? () => setOwn({ ...own, [n.key]: { open: !open, lack: lacking } }) : undefined}>
+        <div
+          className={`gl-mat d${Math.min(depth, 3)} ${n.craftable ? "can" : ""}`}
+          key={n.key}
+          onClick={n.craftable ? () => setOwn({ ...own, [n.key]: { open: !open, lack: lacking } }) : undefined}
+        >
+          <span className={`gl-tw ${open ? "open" : ""}`}>
             {n.craftable && (
               <svg viewBox="0 0 24 24">
                 <path d="m9 6 6 6-6 6" />
@@ -247,7 +252,8 @@ function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
             </span>
             <small className={lacking ? "gl-lack" : "gl-ok"}>{lacking ? `${n.lack} 부족` : "완료"}</small>
           </span>
-          <Ring v={n.progress} done={!lacking} />
+          {/* how much of this item itself is there (not what could be made of its materials) */}
+          <Ring v={n.need ? n.have / n.need : 1} done={!lacking} />
         </div>,
       );
       // a filled line opened by hand shows what one would be made of
