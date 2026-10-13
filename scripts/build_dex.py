@@ -110,6 +110,9 @@ def main() -> None:
     layers = {}
     for key, label in [("fast", "빠른 이동"), ("tower", "탑"), ("dungeon", "던전"), ("alpha", "알파 팰")]:
         layers[key] = {"label": label, "icon": icon(markers["icons"][key]), "points": markers[key]}
+    # watchtowers (관측탑), taken once from paldb's map data the same way (scripts/data/watchtowers.json);
+    # no icon, the minimap draws one
+    layers["watch"] = {"label": "관측탑", "icon": None, "points": json.loads((ROOT / "scripts" / "data" / "watchtowers.json").read_text(encoding="utf-8"))}
 
     OUT_DATA.parent.mkdir(parents=True, exist_ok=True)
     OUT_DATA.write_text(json.dumps({"pals": out_pals, "structs": out_structs, "markers": layers}, ensure_ascii=False), encoding="utf-8")

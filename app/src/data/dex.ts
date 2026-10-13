@@ -39,7 +39,8 @@ export interface DexStruct {
 
 export interface DexMarkerLayer {
   label: string;
-  icon: string;
+  /** null for watchtowers (drawn by the minimap) */
+  icon: string | null;
   /** map pixel coordinates (same space as public/map/palpagos.webp), name and level */
   points: { x: number; y: number; n?: string; lv?: number }[];
 }
@@ -47,7 +48,8 @@ export interface DexMarkerLayer {
 export interface Dex {
   pals: DexPal[];
   structs: DexStruct[];
-  markers: Record<"fast" | "tower" | "dungeon" | "alpha", DexMarkerLayer>;
+  /** watch: watchtowers (관측탑), no icon */
+  markers: Record<"fast" | "tower" | "dungeon" | "alpha" | "watch", DexMarkerLayer>;
 }
 
 export const dexIconUrl = (name: string | null | undefined): string | null => (name ? `/icons/dex/${name}` : null);

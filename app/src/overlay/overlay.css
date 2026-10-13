@@ -599,6 +599,23 @@ img.item-icon {
   border-radius: 50%;
   overflow: hidden;
 }
+/* a zoom change jumps instead of sliding (MinimapWindow) */
+.minimap.no-anim .map-img,
+.minimap.no-anim .mk {
+  transition: none !important;
+}
+svg.mk.ico.watch circle {
+  fill: rgba(22, 30, 40, 0.85);
+  stroke: #9fd3ff;
+  stroke-width: 1.4;
+}
+svg.mk.ico.watch path {
+  fill: none;
+  stroke: #e6f4ff;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .minimap .map-img {
   position: absolute;
   inset: 0;

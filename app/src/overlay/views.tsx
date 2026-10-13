@@ -776,8 +776,8 @@ const HEADING_MIN_MOVE = 100;
 const FAN = Math.PI / 3;
 type MarkerKey = keyof Dex["markers"];
 // dungeons are left out (too many, asked to turn off)
-const MINIMAP_MARKERS: MarkerKey[] = ["alpha", "fast", "tower"];
-const FAR_MARKERS: MarkerKey[] = ["fast", "tower"];
+const MINIMAP_MARKERS: MarkerKey[] = ["alpha", "fast", "tower", "watch"];
+const FAR_MARKERS: MarkerKey[] = ["fast", "tower", "watch"];
 
 const meters = (cm: number) => (cm < 100_000 ? `${Math.round(cm / 100)}m` : `${(cm / 100_000).toFixed(1)}km`);
 
@@ -785,6 +785,13 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
   const dex = useDex();
   const camps = data.guild?.bases ?? [];
   const zoom = MINIMAP_ZOOMS.includes(layout.minimapZoom) ? layout.minimapZoom : 1;
+  // the render with a new zoom jumps (no sliding): the map and the markers slide along different
+  // paths while the scale changes, so the markers wandered off the map during the slide
+  const shownZoom = useRef(zoom);
+  const zoomJump = shownZoom.current !== zoom;
+  useEffect(() => {
+    shownZoom.current = zoom;
+  }, [zoom]);
   const [tag, setTag] = useState<{ text: string; at: number } | null>(null);
   // the key event handler reads the latest layout
   const latest = useRef({ layout, onLayout });
@@ -843,7 +850,7 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
 
   return (
     <OverlayWindow view="minimap" layout={layout} onLayout={onLayout} passive className="glass round minimap-win">
-      <div className={`minimap ${data.conn !== "ok" ? "dim" : ""}`}>
+      <div className={`minimap ${data.conn !== "ok" ? "dim" : ""} ${zoomJump ? "no-anim" : ""}`}>
         {center ? (
           <>
             <div
@@ -858,7 +865,15 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
                 dex.markers[key].points.map((pt, i) => {
                   const v = view([pt.x, pt.y]);
                   return inside(v, 4) ? (
-                    <img key={`${key}${i}`} className={`mk ico ${zoom < MINIMAP_SMALL ? "small" : ""}`} src={`/icons/dex/${dex.markers[key].icon}`} style={v!} alt="" draggable={false} />
+                    dex.markers[key].icon ? (
+                      <img key={`${key}${i}`} className={`mk ico ${zoom < MINIMAP_SMALL ? "small" : ""}`} src={`/icons/dex/${dex.markers[key].icon}`} style={v!} alt="" draggable={false} />
+                    ) : (
+                      // watchtowers have no icon in the map data: drawn here
+                      <svg key={`${key}${i}`} className={`mk ico watch ${zoom < MINIMAP_SMALL ? "small" : ""}`} viewBox="0 0 24 24" style={v!}>
+                        <circle cx="12" cy="12" r="10.5" />
+                        <path d="M9 18h6M10 18l1-8h2l1 8M8.5 10h7l-1-3h-5zM12 7V5" />
+                      </svg>
+                    )
                   ) : null;
                 }),
               )}

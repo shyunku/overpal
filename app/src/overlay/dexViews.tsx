@@ -8,7 +8,7 @@ import type { ItemMode, SubTab } from "./layout";
 
 export type DexTab = SubTab;
 type MarkerKey = keyof Dex["markers"];
-const MARKER_KEYS: MarkerKey[] = ["fast", "tower", "dungeon", "alpha"];
+const MARKER_KEYS: MarkerKey[] = ["fast", "tower", "watch", "dungeon", "alpha"];
 
 /** captures that still give a bonus, per pal (the game counts up to this many) */
 export const CAPTURE_BONUS_MAX = 5;
