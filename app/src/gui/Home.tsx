@@ -108,7 +108,7 @@ export function Home() {
   if (stage.kind === "mode" && session.profile) return <ModeSelect profile={session.profile} error={error} onStart={startIn} onSettings={(mode) => setStage({ kind: "settings", mode })} />;
   if (stage.kind === "settings" && session.profile) {
     return (
-      <div className="main">
+      <div className="main fill settings">
         <SettingsView
           session={session}
           mode={stage.mode}
@@ -281,7 +281,7 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
         ))}
       </div>
       <div className="mainwrap">
-        <div className={`main ${tab === "log" ? "fill" : ""}`}>
+        <div className={`main ${tab === "log" ? "fill" : tab === "settings" ? "fill settings" : ""}`}>
           {tab === "home" && <HomeView session={session} host={host.value} mod={mod.value} modFailed={mod.failed} players={players.value} pdOk={pdOk ?? null} onLog={() => setTab("log")} />}
           {tab === "gameserver" && <GameServerView gs={gs} onChanged={() => api.gsStatus().catch(() => null)} />}
           {tab === "log" && <LogView />}

@@ -737,6 +737,13 @@ th.r {
   align-items: center;
   gap: 10px;
 }
+/* short settings: the bar still sits at the bottom of the page, above the status bar */
+.main.settings > .savebar {
+  margin-top: auto;
+}
+.main.settings > :nth-last-child(2) {
+  margin-bottom: 16px;
+}
 .savebar .msg {
   flex: 1;
   color: var(--muted);
