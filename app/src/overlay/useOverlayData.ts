@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchGuilds, fetchInventory, fetchModStatus, fetchPlayers, loadClientConfig } from "../api";
 import type { PdGuilds, PdInventory, PdPlayers } from "../data/paldefender";
 import { baseAt, buildSnapshot, inventoryOnly, inventoryStorage, withInventory, type BaseView, type GuildView, type PlayerView, type Snapshot } from "../data/snapshot";
-import type { BaseStorage, ClientConfig, ModStatus } from "../types";
+import type { BaseStorage, ClientConfig, ModStatus, Storage } from "../types";
 import { streamStorage, type LivePosition, type ProductionUpdate } from "./storageStream";
 
 /** player positions */
@@ -38,6 +38,8 @@ export interface OverlayData {
   base: BaseView | null;
   /** index of the base the player is in within guild.bases, -1 outside every base */
   baseIndex: number;
+  /** the player's inventory as a storage (null until known) */
+  inventory: Storage | null;
   me: PlayerView | null;
   recent: RecentChange[];
 }
@@ -185,11 +187,11 @@ export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): 
   const current = guild ? baseAt(guild.bases, me?.worldPos) : null;
   const baseIndex = current && guild ? guild.bases.indexOf(current) : -1;
   // the player's own items count with the base
+  const inv = useMemo(() => (guild && inventory && inventory.Meta.PlayerUID === meUid ? inventoryStorage(inventory, guild.guildId) : null), [guild, inventory, meUid]);
   const base = useMemo(() => {
-    const inv = guild && inventory && inventory.Meta.PlayerUID === meUid ? inventoryStorage(inventory, guild.guildId) : null;
     if (current) return inv ? withInventory(current, inv) : current;
     return inv ? inventoryOnly(inv) : null;
-  }, [current, guild, inventory, meUid]);
+  }, [current, inv]);
 
   const recent = useRecentChanges(base);
 
@@ -198,7 +200,7 @@ export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): 
   const statusAge = status ? now / 1000 - status.updatedAt : null;
   const conn: ConnState = streamDown || (!storage && error) ? "down" : statusAge !== null && (statusAge > STALE_AFTER_S || !status?.ok) ? "stale" : "ok";
 
-  return { conn, ageSeconds, error, snapshot, guild, base, baseIndex, me, recent };
+  return { conn, ageSeconds, error, snapshot, guild, base, baseIndex, inventory: inv, me, recent };
 }
 
 function useRecentChanges(base: BaseView | null): RecentChange[] {

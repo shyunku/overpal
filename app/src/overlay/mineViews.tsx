@@ -563,7 +563,7 @@ function StructsList({ mode, data, base, query, onOpen, head, L }: Props) {
             {list.map((x) => {
               const pb = prods.find((b) => b.buildObjectId === x.id);
               return (
-                <div className="dx-tile" key={x.id} onClick={() => onOpen(x.id)}>
+                <div className="dx-tile" key={x.id} onClick={() => onOpen(x.id)} data-goal={L.struct(x.id) ? `struct:${L.struct(x.id)!.id}` : undefined}>
                   <span className="cap">×{x.n}</span>
                   <DexIcon name={L.struct(x.id)?.icon} />
                   <span className="tn">{structName(L, x.id)}</span>
@@ -594,7 +594,7 @@ function StructsList({ mode, data, base, query, onOpen, head, L }: Props) {
         {groups.map(([cat, list]) => (
           <Section key={cat} label={cat} count={list.reduce((a, x) => a + x.n, 0)}>
             {list.map((x) => (
-              <div className="row mn-row one" key={x.id} onClick={() => onOpen(x.id)}>
+              <div className="row mn-row one" key={x.id} onClick={() => onOpen(x.id)} data-goal={L.struct(x.id) ? `struct:${L.struct(x.id)!.id}` : undefined}>
                 <DexIcon name={L.struct(x.id)?.icon} />
                 <span className="n">{structName(L, x.id)}</span>
                 <span className="count tabular">×{x.n}</span>

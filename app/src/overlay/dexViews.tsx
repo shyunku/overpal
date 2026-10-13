@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { dexIconUrl, loadDex, type Dex, type DexPal, type DexStruct, type DexWork } from "../data/dex";
 import { fetchProgression, loadClientConfig } from "../api";
 import { itemIconUrl, itemName } from "./labels";
-import type { ItemMode, MainTab } from "./layout";
+import type { ItemMode, SubTab } from "./layout";
 
-export type DexTab = Exclude<MainTab, "items">;
+export type DexTab = SubTab;
 type MarkerKey = keyof Dex["markers"];
 const MARKER_KEYS: MarkerKey[] = ["fast", "tower", "dungeon", "alpha"];
 
@@ -192,7 +192,7 @@ export function DexList({ dex, captures, tab, mode, query, onOpen }: ListProps) 
           <Filters items={cats} value={filter} onChange={setFilter} />
           <div className="dx-tiles">
             {list.map((s) => (
-              <div className="dx-tile" key={s.id} onClick={() => onOpen(s.id)}>
+              <div className="dx-tile" key={s.id} onClick={() => onOpen(s.id)} data-goal={`struct:${s.id}`}>
                 <DexIcon name={s.icon} />
                 <span className="tn">{s.name}</span>
               </div>
@@ -208,7 +208,7 @@ export function DexList({ dex, captures, tab, mode, query, onOpen }: ListProps) 
           <Section key={cat} label={cat} count={rows.length}>
             <div className="rows">
               {rows.map((s) => (
-                <div className="row dx-row lv" key={s.id} onClick={() => onOpen(s.id)}>
+                <div className="row dx-row lv" key={s.id} onClick={() => onOpen(s.id)} data-goal={tab === "structs" ? `struct:${s.id}` : undefined}>
                   <DexIcon name={s.icon} />
                   {/* name and tech level on one line, like the item name and count */}
                   <span className="name">{s.name}</span>

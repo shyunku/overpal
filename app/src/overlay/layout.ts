@@ -1,3 +1,4 @@
+import type { Goal } from "../data/goals";
 // Overlay layout shared by all overlay windows. Stored by the Rust side (layout.json)
 // and broadcast to every window on change.
 
@@ -8,7 +9,9 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 export type ViewId = "menubar" | "items" | "minimap" | "settings";
 /** main window layouts: compact (hud), normal (side), wide (full) */
 export type ItemMode = "side" | "hud" | "full";
-export type MainTab = "items" | "pals" | "structs" | "places";
+export type MainTab = "items" | "pals" | "structs" | "places" | "goals";
+/** tabs with a mine / dex switch */
+export type SubTab = "pals" | "structs" | "places";
 /** what the pals, structures and places tabs show: this server's ("mine") or game data ("dex") */
 export type MainSub = "mine" | "dex";
 
@@ -36,7 +39,9 @@ export interface Layout {
   mainTab: MainTab;
   /** layout of each main window tab */
   modes: Record<MainTab, ItemMode>;
-  subs: Record<Exclude<MainTab, "items">, MainSub>;
+  subs: Record<SubTab, MainSub>;
+  /** item goals (goals tab), kept on this PC */
+  goals: Goal[];
   /** alpha of the dark tint over the blurred background */
   opacity: number;
   /** minimap magnification (MINIMAP_ZOOMS), changed with the - and = keys */
@@ -62,11 +67,12 @@ export const DEFAULT_LAYOUT: Layout = {
     settings: { open: false, ax: "left", dx: 760, ay: "top", dy: 200 },
   },
   mainTab: "items",
-  modes: { items: "side", pals: "side", structs: "side", places: "side" },
+  modes: { items: "side", pals: "side", structs: "side", places: "side", goals: "side" },
   subs: { pals: "mine", structs: "mine", places: "mine" },
   opacity: 0.25,
   minimapZoom: 1,
   itemSizes: {},
+  goals: [],
   editMode: false,
 };
 

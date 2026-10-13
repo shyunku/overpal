@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTip } from "./TooltipWindow";
 import { BASE_RADIUS, type BaseView, type ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
-import { resetPositions, type ItemMode, type Layout, type MainTab, type Size, type ViewId } from "./layout";
+import { resetPositions, type ItemMode, type Layout, type MainTab, type Size, type SubTab, type ViewId } from "./layout";
+import { addGoal, goalInfo, GoalsTab, useRecipes } from "./goalViews";
+import { goalKey } from "../data/goals";
+import { withInventory } from "../data/snapshot";
 import { MAP_SIZE, mapPx, WORLD_PER_PX } from "./mapcoords";
 import { listen } from "@tauri-apps/api/event";
 import type { OverlayData } from "./useOverlayData";
@@ -52,6 +55,7 @@ const ICONS = {
       <circle cx="12" cy="9" r="2.5" />
     </>
   ),
+  flag: <path d="M5 21V4M5 4h12l-2 4 2 4H5" />,
 };
 
 function Icon({ name }: { name: keyof typeof ICONS }) {
@@ -259,7 +263,7 @@ function ItemsTab(props: {
     body = (
       <div className={data.conn === "stale" ? "dim" : ""} style={{ paddingBottom: 8 }}>
         {rows.slice(0, COMPACT_ROWS).map((r) => (
-          <div className="hud-row" key={r.item}>
+          <div className="hud-row" key={r.item} data-goal={`item:${r.item}`}>
             <ItemIcon id={r.item} />
             <span className="name">{itemName(r.item)}</span>
             <b className="tabular">{totals.find((t) => t.item === r.item)?.count ?? 0}</b>
@@ -299,7 +303,7 @@ function ItemsTab(props: {
           </div>
           <div className="tiles">
             {list.map((x) => (
-              <div className="tile" key={x.item}>
+              <div className="tile" key={x.item} data-goal={`item:${x.item}`}>
                 <span className="tn">{itemName(x.item)}</span>
                 <ItemIcon id={x.item} />
                 <span className={`n tabular ${x.count ? "" : "none"}`}>{x.count}</span>
@@ -350,7 +354,7 @@ function ItemsTab(props: {
                       </div>
                       <div className="chips">
                         {[...items].map(([id, n]) => (
-                          <span className="chipitem" key={id}>
+                          <span className="chipitem" key={id} data-goal={`item:${id}`}>
                             <ItemIcon id={id} />
                             <span>{itemName(id)}</span>
                             <b className="tabular">{n}</b>
@@ -366,6 +370,7 @@ function ItemsTab(props: {
               {found.map((t) => (
                 <div
                   key={t.item}
+                  data-goal={`item:${t.item}`}
                   className="row"
                   onClick={() => {
                     hideTip();
@@ -397,6 +402,7 @@ const TABS: { id: MainTab; icon: keyof typeof ICONS; label: string }[] = [
   { id: "pals", icon: "paw", label: "팰" },
   { id: "structs", icon: "house", label: "구조물" },
   { id: "places", icon: "pin", label: "장소" },
+  { id: "goals", icon: "flag", label: "목표" },
 ];
 
 interface OtherTabProps {
@@ -530,13 +536,43 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
   const nearestIndex = me && bases.length ? bases.reduce((best, b, i) => (Math.hypot(b.worldPos.x - me.x, b.worldPos.y - me.y) < Math.hypot(bases[best].worldPos.x - me.x, bases[best].worldPos.y - me.y) ? i : best), 0) : bases.length ? 0 : -1;
   const mineIndex = pickedIndex >= 0 ? pickedIndex : data.baseIndex >= 0 ? data.baseIndex : nearestIndex;
   const mineBase = mineIndex >= 0 ? bases[mineIndex] : null;
-  const showsBaseMenu = mode !== "hud" && (tab === "items" || ((tab === "pals" || tab === "structs") && layout.subs[tab] === "mine"));
+  const showsBaseMenu = mode !== "hud" && (tab === "items" || tab === "goals" || ((tab === "pals" || tab === "structs") && layout.subs[tab] === "mine"));
+  // goals count the base shown (picked from the menu, else the one the player is in) with the inventory
+  const goalBase = pickedIndex >= 0 && data.inventory ? withInventory(bases[pickedIndex], data.inventory) : mode === "hud" ? data.base : shownBase;
+  // right click on an item or a structure (data-goal="item:<id>" / "struct:<id>"): set it as a goal
+  const [ctx, setCtx] = useState<{ x: number; y: number; kind: "item" | "struct"; id: string } | null>(null);
+  const recipes = useRecipes();
+  // only what can be made: items with a recipe, structures with materials
+  const makeable = (c: { kind: string; id: string }) => (c.kind === "item" ? !!recipes?.[c.id] : !!dex?.structs.find((s) => s.id === c.id)?.mats.length);
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const t = window.setTimeout(() => setToast(null), 2500);
+    return () => window.clearTimeout(t);
+  }, [toast]);
+  const onContext = (e: ReactMouseEvent) => {
+    const el = (e.target as HTMLElement).closest<HTMLElement>("[data-goal]");
+    e.preventDefault();
+    if (!el) return setCtx(null);
+    const [kind, ...rest] = el.dataset.goal!.split(":");
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const zoom = box.width / (e.currentTarget as HTMLElement).offsetWidth || 1;
+    setCtx({ x: (e.clientX - box.left) / zoom, y: (e.clientY - box.top) / zoom, kind: kind as "item" | "struct", id: rest.join(":") });
+  };
+  const setGoal = () => {
+    if (!ctx) return;
+    const g = { kind: ctx.kind, id: ctx.id, qty: 1 };
+    onLayout({ ...layout, goals: addGoal(layout.goals, g) });
+    setToast(`${goalInfo(g, null, new Map((dex?.structs ?? []).map((s) => [s.id, s]))).name}을(를) 목표에 추가했습니다`);
+    setCtx(null);
+  };
   const setTab = (t: MainTab) => {
     setDetail(null);
     onLayout({ ...layout, mainTab: t });
   };
   const setMode = (m: ItemMode) => onLayout({ ...layout, modes: { ...layout.modes, [tab]: m } });
-  const label = TABS.find((x) => x.id === tab)!.label;
+  const openedGoal = tab === "goals" && detail && detail !== "add" ? layout.goals.find((g) => goalKey(g) === detail) : undefined;
+  const label = openedGoal ? goalInfo(openedGoal, null, new Map((dex?.structs ?? []).map((s) => [s.id, s]))).name : tab === "goals" && detail === "add" ? "목표 추가" : TABS.find((x) => x.id === tab)!.label;
   const hereLabel = data.baseIndex >= 0 ? `거점 ${data.baseIndex + 1}` : "거점 밖";
   const baseLabel = pickedIndex >= 0 ? `거점 ${pickedIndex + 1}` : hereLabel;
   const baseNote = pickedIndex >= 0 ? "내 인벤토리 미포함" : data.baseIndex >= 0 ? "내 인벤토리 포함" : "내 인벤토리만";
@@ -552,6 +588,20 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
           </button>
           <span className="rest">
             · <span className="tone-inventory">{baseNote}</span>
+          </span>
+        </>
+      )
+    ) : tab === "goals" ? (
+      mode === "hud" ? (
+        statusText(data)
+      ) : (
+        <>
+          <button ref={baseBtn} className={`basebtn ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
+            {baseLabel}
+            <Icon name="chevron" />
+          </button>
+          <span className="rest">
+            · <span className="tone-inventory">내 인벤토리 포함</span>
           </span>
         </>
       )
@@ -615,7 +665,7 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
           </button>
         ))}
       </nav>
-      <div className="mainbody">
+      <div className="mainbody" onContextMenu={onContext} onClick={() => ctx && setCtx(null)}>
         <div className="wtitle">
           <div className="ttl">
             {/* the back button and the layout buttons sit on the title's line, so the line
@@ -651,16 +701,42 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
             countText={tab === "pals" ? (b) => `일꾼 ${pals?.workers.get(b.campId)?.length ?? "-"}` : tab === "structs" ? (b) => `건물 ${b.buildings.length}` : undefined}
           />
         )}
-        {tab === "items" ? (
+        {ctx && (
+          <div className="gl-ctx" style={{ left: ctx.x, top: ctx.y }} onClick={(e) => e.stopPropagation()}>
+            {makeable(ctx) ? (
+              <button onClick={setGoal}>
+                <Icon name="flag" />
+                목표로 설정
+              </button>
+            ) : (
+              <button disabled>
+                <Icon name="flag" />
+                만들 수 없는 아이템
+              </button>
+            )}
+          </div>
+        )}
+        {toast && <div className="gl-toast">{toast}</div>}
+        {tab === "goals" ? (
+          <GoalsTab
+            goals={layout.goals}
+            onGoals={(goals) => onLayout({ ...layout, goals })}
+            mode={mode}
+            base={goalBase}
+            dex={dex}
+            detail={detail}
+            onOpen={setDetail}
+          />
+        ) : tab === "items" ? (
           <ItemsTab data={data} mode={mode} base={mode === "hud" ? data.base : shownBase} notice={notice} detail={detail} onOpen={setDetail} />
         ) : (
           <OtherTab
             tab={tab}
             mode={mode}
-            sub={layout.subs[tab]}
+            sub={layout.subs[tab as SubTab]}
             onSub={(s) => {
               setDetail(null);
-              onLayout({ ...layout, subs: { ...layout.subs, [tab]: s } });
+              onLayout({ ...layout, subs: { ...layout.subs, [tab as SubTab]: s } });
             }}
             query={queries[tab]}
             onQuery={(q) => setQueries({ ...queries, [tab]: q })}
