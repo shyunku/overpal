@@ -138,8 +138,10 @@
   .ddbtn { width:100%; height:44px; display:flex; align-items:center; gap:10px; padding:0 12px; border-radius:10px; border:1px solid var(--line); background:#0f1318; color:var(--fg); font:inherit; font-size:14px; cursor:pointer; text-align:left; }
   .ddbtn:hover { border-color:#4a5363; }
   .ddname { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600; }
-  .ddmode { font-size:11px; padding:2px 7px; border-radius:5px; background:var(--panel2); color:var(--muted); flex:none; }
+  .ddmode { font-size:11px; border-radius:5px; background:var(--panel2); color:var(--muted); flex:none; }
   .ddchev { color:var(--muted); }
+  .ddname, .ddmode, .ddused { text-box:trim-both cap alphabetic; }
+  .ddmode { padding:4px 7px; }
   .ddmenu { position:absolute; left:0; right:0; top:48px; z-index:5; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.45); }
   .dditem { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; cursor:pointer; font-size:14px; }
   .dditem:hover { background:var(--panel2); }
@@ -151,11 +153,11 @@
   .pinfo span { color:var(--muted); width:92px; flex:none; display:inline-flex; align-items:center; gap:6px; }
   .pinfo b { font-weight:500; min-width:0; }
   .pinfo b.path { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:rtl; text-align:left; }
-  .pnew input { height:40px; }
+  .pnew input { height:40px; padding-top:2px; }
   .pnew .help { color:var(--muted); font-size:12px; line-height:1.6; margin-top:8px; }
   .pfoot { display:flex; align-items:center; gap:8px; margin-top:4px; }
   .pfoot .sp { flex:1; }
-  .btn.big { height:42px; padding:0 22px; font-size:14px; }
+  .btn.big { height:42px; min-width:120px; padding:0 22px; font-size:14px; }
   .ic.xl { width:40px; height:40px; stroke-width:1.5; margin-bottom:6px; }
   .flow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:12.5px; color:#c9d1d9; margin:0 0 10px; }
   .flow b { padding:3px 8px; border-radius:6px; background:#161b22; border:1px solid var(--page-line); font-weight:500; }
@@ -259,12 +261,12 @@ const IC = {
 };
 const ic = (n, cls = "") => `<svg class="ic ${cls}" viewBox="0 0 24 24">${IC[n]}</svg>`;
 const PROFILES = [
-  { name: "실제 서버", start: "both", sub: "E:\\Games\\Palworld\\servers\\Pyundle261012-fork", used: "오늘 21:58" },
-  { name: "테스트 서버", start: "ask", sub: "E:\\Games\\Steam\\steamapps\\common\\PalServer", used: "어제" },
-  { name: "친구 서버 접속", start: "client", sub: "http://203.0.113.24:17994", used: "3일 전" },
+  { name: "실제 서버", start: "both", sub: "E:\\Games\\Palworld\\servers\\Pyundle261012-fork", used: "2026.10.13 오후 09:35" },
+  { name: "테스트 서버", start: "ask", sub: "E:\\Games\\Steam\\steamapps\\common\\PalServer", used: "2026.10.12 오후 11:20" },
+  { name: "친구 서버 접속", start: "client", sub: "http://203.0.113.24:17994", used: "2026.10.10 오전 01:05" },
 ];
 const profName = () => (PROFILES[st.prof] ? PROFILES[st.prof].name : "새 프로필");
-const START_TEXT = { both: "둘 다", server: "서버", client: "오버레이", ask: "매번 선택" };
+const START_TEXT = { both: "서버+오버레이", server: "서버", client: "오버레이", ask: "매번 선택" };
 const has = (m) => (m === "server" ? st.mode !== "client" : st.mode !== "server");
 const MODE_TEXT = { both: "서버 + 오버레이", server: "서버", client: "오버레이" };
 
@@ -299,7 +301,7 @@ function profileWin() {
     <div class="phead"><span class="plogo"></span><div><div class="ptitle">PalHelper</div><div class="psub">프로필을 선택해 주세요.</div></div></div>
     <div class="pfield"><label>프로필</label><div class="dd"><button class="ddbtn" data-dd="1">${shown}<svg class="ic ddchev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>${menu}</div></div>
     ${detail}
-    <div class="pfoot">${cur ? `<button class="btn small danger">${ic("trash")}삭제</button>` : ""}<span class="sp"></span><button class="btn primary big" data-open="1">${ic("play")}시작하기</button></div>
+    <div class="pfoot">${cur ? `<button class="btn big danger">${ic("trash")}삭제</button>` : ""}<span class="sp"></span><button class="btn primary big" data-open="1">${ic("play")}시작하기</button></div>
   </div>`;
 }
 
