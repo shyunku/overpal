@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, PhysicalPosition } from "@tauri-apps/api/window";
 import { anchoredAt, cssZoom, getScreen, placeWindow, type MonitorRect, type ScreenInfo } from "./geometry";
-import { loadLayout, onLayoutChanged, saveLayout, type Layout, type ViewId } from "./layout";
+import { loadLayout, onLayoutChanged, saveLayout, type Layout, type Size, type ViewId, type WinLayout } from "./layout";
 
 /** Layout shared by all overlay windows; updates are saved and broadcast to the others. */
 export function useSharedLayout(): [Layout | null, (next: Layout) => void] {
@@ -60,6 +60,8 @@ interface Props {
   dragHandle?: string;
   /** after a drag, anchor to the screen edge (left or right) of the half the window's middle is in */
   sideAnchor?: boolean;
+  /** edges and corners resize the window while the game shows a cursor; size in CSS px before zoom */
+  resize?: { size: Size | null; min: Size; onDone: (size: Size, win: WinLayout) => void };
   children: ReactNode;
 }
 
@@ -67,13 +69,16 @@ interface Props {
  * Hosts one overlay window: zooms the content to the screen, fits the native window around it,
  * keeps it at its anchored place, shows/hides it, and lets the user drag it in edit mode.
  */
-export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "", passive = false, dragHandle, sideAnchor = false, children }: Props) {
+export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "", passive = false, dragHandle, sideAnchor = false, resize, children }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [screen, setScreen] = useState<ScreenInfo | null>(null);
   const dragging = useRef(false);
   const latest = useRef(layout);
   latest.current = layout;
-  const win = layout.windows[view];
+  // size and place while an edge is being dragged, stored when it is let go
+  const [live, setLive] = useState<{ size: Size; win: WinLayout } | null>(null);
+  const win = live?.win ?? layout.windows[view];
+  const size = live?.size ?? resize?.size ?? null;
   const { visible, interactive, monitor } = useOverlayState();
   const shown = win.open && visible && !(passive && interactive && !layout.editMode);
   const takesMouse = layout.editMode && interactive;
@@ -118,6 +123,15 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
     ro.observe(el);
     return () => ro.disconnect();
   }, [screen, shown, win.ax, win.dx, win.ay, win.dy, scale]);
+
+  // no text selection (also by double click or Ctrl+A) outside inputs
+  useEffect(() => {
+    const block = (e: Event) => {
+      if (!(e.target instanceof HTMLInputElement)) e.preventDefault();
+    };
+    document.addEventListener("selectstart", block);
+    return () => document.removeEventListener("selectstart", block);
+  }, []);
 
   // never stay minimized (e.g. by "minimize all"): a minimized overlay window shows as a title bar stub
   useEffect(() => {
@@ -178,8 +192,52 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
     el.addEventListener("pointercancel", up);
   };
 
+  const onResizeDown = (e: PointerEvent, dir: string) => {
+    if (e.button !== 0 || !screen || !resize) return;
+    e.stopPropagation();
+    const el = ref.current!;
+    const handle = e.currentTarget as HTMLElement;
+    handle.setPointerCapture(e.pointerId);
+    const dpr = window.devicePixelRatio || 1;
+    const z = cssZoom(screen, scale);
+    // physical px per CSS px of this window, and the largest size that fits on the screen
+    const k = dpr * z;
+    const r = el.getBoundingClientRect();
+    const start = { w: r.width / z, h: r.height / z, mx: e.screenX * dpr, my: e.screenY * dpr };
+    const max = { w: screen.w / k, h: screen.h / k };
+    const base = layout.windows[view];
+    let last = { size: { w: start.w, h: start.h }, win: base };
+    const move = (m: globalThis.PointerEvent) => {
+      const dx = (m.screenX * dpr - start.mx) / k;
+      const dy = (m.screenY * dpr - start.my) / k;
+      const clamp = (v: number, lo: number, hi: number) => Math.round(Math.min(hi, Math.max(lo, v)));
+      const w = dir.includes("e") ? clamp(start.w + dx, resize.min.w, max.w) : dir.includes("w") ? clamp(start.w - dx, resize.min.w, max.w) : start.w;
+      const h = dir.includes("s") ? clamp(start.h + dy, resize.min.h, max.h) : dir.includes("n") ? clamp(start.h - dy, resize.min.h, max.h) : start.h;
+      // the anchored edge stays put, so growing toward it moves the window by the change
+      const gw = ((w - start.w) * k) / screen.unit;
+      const gh = ((h - start.h) * k) / screen.unit;
+      const next = { ...base };
+      if ((dir.includes("w") && base.ax === "left") || (dir.includes("e") && base.ax === "right")) next.dx = Math.max(0, base.dx - gw);
+      if ((dir.includes("n") && base.ay === "top") || (dir.includes("s") && base.ay === "bottom")) next.dy = Math.max(0, base.dy - gh);
+      last = { size: { w, h }, win: next };
+      setLive(last);
+    };
+    const up = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      handle.removeEventListener("pointercancel", up);
+      setLive(null);
+      if (last.size.w !== start.w || last.size.h !== start.h) resize.onDone(last.size, last.win);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+    handle.addEventListener("pointercancel", up);
+  };
+  const canResize = !!resize && interactive;
+
   const style = {
     zoom: screen ? cssZoom(screen, scale) : 1,
+    ...(size ? { "--win-w": `${size.w}px`, "--win-h": `${size.h}px` } : {}),
     visibility: screen ? "visible" : "hidden",
     "--glass-alpha": layout.opacity,
     // Windows rounds the window (and its blur) by 8 px times the display scale (DWMWCP_ROUND);
@@ -188,8 +246,16 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
   } as CSSProperties;
 
   return (
-    <div ref={ref} className={`ow ${className} ${layout.editMode ? "editing" : ""} ${interactive ? "live" : ""}`} style={style} onPointerDown={onPointerDown}>
+    <div ref={ref} className={`ow ${className} ${layout.editMode ? "editing" : ""} ${interactive ? "live" : ""} ${size ? "sized" : ""}`} style={style} onPointerDown={onPointerDown}>
       {children}
+      {canResize && (
+        <>
+          <span className="corner" />
+          {["n", "s", "e", "w", "ne", "nw", "se", "sw"].map((d) => (
+            <span key={d} className={`rz ${d}`} onPointerDown={(e) => onResizeDown(e, d)} />
+          ))}
+        </>
+      )}
     </div>
   );
 }

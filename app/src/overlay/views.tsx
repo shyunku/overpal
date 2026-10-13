@@ -3,7 +3,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTip } from "./TooltipWindow";
 import { BASE_RADIUS, type BaseView, type ItemTotal } from "../data/snapshot";
 import { itemIconUrl, itemName, matchesItem, missingItems, placesOf } from "./labels";
-import { resetPositions, type ItemMode, type Layout, type MainTab, type ViewId } from "./layout";
+import { resetPositions, type ItemMode, type Layout, type MainTab, type Size, type ViewId } from "./layout";
 import { MAP_SIZE, mapPx, WORLD_PER_PX } from "./mapcoords";
 import { listen } from "@tauri-apps/api/event";
 import type { OverlayData } from "./useOverlayData";
@@ -111,6 +111,8 @@ export function MenuBar({ layout, onLayout, data }: ViewProps) {
 // 0.49 was too small in game; 25% larger (text included), with the content widths cut to 0.92
 // in overlay.css so the window grows 25% in height but only 15% in width
 const ITEM_SCALE = 0.6125;
+/** smallest main window per layout (CSS px before zoom): the title line and a few rows still fit */
+const ITEM_MIN: Record<ItemMode, Size> = { hud: { w: 220, h: 200 }, side: { w: 300, h: 320 }, full: { w: 640, h: 360 } };
 
 function useItemDesc(): Record<string, string> {
   const [desc, setDesc] = useState<Record<string, string>>({});
@@ -597,6 +599,11 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
       scale={ITEM_SCALE}
       dragHandle=".wtitle"
       sideAnchor
+      resize={{
+        size: layout.itemSizes[shownMode] ?? null,
+        min: ITEM_MIN[shownMode],
+        onDone: (size, win) => onLayout({ ...layout, windows: { ...layout.windows, items: win }, itemSizes: { ...layout.itemSizes, [shownMode]: size } }),
+      }}
       className={`glass win items mode-${shownMode}${detail ? " is-detail" : ""}${layout.windows.items.ax === "right" ? " rail-right" : ""}`}
     >
       <nav className="rail">
@@ -826,8 +833,8 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
 
 // ---------------------------------------------------------------- settings
 
-// about 25% larger than the item window
-const SETTINGS_SCALE = ITEM_SCALE * 1.25;
+// the main window's scale
+const SETTINGS_SCALE = ITEM_SCALE;
 
 export function SettingsWindow({ layout, onLayout }: ViewProps) {
   return (

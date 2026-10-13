@@ -24,6 +24,11 @@ export interface WinLayout {
   dy: number;
 }
 
+export interface Size {
+  w: number;
+  h: number;
+}
+
 export interface Layout {
   version: 3;
   windows: Record<ViewId, WinLayout>;
@@ -36,6 +41,8 @@ export interface Layout {
   opacity: number;
   /** minimap magnification (MINIMAP_ZOOMS), changed with the - and = keys */
   minimapZoom: number;
+  /** main window size per layout set by dragging its edges (CSS px before zoom); natural size if unset */
+  itemSizes: Partial<Record<ItemMode, Size>>;
   /** windows can be dragged only while this is on; never persisted as on */
   editMode: boolean;
 }
@@ -58,6 +65,7 @@ export const DEFAULT_LAYOUT: Layout = {
   subs: { pals: "mine", structs: "mine", places: "mine" },
   opacity: 0.25,
   minimapZoom: 1,
+  itemSizes: {},
   editMode: false,
 };
 
