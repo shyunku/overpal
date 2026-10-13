@@ -77,7 +77,10 @@ pub struct SessionView {
 pub fn open_launcher(app: &AppHandle) -> tauri::Result<()> {
     WebviewWindowBuilder::new(app, LAUNCHER, WebviewUrl::App("index.html?view=launcher".into()))
         .title("PalHelper")
-        .inner_size(460.0, 440.0)
+        // our own title bar (32 px) is inside the window
+        .decorations(false)
+        .shadow(true)
+        .inner_size(460.0, 472.0)
         .resizable(false)
         .maximizable(false)
         .theme(Some(tauri::Theme::Dark))
@@ -98,6 +101,8 @@ pub fn open_home(app: &AppHandle) -> tauri::Result<()> {
         .unwrap_or(HOME_SIZE);
     WebviewWindowBuilder::new(app, HOME, WebviewUrl::App("index.html?view=home".into()))
         .title("PalHelper")
+        .decorations(false)
+        .shadow(true)
         .inner_size(w, h)
         .min_inner_size(HOME_MIN.0, HOME_MIN.1)
         .theme(Some(tauri::Theme::Dark))

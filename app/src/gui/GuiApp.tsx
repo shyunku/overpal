@@ -9,7 +9,13 @@ import "@fontsource/noto-sans-kr/700.css";
 import "./gui.css";
 import { Home } from "./Home";
 import { Launcher } from "./Launcher";
+import { TitleBar } from "./TitleBar";
 
 export function GuiApp({ view }: { view: "launcher" | "home" }) {
-  return view === "launcher" ? <Launcher /> : <Home />;
+  return (
+    <div className="appwin">
+      <TitleBar resizable={view === "home"} />
+      <div className="appbody">{view === "launcher" ? <Launcher /> : <Home />}</div>
+    </div>
+  );
 }
