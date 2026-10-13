@@ -141,6 +141,7 @@
   .ddmode { font-size:11px; border-radius:5px; background:var(--panel2); color:var(--muted); flex:none; }
   .ddchev { color:var(--muted); }
   .ddname, .ddmode, .ddused { text-box:trim-both cap alphabetic; }
+  .ddname { padding:4px 0; margin:-4px 0; }
   .ddmode { padding:4px 7px; }
   .ddmenu { position:absolute; left:0; right:0; top:48px; z-index:5; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:6px; box-shadow:0 12px 30px rgba(0,0,0,.45); }
   .dditem { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; cursor:pointer; font-size:14px; }
@@ -149,10 +150,10 @@
   .ddused { font-size:11px; color:var(--muted); flex:none; }
   .ddsep { height:1px; background:var(--line); margin:5px 4px; }
   .pinfo { display:grid; gap:8px; padding:12px 14px; border-radius:10px; background:var(--panel); border:1px solid var(--line); font-size:13px; }
-  .pinfo div { display:flex; align-items:baseline; gap:10px; min-width:0; }
+  .pinfo div { display:flex; align-items:center; gap:10px; min-width:0; line-height:20px; }
   .pinfo span { color:var(--muted); width:92px; flex:none; display:inline-flex; align-items:center; gap:6px; }
   .pinfo b { font-weight:500; min-width:0; }
-  .pinfo b.path { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:rtl; text-align:left; }
+  .pinfo b.path { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pnew input { height:40px; padding-top:2px; }
   .pnew .help { color:var(--muted); font-size:12px; line-height:1.6; margin-top:8px; }
   .pfoot { display:flex; align-items:center; gap:8px; margin-top:4px; }
@@ -265,6 +266,7 @@ const PROFILES = [
   { name: "테스트 서버", start: "ask", sub: "E:\\Games\\Steam\\steamapps\\common\\PalServer", used: "2026.10.12 오후 11:20" },
   { name: "친구 서버 접속", start: "client", sub: "http://203.0.113.24:17994", used: "2026.10.10 오전 01:05" },
 ];
+const shortPath = (v) => { const parts = v.split("\\"); return parts.length > 3 ? "…\\" + parts.slice(-2).join("\\") : v; };
 const profName = () => (PROFILES[st.prof] ? PROFILES[st.prof].name : "새 프로필");
 const START_TEXT = { both: "서버+오버레이", server: "서버", client: "오버레이", ask: "매번 선택" };
 const has = (m) => (m === "server" ? st.mode !== "client" : st.mode !== "server");
@@ -293,7 +295,7 @@ function profileWin() {
   const detail = cur
     ? `<div class="pinfo">
         <div><span>${ic("play")}시작 모드</span><b>${START_TEXT[cur.start]}${cur.start === "ask" ? " (모드 선택 화면을 거칩니다)" : ""}</b></div>
-        <div><span>${ic(cur.start === "client" ? "globe" : "folder")}${cur.start === "client" ? "앱 서버" : "게임 서버"}</span><b class="path">${cur.sub}</b></div>
+        <div><span>${ic(cur.start === "client" ? "globe" : "folder")}${cur.start === "client" ? "앱 서버" : "게임 서버"}</span><b class="path" title="${cur.sub}">${shortPath(cur.sub)}</b></div>
         <div><span>${ic("refresh")}마지막 사용</span><b>${cur.used}</b></div>
       </div>`
     : `<div class="pnew"><label>프로필 이름</label><input type="text" placeholder="예: 실제 서버"><div class="help">시작하면 모드를 고르고 설정을 입력합니다.<br>설정은 이 이름으로 저장되어 다음부터 목록에서 바로 불러올 수 있습니다.</div></div>`;
