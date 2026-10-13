@@ -1,7 +1,13 @@
 // Receives the mod output from the app server as it changes (GET /api/events, server-sent events).
 // EventSource cannot send the Authorization header, so the stream is read with fetch.
 
-import type { BaseStorage, ClientConfig } from "../types";
+import type { BaseStorage, Building, ClientConfig } from "../types";
+
+/** a production building's order from the mod (every 0.5 s while it changes); null when idle */
+export interface ProductionUpdate {
+  id: string;
+  production: Building["production"] | null;
+}
 
 /** a player's position (world cm) and camera yaw (degrees, 0 = world +X) from the mod */
 export interface LivePosition {
@@ -21,6 +27,7 @@ export async function streamStorage(
   onDown: (e: unknown) => void,
   signal: AbortSignal,
   onPositions?: (p: LivePosition[]) => void,
+  onProduction?: (p: ProductionUpdate[]) => void,
 ) {
   while (!signal.aborted) {
     try {
@@ -48,6 +55,7 @@ export async function streamStorage(
           }
           if (event === "storage" && data.length) onStorage(JSON.parse(data.join("\n")) as BaseStorage);
           else if (event === "positions" && data.length && onPositions) onPositions((JSON.parse(data.join("\n")) as { players: LivePosition[] }).players);
+          else if (event === "production" && data.length && onProduction) onProduction((JSON.parse(data.join("\n")) as { buildings: ProductionUpdate[] }).buildings);
         }
       }
       throw new Error("events stream ended");

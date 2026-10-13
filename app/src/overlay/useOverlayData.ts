@@ -3,7 +3,7 @@ import { fetchGuilds, fetchInventory, fetchModStatus, fetchPlayers, loadClientCo
 import type { PdGuilds, PdInventory, PdPlayers } from "../data/paldefender";
 import { baseAt, buildSnapshot, inventoryOnly, inventoryStorage, withInventory, type BaseView, type GuildView, type PlayerView, type Snapshot } from "../data/snapshot";
 import type { BaseStorage, ClientConfig, ModStatus } from "../types";
-import { streamStorage, type LivePosition } from "./storageStream";
+import { streamStorage, type LivePosition, type ProductionUpdate } from "./storageStream";
 
 /** player positions */
 const PLAYERS_MS = 500;
@@ -87,6 +87,7 @@ export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): 
   /** the viewing player's uid, read by the stream callback */
   const meUidRef = useRef<string | undefined>(undefined);
   const [live, setLive] = useState<Map<string, LivePosition> | null>(null);
+  const [production, setProduction] = useState<Map<string, ProductionUpdate["production"]> | null>(null);
   const liveAt = useRef(0);
   const livePending = useRef<LivePosition[] | null>(null);
 
@@ -131,6 +132,9 @@ export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): 
         else if (first) window.setTimeout(apply, livePositionsMs);
         liveAt.current = Date.now();
       },
+      (list) => {
+        if (!abort.signal.aborted) setProduction(new Map(list.map((b) => [b.id, b.production])));
+      },
     );
     let playersAt = 0;
     const stops = [
@@ -151,7 +155,13 @@ export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): 
     };
   }, [cfg, playersMs]);
 
-  const built = useMemo(() => (storage ? buildSnapshot(storage, guilds, players) : null), [storage, guilds, players]);
+  // the latest orders (production.json, every 0.5 s) over the ones in the storage output
+  const merged = useMemo(() => {
+    if (!storage || !production) return storage;
+    const buildings = storage.buildings?.map((b) => (b.id && production.has(b.id) ? { ...b, production: production.get(b.id) ?? undefined } : b));
+    return { ...storage, buildings };
+  }, [storage, production]);
+  const built = useMemo(() => (merged ? buildSnapshot(merged, guilds, players) : null), [merged, guilds, players]);
   // live positions over the ones from PalDefender (cheap: the snapshot is not rebuilt for them)
   const snapshot = useMemo(() => {
     if (!built || !live) return built;

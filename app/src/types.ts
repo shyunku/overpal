@@ -47,6 +47,8 @@ export interface BaseStorage {
 }
 
 export interface Building {
+  /** unique per building (map object model instance id); older mod output has none */
+  id?: string;
   /** e.g. ItemChest_02, BlastFurnace3 */
   buildObjectId: string;
   /** guild id */

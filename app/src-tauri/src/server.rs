@@ -25,6 +25,9 @@ const STORAGE_FILE: &str = "base_storage.json";
 /// player positions and camera directions, written by the mod every 0.1 s while they change
 const POSITIONS_FILE: &str = "positions.json";
 const POSITIONS_WATCH_EVERY: Duration = Duration::from_millis(30);
+/// production orders, written by the mod every 0.5 s while they change
+const PRODUCTION_FILE: &str = "production.json";
+const PRODUCTION_WATCH_EVERY: Duration = Duration::from_millis(100);
 /// server stalls logged by the mod
 const STALL_FILE: &str = "stalls.txt";
 /// how often the mod output file is checked for a new version
@@ -107,6 +110,7 @@ pub async fn serve(cfg: ServerConfig) -> Result<(), String> {
     let (storage_tx, _) = broadcast::channel(64);
     spawn_file_watcher(cfg.mod_output_dir.join(STORAGE_FILE), "storage", WATCH_EVERY, storage_tx.clone());
     spawn_file_watcher(cfg.mod_output_dir.join(POSITIONS_FILE), "positions", POSITIONS_WATCH_EVERY, storage_tx.clone());
+    spawn_file_watcher(cfg.mod_output_dir.join(PRODUCTION_FILE), "production", PRODUCTION_WATCH_EVERY, storage_tx.clone());
     spawn_stall_watcher(cfg.mod_output_dir.join(STALL_FILE), host.clone());
     let state = AppState { cfg: Arc::new(cfg), tokens, host, http: reqwest::Client::new(), pd_token, storage_tx };
     spawn_pd_monitor(state.clone());
@@ -321,18 +325,26 @@ fn spawn_file_watcher(path: std::path::PathBuf, event: &'static str, every: Dura
     });
 }
 
-/// Server-sent events: `storage` with the current mod output, then every new version, and
-/// `positions` (players' positions and camera directions) as they change.
+/// Server-sent events: `storage` with the current mod output and `production` with the current
+/// orders, then every new version of either, and `positions` (players' positions and camera
+/// directions) as they change.
 async fn events(State(s): State<AppState>) -> Response {
     let rx = s.storage_tx.subscribe();
-    let first = tokio::fs::read_to_string(s.cfg.mod_output_dir.join(STORAGE_FILE)).await.ok();
-    let stream = futures_util::stream::unfold((first, rx), |(first, mut rx)| async move {
-        if let Some(text) = first {
-            return Some((Ok::<_, Infallible>(Event::default().event("storage").data(text)), (None, rx)));
+    let mut first: Vec<(&'static str, String)> = Vec::new();
+    if let Ok(text) = tokio::fs::read_to_string(s.cfg.mod_output_dir.join(STORAGE_FILE)).await {
+        first.push(("storage", text));
+    }
+    if let Ok(text) = tokio::fs::read_to_string(s.cfg.mod_output_dir.join(PRODUCTION_FILE)).await {
+        first.push(("production", text));
+    }
+    first.reverse();
+    let stream = futures_util::stream::unfold((first, rx), |(mut first, mut rx)| async move {
+        if let Some((event, text)) = first.pop() {
+            return Some((Ok::<_, Infallible>(Event::default().event(event).data(text)), (first, rx)));
         }
         loop {
             match rx.recv().await {
-                Ok((event, text)) => return Some((Ok(Event::default().event(event).data(text)), (None, rx))),
+                Ok((event, text)) => return Some((Ok(Event::default().event(event).data(text)), (first, rx))),
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,
                 Err(broadcast::error::RecvError::Closed) => return None,
             }

@@ -28,6 +28,11 @@ local BUILD_NET_UPDATE_HZ = 20
 -- 10 us per player.
 local POSITIONS_MS = 100
 local POSITIONS_FILE = "positions.json"
+-- Production orders (what each production building makes, how many are left, the current
+-- item's progress) go to production.json this often (only when changed); the full scan only
+-- finds the buildings. About 70 objects, well under 1 ms.
+local PRODUCTION_MS = 500
+local PRODUCTION_FILE = "production.json"
 
 local STALL_WATCH_MS = 50
 local STALL_WARN_MS = 50
@@ -267,44 +272,18 @@ local function module_step(st, addr, m)
     if k.info then st.modules[k.cid] = k.info end
 end
 
--- st.progress: work progress by concrete model address
-local function progress_step(st, addr, w)
-    if not w:IsValid() then
-        objects.progress[addr] = nil
-        return
-    end
-    pcall(function()
-        local m = w.CachedOwnerMapObjectConcreteModel
-        if m and m:IsValid() then st.progress[m:GetAddress()] = w end
-    end)
-end
-
--- production building's model by buildObjectId, filled by the full scan: the fast tick re-reads
--- what is left to make when that building's storage changes (else "made" moves on its own)
-local production_models = {}
-
--- Building entry for the main window's "mine" structures: id, name given in game, location,
--- guild, and for production buildings what they make and how far along it is.
+-- Building entry for the main window's "mine" structures: id (unique per building; the
+-- buildObjectId is its type), name given in game, location, guild. Production buildings are
+-- noted in st.converters; their orders are read by the production tick.
 local function building_entry(st, k)
     local model = k.model
-    local entry = { buildObjectId = k.buildObjectId, group = guid_of(model.GroupIdBelongTo), location = k.location }
+    local entry = { id = k.modelRef, buildObjectId = k.buildObjectId, group = guid_of(model.GroupIdBelongTo), location = k.location }
     -- the name players give a building (e.g. a chest) in game, empty if none
     local name = try("custom name", function() return model.CustomName:ToString() end)
     if name and name ~= "" then entry.customName = name end
     local concrete = model.ConcreteModel
     if concrete and concrete:IsValid() and concrete:GetClass():GetFName():ToString() == "PalMapObjectConvertItemModel" then
-        local recipe = concrete.CurrentRecipeId:ToString()
-        if recipe ~= "None" then
-            local w = st.progress[concrete:GetAddress()]
-            st.production[k.buildObjectId] = concrete
-            entry.production = {
-                recipe = recipe,
-                requested = concrete.RequestedProductNum,
-                remain = concrete.RemainProductNum,
-                work = w and w.CurrentWorkAmount or 0,
-                workRequired = w and w.RequiredWorkAmount or 0,
-            }
-        end
+        st.converters[k.modelRef] = concrete
     end
     return entry
 end
@@ -363,6 +342,7 @@ local function container_step(st, addr, c)
         entry.modelClass = m.modelClass
         local b = m.modelRef and st.located[m.modelRef]
         if b then
+            entry.buildingId = b.id
             entry.location = b.location
             entry.buildObjectId = b.buildObjectId
             entry.customName = b.customName
@@ -377,9 +357,11 @@ end
 
 -- ---------------------------------------------------------------- change push
 -- The last full scan, kept so a single container can be refreshed without scanning again.
-local current = { storages = {}, byId = {}, objects = {}, buildings = {}, buildingsById = {} }
+local current = { storages = {}, byId = {}, objects = {}, buildings = {}, buildingsById = {}, converters = {} }
 -- container ids flagged by the update hook since the last fast tick
 local dirty = {}
+-- set by the fast tick when a production building's storage changed
+local production_now = false
 local hooked = false
 local seq = 0
 
@@ -392,12 +374,62 @@ local function write_storage()
     write_file("base_storage.json", ('{"buildings":[%s],"seq":%d,"storages":[%s],"updatedAt":%d,"version":1}'):format(table.concat(b, ","), seq, table.concat(s, ","), os.time()))
 end
 
-local function set_current(storages, by_object, buildings)
+local function set_current(storages, by_object, buildings, converters)
     local by_id = {}
     for _, s in ipairs(storages) do by_id[s.containerId] = s end
     local buildings_by_id = {}
-    for _, b in ipairs(buildings) do buildings_by_id[b.buildObjectId] = b end
-    current = { storages = storages, byId = by_id, objects = by_object, buildings = buildings, buildingsById = buildings_by_id }
+    for _, b in ipairs(buildings) do buildings_by_id[b.id] = b end
+    current = { storages = storages, byId = by_id, objects = by_object, buildings = buildings, buildingsById = buildings_by_id, converters = converters }
+end
+
+-- ---------------------------------------------------------------- production orders
+local last_production = nil
+
+-- Reads the orders of the production buildings into their entries in `current` and writes
+-- production.json ({ buildings: [{ id, production | null }] }, every production building)
+-- when anything changed. `force`: also when nothing changed (after a scan).
+local function production_tick(force)
+    take_pending("progress")
+    local progress = {}
+    for addr, w in pairs(objects.progress) do
+        if not w:IsValid() then
+            objects.progress[addr] = nil
+        else
+            pcall(function()
+                local m = w.CachedOwnerMapObjectConcreteModel
+                if m and m:IsValid() then progress[m:GetAddress()] = w end
+            end)
+        end
+    end
+    local parts = {}
+    for id, concrete in pairs(current.converters) do
+        local p = nil
+        pcall(function()
+            if not concrete:IsValid() then return end
+            local recipe = concrete.CurrentRecipeId:ToString()
+            if recipe == "None" then return end
+            local w = progress[concrete:GetAddress()]
+            p = {
+                recipe = recipe,
+                requested = concrete.RequestedProductNum,
+                remain = concrete.RemainProductNum,
+                work = w and w.CurrentWorkAmount or 0,
+                workRequired = w and w.RequiredWorkAmount or 0,
+            }
+        end)
+        local pj = p and to_json(p) or "null"
+        parts[#parts + 1] = ('{"id":"%s","production":%s}'):format(id, pj)
+        local b = current.buildingsById[id]
+        if b and (b.production and to_json(b.production) or "null") ~= pj then
+            b.production = p
+            json_cache[b] = nil
+        end
+    end
+    table.sort(parts)
+    local text = '{"buildings":[' .. table.concat(parts, ",") .. "]}"
+    if text == last_production and not force then return end
+    last_production = text
+    write_file(PRODUCTION_FILE, text)
 end
 
 local function try_hook()
@@ -418,6 +450,7 @@ end
 local function fast_tick()
     if next(dirty) == nil then return end
     local changed = false
+    production_now = false
     for id in pairs(dirty) do
         local entry, obj = current.byId[id], current.objects[id]
         if entry and obj and obj:IsValid() then
@@ -427,21 +460,12 @@ local function fast_tick()
                 json_cache[entry] = nil
                 changed = true
                 -- a production building's storage: the order's counts moved with it
-                local b = entry.buildObjectId and current.buildingsById[entry.buildObjectId]
-                local model = entry.buildObjectId and production_models[entry.buildObjectId]
-                if b and b.production and model then
-                    pcall(function()
-                        if model:IsValid() then
-                            b.production.requested = model.RequestedProductNum
-                            b.production.remain = model.RemainProductNum
-                            json_cache[b] = nil
-                        end
-                    end)
-                end
+                if entry.buildingId and current.converters[entry.buildingId] then production_now = true end
             end
         end
     end
     dirty = {}
+    if production_now then production_tick() end
     if changed then write_storage() end
 end
 
@@ -579,15 +603,14 @@ end
 
 local PHASES = {
     { key = "modules", step = module_step },
-    { key = "progress", step = progress_step },
     { key = "buildings", step = building_step },
     { key = "containers", step = container_step },
     { list = json_list, step = function(_, _, x) json_of(x) end },
 }
 
 local function finish_scan(st)
-    production_models = st.production
-    set_current(st.storages, st.by_object, st.buildings)
+    set_current(st.storages, st.by_object, st.buildings, st.converters)
+    production_tick(true)
     collect_players()
     -- containers flagged during the scan stay flagged: the fast tick reads them again
     write_storage()
@@ -633,7 +656,7 @@ local function tick()
     errors = {}
     local st = {
         phase = 0, list = nil, i = 0,
-        modules = {}, progress = {}, production = {}, located = {}, buildings = {}, storages = {}, by_object = {},
+        modules = {}, converters = {}, located = {}, buildings = {}, storages = {}, by_object = {},
         started = os.clock(), work = 0, slices = 0, longest = 0, resync_ms = 0,
     }
     -- one class found again (FindAllOf) per RESYNC_EVERY scans, in turn, in case a
@@ -741,6 +764,10 @@ ExecuteInGameThreadWithDelay(FIRST_DELAY_MS, function()
         LoopInGameThreadWithDelay(POSITIONS_MS, function()
             local ok, err = pcall(write_positions)
             if not ok then print("[OverpalMod] positions failed: " .. tostring(err)) end
+        end)
+        LoopInGameThreadWithDelay(PRODUCTION_MS, function()
+            local ok, err = pcall(production_tick)
+            if not ok then print("[OverpalMod] production failed: " .. tostring(err)) end
         end)
     end)
 end)
