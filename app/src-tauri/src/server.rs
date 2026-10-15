@@ -350,7 +350,9 @@ async fn events(State(s): State<AppState>) -> Response {
             }
         }
     });
-    Sse::new(stream).keep_alive(KeepAlive::default()).into_response()
+    // a comment every 5 s even when nothing changes, so a window can tell a hung connection (overlay
+    // storageStream.ts reconnects after STALL_MS of silence)
+    Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(5))).into_response()
 }
 
 async fn mod_status(State(s): State<AppState>) -> Response {

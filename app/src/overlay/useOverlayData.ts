@@ -100,21 +100,34 @@ export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): 
   useEffect(() => {
     if (!cfg) return;
     const abort = new AbortController();
-    let latest = 0;
+    // the storage version waiting for the inventory fetch, and whether one runs
+    let waiting: BaseStorage | null = null;
+    let fetching = false;
     streamStorage(
       cfg,
-      async (s) => {
+      (s) => {
         // a chest change is often a move to or from the inventory; fetch the inventory now and apply
-        // both together, otherwise the moved items vanish from the totals until the next inventory poll
-        const n = ++latest;
-        const uid = meUidRef.current;
-        const inv = uid ? await fetchInventory(cfg, uid).catch(() => null) : null;
-        // a newer version arrived while waiting
-        if (abort.signal.aborted || n !== latest) return;
-        if (inv) setInventory(inv);
-        setStorage(s);
-        setStreamDown(false);
-        setError(null);
+        // both together, otherwise the moved items vanish from the totals until the next inventory poll.
+        // Versions that come while the inventory is fetched wait (only the latest), and are applied
+        // after it: dropping them starved the window of updates while a busy base changed its
+        // chests faster than the fetch took.
+        waiting = s;
+        if (fetching) return;
+        fetching = true;
+        (async () => {
+          while (waiting && !abort.signal.aborted) {
+            const next: BaseStorage = waiting;
+            waiting = null;
+            const uid = meUidRef.current;
+            const inv = uid ? await fetchInventory(cfg, uid).catch(() => null) : null;
+            if (abort.signal.aborted) break;
+            if (inv) setInventory(inv);
+            setStorage(next);
+            setStreamDown(false);
+            setError(null);
+          }
+          fetching = false;
+        })();
       },
       (e) => {
         setStreamDown(true);

@@ -19,6 +19,8 @@ export interface LivePosition {
 }
 
 const RETRY_MS = 2000;
+/** the app server sends a keep-alive every 5 s; this long without a byte means a hung connection */
+const STALL_MS = 20000;
 
 /** Calls `onStorage` with every new version until `signal` aborts; reconnects on errors. */
 export async function streamStorage(
@@ -30,10 +32,20 @@ export async function streamStorage(
   onProduction?: (p: ProductionUpdate[]) => void,
 ) {
   while (!signal.aborted) {
+    // this connection only: dropped (and made again) when it goes quiet
+    const conn = new AbortController();
+    const stop = () => conn.abort();
+    signal.addEventListener("abort", stop);
+    let stall: number | undefined;
+    const watch = () => {
+      window.clearTimeout(stall);
+      stall = window.setTimeout(() => conn.abort(), STALL_MS);
+    };
     try {
+      watch();
       const res = await fetch(`${cfg.serverUrl.replace(/\/$/, "")}/api/events`, {
         headers: { Authorization: `Bearer ${cfg.token}` },
-        signal,
+        signal: conn.signal,
       });
       if (!res.ok || !res.body) throw new Error(`events: ${res.status}`);
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -41,6 +53,7 @@ export async function streamStorage(
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
+        watch();
         buf += value;
         // events are separated by a blank line
         let end: number;
@@ -63,6 +76,9 @@ export async function streamStorage(
       if (signal.aborted) return;
       onDown(e);
       await new Promise((r) => setTimeout(r, RETRY_MS));
+    } finally {
+      window.clearTimeout(stall);
+      signal.removeEventListener("abort", stop);
     }
   }
 }
