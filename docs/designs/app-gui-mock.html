@@ -40,6 +40,13 @@
   .statusbar .si b { line-height:1; }
   .statusbar .si b { color:var(--fg); font-weight:500; }
   .statusbar .dot { width:7px; height:7px; }
+  /* overlay on/off switch in the status bar */
+  .ovsw { display:flex; align-items:center; gap:7px; height:100%; cursor:pointer; color:var(--muted); }
+  .ovsw:hover { color:var(--fg); }
+  .ovsw .tg { position:relative; width:26px; height:14px; border-radius:7px; background:#3a4250; transition:background .15s; }
+  .ovsw .tg::after { content:""; position:absolute; left:2px; top:2px; width:10px; height:10px; border-radius:50%; background:#c9d1d9; transition:left .15s; }
+  .ovsw.on .tg { background:#2f81f7; }
+  .ovsw.on .tg::after { left:14px; background:#fff; }
   .statusbar .sp { flex:1; }
   .main { flex:1; min-height:0; min-width:0; overflow:auto; padding:18px 20px; scrollbar-width:thin; scrollbar-color:#3a4250 transparent; }
   h2 { margin:0 0 4px; font-size:18px; }
@@ -232,6 +239,7 @@
       <li><b>설정</b>: 지금 모드에 맞는 칸만 보임(모드는 보기만). 저장 누르면 같은 모드로 앱이 다시 켜짐</li>
       <li><b>친구</b>(server·both만): 추가하면 토큰 만들고 친구용 폴더(exe + 설정) 생성. 폴더 열기, 토큰 다시 만들기(이전 토큰 끊김), 삭제</li>
       <li><b>친구 토큰 복사</b>: 토큰 칸의 <b>복사</b> 버튼으로 토큰만 복사. 누르면 1.5초 동안 '복사됨'. 토큰은 화면에선 계속 가려 둠(••••끝 4자리)</li>
+      <li style="color:#e3b341"><b>이번 변경 · 오버레이 끄기/켜기</b> (아래 상태줄 오른쪽, 모드가 오버레이·둘 다일 때만): 스위치를 누르면 게임 위 오버레이 창이 모두 닫히고 데이터도 받지 않음. 앱 서버·게임 서버·친구 접속은 그대로. 다시 켜면 창을 새로 띄워 최신 데이터를 받음(멈췄을 때 껐다 켜면 됨). 앱을 다시 켜면 항상 켜진 상태로 시작</li>
       <li><b>로그</b>: 서버 멈춤 경고, 연결 오류, 친구 접속 기록. 지금 cmd에 찍히던 것</li>
       <li>처음 실행(프로필 없음)이면 드롭다운에 New Profile만 있음</li>
       <li><b>게임 서버 메뉴</b>(홈 다음, 서버가 있는 모드만): 맨 위 카드에 상태(켜짐/켜는 중/끄는 중/꺼짐)·실행 시간·접속 인원과 켜기/끄기 버튼. 끄기는 확인 창을 거쳐 월드를 저장한 뒤 정상 종료(관리 API, 비밀번호는 서버 설정 파일에서 읽음). 켜기는 그 폴더의 PalServer.exe를 따로 띄움. Overpal를 꺼도 게임 서버는 계속 돎. 아래 상태줄도 꺼짐/켜는 중/끄는 중을 보여줌. 그 아래 서버 정보(폴더·서버 이름·버전·실행 시간·접속·FPS)와 서버 로그(PalDefender 로그 / 모드 UE4SS 로그 전환, 새 줄이 생기면 따라 내려감)</li>
@@ -258,7 +266,7 @@
   </aside>
 </div>
 <script>
-const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false, finder: false, gs: "on", gsConfirm: false, gsLog: "pd", quit: null };
+const st = { tab: "profile", mode: "both", state: "ok", modal: false, dirty: false, pick: "both", prof: -1, dd: false, finder: false, gs: "on", gsConfirm: false, gsLog: "pd", quit: null, ov: true };
 const opts = {
   tab: [["profile", "① 프로필 창"], ["launch", "② 모드 선택"], ["status", "③ Home: 홈"], ["gameserver", "게임 서버"], ["log", "로그"], ["friends", "친구"], ["settings", "설정"]],
   mode: [["both", "both"], ["server", "server"], ["client", "client"]],
@@ -544,7 +552,9 @@ function statusbar() {
   const game = gsOff
     ? `<span class="si">${ic("game")}<span class="dot ${st.gs === "off" ? "off" : "warn"}"></span>게임 서버 <b>${{ off: "꺼짐", starting: "켜는 중", pdwait: "연결 중", stopping: "끄는 중" }[st.gs]}</b></span>`
     : `<span class="si">${ic("game")}<span class="dot ${off ? "bad" : ""}"></span>게임 서버 <b>${off ? "연결 안 됨" : "연결됨"}</b>${off ? "" : " 접속 2명"}</span>`;
-  return `<div class="statusbar">${app}${game}<span class="sp"></span><span class="si">${ic(st.mode === "server" ? "server" : st.mode === "client" ? "monitor" : "sliders")}${st.mode} 모드</span></div>`;
+  // overlay switch: only in the modes that show the overlay
+  const ov = st.mode === "server" ? "" : `<span class="ovsw ${st.ov ? "on" : ""}" data-ov title="게임 화면의 오버레이를 끄거나 켭니다">${ic("monitor")}오버레이 <b>${st.ov ? "켜짐" : "꺼짐"}</b><span class="tg"></span></span>`;
+  return `<div class="statusbar">${app}${game}<span class="sp"></span>${ov}<span class="si">${ic(st.mode === "server" ? "server" : st.mode === "client" ? "monitor" : "sliders")}${st.mode} 모드</span></div>`;
 }
 
 function render() {
@@ -568,6 +578,7 @@ function render() {
   w.querySelectorAll("[data-prof]").forEach((e) => (e.onclick = () => { st.prof = Number(e.dataset.prof); st.dd = false; render(); }));
   w.querySelectorAll("[data-open]").forEach((e) => (e.onclick = () => { const pf = PROFILES[st.prof]; if (!pf || pf.start === "ask") st.tab = "launch"; else { st.mode = pf.start; st.tab = "status"; } st.dd = false; render(); }));
   w.querySelectorAll("[data-quit]").forEach((e) => (e.onclick = () => { st.quit = e.dataset.quit === "go" ? "stopping" : null; render(); }));
+  w.querySelectorAll("[data-ov]").forEach((e) => (e.onclick = () => { st.ov = !st.ov; render(); }));
   w.querySelectorAll("[data-copytok],[data-copyall]").forEach((b) => (b.onclick = () => { const t = b.innerHTML; b.innerHTML = ic("check") + "복사됨"; setTimeout(() => (b.innerHTML = t), 1500); }));
   w.querySelectorAll("[data-gslog]").forEach((e) => (e.onclick = () => { st.gsLog = e.dataset.gslog; render(); }));
   w.querySelectorAll("[data-gs]").forEach((e) => (e.onclick = () => {
