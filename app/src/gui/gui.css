@@ -1113,3 +1113,49 @@ th.r {
   }
 }
 
+/* overlay on/off switch in the status bar */
+.ovsw {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 100%;
+  cursor: pointer;
+  color: var(--muted);
+}
+.ovsw:hover {
+  color: var(--fg);
+}
+.ovsw b {
+  color: var(--fg);
+  font-weight: 500;
+}
+.ovsw .tg {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: #3a4250;
+  transition: background 0.15s;
+}
+.ovsw .tg::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #c9d1d9;
+  transition: left 0.15s;
+}
+.ovsw.on .tg {
+  background: #2f81f7;
+}
+.ovsw.on .tg::after {
+  left: 14px;
+  background: #fff;
+}
+.statusbar .ovsw .ic {
+  translate: 0 -1.5px;
+}
+

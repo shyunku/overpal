@@ -37,7 +37,7 @@ pub struct OverlayState {
     pub monitor: Option<MonitorRect>,
 }
 
-pub struct CurrentState(Mutex<OverlayState>);
+pub struct CurrentState(pub Mutex<OverlayState>);
 
 /// State for windows that start after the last change event.
 #[tauri::command]

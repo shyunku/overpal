@@ -102,6 +102,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             gui::client_config,
             gui::app_quit,
+            gui::overlay_on,
+            gui::overlay_set,
             gui::profiles_list,
             gui::profile_delete,
             gui::launcher_open,

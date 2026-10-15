@@ -53,13 +53,15 @@ pub struct SessionInner {
     pub started: bool,
     pub always_show: bool,
     overlay_up: bool,
+    /// the overlay switch in Home (windows open); starts on whenever the overlay is up
+    overlay_shown: bool,
     /// how Home reaches the app server (the overlay's settings, or the host's own in server mode)
     home_client: Option<ClientConfig>,
 }
 
 impl SessionInner {
     pub fn new(config_dir: PathBuf, always_show: bool) -> SessionInner {
-        SessionInner { store: Store::new(&config_dir), config_dir, profile: None, legacy: None, mode: None, started: false, always_show, overlay_up: false, home_client: None }
+        SessionInner { store: Store::new(&config_dir), config_dir, profile: None, legacy: None, mode: None, started: false, always_show, overlay_up: false, overlay_shown: false, home_client: None }
     }
 }
 
@@ -181,13 +183,59 @@ pub fn start_services(app: &AppHandle, cfg: &Config, mode: Mode) -> Result<(), S
     if mode != Mode::Server {
         *app.state::<ClientState>().0.lock().unwrap() = client;
         if !overlay_up {
-            session.0.lock().unwrap().overlay_up = true;
+            {
+                let mut s = session.0.lock().unwrap();
+                s.overlay_up = true;
+                s.overlay_shown = true;
+            }
             crate::overlay::create_windows(app).map_err(|e| e.to_string())?;
             crate::overlay_watch::spawn(app, &crate::overlay::FOLLOW_CURSOR, always_show);
             crate::hotkeys::spawn(app);
         }
     }
     Ok(())
+}
+
+/// Whether the overlay windows are up (Home's overlay switch); false in server mode.
+#[tauri::command]
+pub fn overlay_on(session: tauri::State<'_, Session>) -> bool {
+    session.0.lock().unwrap().overlay_shown
+}
+
+/// Turns the overlay off (closes its windows, which also stops their data) or on again (new
+/// windows, which fetch everything afresh). Async: creating windows from a sync command blocks.
+#[tauri::command]
+pub async fn overlay_set(app: AppHandle, on: bool) -> Result<bool, String> {
+    let up = {
+        let s = app.state::<Session>();
+        let s = s.0.lock().unwrap();
+        s.overlay_up
+    };
+    if !up {
+        return Err("오버레이를 쓰지 않는 모드입니다.".into());
+    }
+    if on {
+        crate::overlay::create_windows(&app).map_err(|e| e.to_string())?;
+        // the watcher sets click-through only when the game's state changes: the new windows get
+        // the current one now (else they would catch the mouse while playing)
+        let click_through = !app.state::<crate::overlay_watch::CurrentState>().0.lock().unwrap().interactive;
+        let handle = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            for label in crate::overlay::FOLLOW_CURSOR {
+                if let Some(w) = handle.get_webview_window(label) {
+                    #[cfg(windows)]
+                    crate::overlay::set_click_through(&w, click_through);
+                    #[cfg(not(windows))]
+                    let _ = w.set_ignore_cursor_events(click_through);
+                }
+            }
+        });
+    } else {
+        crate::overlay::close_windows(&app);
+    }
+    app.state::<Session>().0.lock().unwrap().overlay_shown = on;
+    applog::info(Kind::App, if on { "오버레이를 켰습니다." } else { "오버레이를 껐습니다." });
+    Ok(on)
 }
 
 pub fn mode_name(mode: Mode) -> &'static str {

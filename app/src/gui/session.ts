@@ -97,6 +97,8 @@ export const api = {
   logLines: () => invoke<LogLine[]>("log_lines"),
   logDir: () => invoke<string | null>("log_dir"),
   quit: () => invoke<void>("app_quit"),
+  overlayOn: () => invoke<boolean>("overlay_on"),
+  overlaySet: (on: boolean) => invoke<boolean>("overlay_set", { on }),
 };
 
 export const MODE_NAME: Record<StartMode, string> = { server: "서버", client: "오버레이", both: "서버+오버레이", ask: "매번 선택" };

@@ -293,6 +293,7 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
           {appServer}
           {game}
           <span className="sp" />
+          {mode !== "server" && <OverlaySwitch />}
           <span className="si">
             <Icon name={mode === "server" ? "server" : mode === "client" ? "monitor" : "sliders"} />
             {mode} 모드
@@ -300,6 +301,32 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
         </div>
       </div>
     </div>
+  );
+}
+
+/** Turns the game overlay off and on again (on: new windows, everything fetched afresh). */
+function OverlaySwitch() {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api.overlayOn().then(setOn, () => setOn(null));
+  }, []);
+  if (on === null) return null;
+  const toggle = () => {
+    if (busy) return;
+    setBusy(true);
+    api
+      .overlaySet(!on)
+      .then(setOn)
+      .catch(() => {})
+      .finally(() => setBusy(false));
+  };
+  return (
+    <span className={`ovsw ${on ? "on" : ""}`} title="게임 화면의 오버레이를 끄거나 켭니다" onClick={toggle}>
+      <Icon name="monitor" />
+      오버레이 <b>{on ? "켜짐" : "꺼짐"}</b>
+      <span className="tg" />
+    </span>
   );
 }
 

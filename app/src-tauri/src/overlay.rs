@@ -93,9 +93,21 @@ fn backdrop() -> Backdrop {
     }
 }
 
-/// Creates the hidden overlay windows. Each one positions itself and shows up when ready.
+/// Closes every overlay window (the overlay switch in Home); create_windows brings them back.
+pub fn close_windows(app: &AppHandle) {
+    for v in VIEWS {
+        if let Some(w) = app.get_webview_window(v.label) {
+            let _ = w.destroy();
+        }
+    }
+}
+
+/// Creates the hidden overlay windows (those not open yet). Each one positions itself and shows up when ready.
 pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
     for v in VIEWS {
+        if app.get_webview_window(v.label).is_some() {
+            continue;
+        }
         let mut b = WebviewWindowBuilder::new(app, v.label, WebviewUrl::App(format!("index.html?view={}", v.label).into()))
             .title("Overpal")
             .transparent(true)
