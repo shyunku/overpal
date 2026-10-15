@@ -34,6 +34,16 @@ describe("goals", () => {
     expect(treeProgress(recipes, tree)).toBeCloseTo(14 / 20);
   });
 
+  it("makes a lacking material the way the stock covers best", () => {
+    const r: Recipes = { ...recipes, CarbonFiber: { n: 1, mats: [["Coal", 2], ["FireOrgan", 1]], alt: [{ n: 1, mats: [["Charcoal", 5], ["FireOrgan", 1]] }] } };
+    const [cf] = materialTree(r, [["CarbonFiber", 2]], pool({ Charcoal: 10, FireOrgan: 2 }));
+    expect(cf.children.map((c) => [c.id, c.have, c.need])).toEqual([["Charcoal", 10, 10], ["FireOrgan", 2, 2]]);
+    expect(cf.progress).toBe(1);
+    // with coal at hand the regular recipe stays
+    const [cf2] = materialTree(r, [["CarbonFiber", 2]], pool({ Coal: 4, FireOrgan: 2 }));
+    expect(cf2.children[0].id).toBe("Coal");
+  });
+
   it("tells how many the stock makes now", () => {
     expect(craftableNow(recipes.Arrow, undefined, pool({ Wood: 7, Stone: 9 }))).toBe(30);
     expect(craftableNow(undefined, [["Wood", 5]], pool({ Wood: 12 }))).toBe(2);

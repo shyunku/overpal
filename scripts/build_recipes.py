@@ -41,10 +41,14 @@ def main() -> None:
     for r in rows:
         if not r["mats"] or r["count"] <= 0:
             continue
-        # a few products have more than one recipe; the first row is the regular one
+        mats = [[m["id"], m["n"]] for m in r["mats"]]
+        # a few products have more than one recipe (carbon fiber from coal or charcoal): the first
+        # row is the regular one, the others go to "alt" (made into the same product, not from it)
         if r["product"] in out:
+            if all(m[0] != r["product"] for m in mats):
+                out[r["product"]].setdefault("alt", []).append({"n": r["count"], "mats": mats})
             continue
-        e = {"n": r["count"], "mats": [[m["id"], m["n"]] for m in r["mats"]]}
+        e = {"n": r["count"], "mats": mats}
         if r["product"] in bench:
             e["bench"] = bench[r["product"]]
         out[r["product"]] = e

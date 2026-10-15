@@ -8,6 +8,8 @@ export interface Recipe {
   mats: [string, number][];
   /** buildings that make it */
   bench?: string[];
+  /** other ways to make it (carbon fiber from coal or from charcoal) */
+  alt?: { n: number; mats: [string, number][] }[];
 }
 
 export type Recipes = Record<string, Recipe>;
@@ -22,7 +24,7 @@ export interface Goal {
 export const goalKey = (g: { kind: string; id: string }) => `${g.kind}:${g.id}`;
 
 /** materials an amount of an item takes: whole crafts, each making recipe.n */
-export function materialsOf(recipe: Recipe | undefined, amount: number): [string, number][] {
+export function materialsOf(recipe: { n: number; mats: [string, number][] } | undefined, amount: number): [string, number][] {
   if (!recipe || amount <= 0) return [];
   const crafts = Math.ceil(amount / recipe.n);
   return recipe.mats.map(([m, q]) => [m, q * crafts]);
@@ -73,17 +75,41 @@ export function materialTree(recipes: Recipes, mats: [string, number][], pool: M
     pool.set(id, (pool.get(id) ?? 0) - have);
     const lack = need - have;
     const craftable = depth < MAX_DEPTH && !!recipes[id];
-    const children = lack > 0 && craftable ? materialTree(recipes, materialsOf(recipes[id], lack), pool, key, depth + 1) : [];
+    let children: MaterialNode[] = [];
+    if (lack > 0 && craftable) {
+      // of the ways to make it, the one the stock covers best (the first on a tie)
+      const ways = [recipes[id], ...(recipes[id].alt ?? [])];
+      let best = ways[0];
+      let bestFrac = -1;
+      if (ways.length > 1) {
+        for (const w of ways) {
+          const f = covered(recipes, materialTree(recipes, materialsOf(w, lack), new Map(pool), key, depth + 1));
+          if (f > bestFrac) {
+            bestFrac = f;
+            best = w;
+          }
+        }
+      }
+      children = materialTree(recipes, materialsOf(best, lack), pool, key, depth + 1);
+    }
     // one level only: shown when a filled line is opened by hand
     const recipeChildren = lack === 0 && craftable && depth < 2 ? materialTree(recipes, materialsOf(recipes[id], need), new Map(pool), key, MAX_DEPTH) : [];
-    const total = leaves(recipes, id, need);
-    const done = leaves(recipes, id, have) + childDone(recipes, children);
-    return { key, id, need, have, lack, progress: total ? Math.min(1, done / total) : 1, children, recipeChildren, craftable };
+    // what is there counts whole; what is lacking counts as far as its materials are there
+    const progress = need ? Math.min(1, (have + lack * (children.length ? covered(recipes, children) : 0)) / need) : 1;
+    return { key, id, need, have, lack, progress, children, recipeChildren, craftable };
   });
 }
 
-function childDone(recipes: Recipes, nodes: MaterialNode[]): number {
-  return nodes.reduce((a, n) => a + leaves(recipes, n.id, n.have) + childDone(recipes, n.children), 0);
+/** how far lines are covered (0..1), each weighted by the base materials it takes */
+function covered(recipes: Recipes, nodes: MaterialNode[]): number {
+  let done = 0;
+  let total = 0;
+  for (const n of nodes) {
+    const t = leaves(recipes, n.id, n.need);
+    total += t;
+    done += n.progress * t;
+  }
+  return total ? done / total : 1;
 }
 
 /** a goal's progress (0..1, in base materials) over its material lines */
