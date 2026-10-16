@@ -109,7 +109,9 @@ pub fn create_windows(app: &AppHandle) -> tauri::Result<()> {
             continue;
         }
         let mut b = WebviewWindowBuilder::new(app, v.label, WebviewUrl::App(format!("index.html?view={}", v.label).into()))
-            .title("Overpal")
+            // no title: a light bar with the window's title kept showing at the top of the main
+            // window (0.1.3 to 0.1.7) although its style had no caption; with none there is no text
+            .title("")
             .transparent(true)
             .decorations(false)
             .always_on_top(true)
@@ -207,11 +209,15 @@ fn window_corners(window: &tauri::WebviewWindow, round: bool) {
     use windows_sys::Win32::Graphics::Dwm::{DWMWA_BORDER_COLOR, DWMWA_COLOR_NONE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DONOTROUND, DWMWCP_ROUND, DwmSetWindowAttribute};
     let Ok(hwnd) = window.hwnd() else { return };
     let h = hwnd.0 as _;
+    use windows_sys::Win32::Graphics::Dwm::{DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR};
     let corner = if round { DWMWCP_ROUND } else { DWMWCP_DONOTROUND };
-    let border = DWMWA_COLOR_NONE;
+    let none = DWMWA_COLOR_NONE;
     unsafe {
         DwmSetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE as u32, &corner as *const _ as *const _, size_of_val(&corner) as u32);
-        DwmSetWindowAttribute(h, DWMWA_BORDER_COLOR as u32, &border as *const _ as *const _, size_of_val(&border) as u32);
+        DwmSetWindowAttribute(h, DWMWA_BORDER_COLOR as u32, &none as *const _ as *const _, size_of_val(&none) as u32);
+        // and no caption from the compositor either (its bar and text), should it draw one
+        DwmSetWindowAttribute(h, DWMWA_CAPTION_COLOR as u32, &none as *const _ as *const _, size_of_val(&none) as u32);
+        DwmSetWindowAttribute(h, DWMWA_TEXT_COLOR as u32, &none as *const _ as *const _, size_of_val(&none) as u32);
     }
 }
 
