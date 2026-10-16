@@ -393,6 +393,27 @@ local last_production = nil
 -- Reads the orders of the production buildings into their entries in `current` and writes
 -- production.json ({ buildings: [{ id, production | null }] }, every production building)
 -- when anything changed. `force`: also when nothing changed (after a scan).
+-- current item's work done and required. Buildings several pals work on together (ancient
+-- furnace, ancient workbench) use PalWorkProgressMultiType: its CurrentWorkAmount stays 0 and each
+-- work type has its own entry (CurrentProgress may run past MaxProgress, kept for the next items);
+-- an item is done when every type reaches its MaxProgress, the maxima adding up to the requirement.
+local function work_of(w)
+    if not w then return 0, 0 end
+    local entries = nil
+    pcall(function()
+        if w:GetClass():GetFName():ToString() == "PalWorkProgressMultiType" then entries = w.ProgressEntries end
+    end)
+    if not entries then return w.CurrentWorkAmount, w.RequiredWorkAmount end
+    local done, total = 0, 0
+    for i = 1, #entries do
+        local e = entries[i]
+        local max = e.MaxProgress
+        done = done + math.min(e.CurrentProgress, max)
+        total = total + max
+    end
+    return done, total
+end
+
 local function production_tick(force)
     take_pending("progress")
     local progress = {}
@@ -423,13 +444,14 @@ local function production_tick(force)
                     if it.item == recipe then made = made + it.count end
                 end
             end
+            local work, required = work_of(w)
             p = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
                 remain = concrete.RemainProductNum,
                 made = made,
-                work = w and w.CurrentWorkAmount or 0,
-                workRequired = w and w.RequiredWorkAmount or 0,
+                work = work,
+                workRequired = required,
             }
         end)
         local pj = p and to_json(p) or "null"
