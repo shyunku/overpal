@@ -1852,6 +1852,9 @@ svg.mk.fan {
   margin-top: 6px;
 }
 .gl-qty button {
+  /* never squeezed by a narrow window ("삭제" broke into two lines) */
+  flex: none;
+  white-space: nowrap;
   width: 30px;
   height: 30px;
   border-radius: 8px;
@@ -1859,6 +1862,7 @@ svg.mk.fan {
   font-size: 15px;
 }
 .gl-qty input {
+  flex: none;
   width: 64px;
   height: 30px;
   box-sizing: border-box;
