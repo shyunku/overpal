@@ -1,6 +1,6 @@
 [package]
 name = "overpal"
-version = "0.1.7"
+version = "0.1.8"
 description = "Palworld base storage overlay"
 authors = ["shyunku"]
 edition = "2024"
