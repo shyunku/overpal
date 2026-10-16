@@ -7,7 +7,7 @@ import { resetPositions, type ItemMode, type Layout, type MainTab, type Size, ty
 import { addGoal, goalInfo, GoalsTab, useRecipes } from "./goalViews";
 import { goalKey } from "../data/goals";
 import { withInventory } from "../data/snapshot";
-import { MAP_SIZE, mapPx, WORLD_PER_PX } from "./mapcoords";
+import { MAP_SIZE, mapAt, mapImage, mapPx, worldPerPxOn, worldPxOn, WORLD_PER_PX } from "./mapcoords";
 import { listen } from "@tauri-apps/api/event";
 import type { OverlayData } from "./useOverlayData";
 import { OverlayWindow } from "./OverlayWindow";
@@ -837,8 +837,12 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
     turnTo(Math.atan2(px[0] - prev.px[0], prev.px[1] - px[1]));
   }, [meWorld?.x, meWorld?.y]);
 
-  const center = data.me ? mapPx(data.me.mapPos.x, data.me.mapPos.y) : camps[0] ? mapPx(camps[0].mapPos.x, camps[0].mapPos.y) : null;
-  const k = (MINIMAP_SIZE / MINIMAP_SPAN) * zoom;
+  // the map the player is on (the World Tree has its own); positions go through its projection
+  const active = data.me ? mapAt(data.me.worldPos.x, data.me.worldPos.y) : "main";
+  const at = (w: { x: number; y: number }) => worldPxOn(active, w.x, w.y);
+  const center = data.me ? at(data.me.worldPos) : camps[0] ? at(camps[0].worldPos) : null;
+  // the same world distance across the minimap on either map (the World Tree image is finer)
+  const k = (MINIMAP_SIZE / MINIMAP_SPAN) * zoom * (worldPerPxOn(active) / WORLD_PER_PX);
   const half = MINIMAP_SIZE / 2;
   const view = ([x, y]: [number, number]) => (center ? { left: (x - center[0]) * k + half, top: (y - center[1]) * k + half } : null);
   const inside = (v: { left: number; top: number } | null, pad = 0) => !!v && Math.hypot(v.left - half, v.top - half) <= half - pad;
@@ -846,7 +850,7 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
   const friends = (data.snapshot?.players ?? []).filter((p) => p.online && p.uid !== me?.uid);
   const markers = zoom <= MINIMAP_FAR ? FAR_MARKERS : MINIMAP_MARKERS;
   // the base radius (world units) on the minimap
-  const ringPx = (BASE_RADIUS / WORLD_PER_PX) * k * 2;
+  const ringPx = (BASE_RADIUS / worldPerPxOn(active)) * k * 2;
 
   return (
     <OverlayWindow view="minimap" layout={layout} onLayout={onLayout} passive className="glass round minimap-win">
@@ -856,11 +860,14 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
             <div
               className="map-img"
               style={{
+                backgroundImage: `url("${mapImage(active)}")`,
                 backgroundSize: `${MAP_SIZE * k}px`,
                 backgroundPosition: `${-(center[0] * k - half)}px ${-(center[1] * k - half)}px`,
               }}
             />
+            {/* the markers are placed on the main map */}
             {dex &&
+              active === "main" &&
               markers.flatMap((key) =>
                 dex.markers[key].points.map((pt, i) => {
                   const v = view([pt.x, pt.y]);
@@ -878,7 +885,7 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
                 }),
               )}
             {camps.map((c) => {
-              const v = view(mapPx(c.mapPos.x, c.mapPos.y));
+              const v = view(at(c.worldPos));
               return (
                 <span key={c.campId}>
                   <span className="mk ring" style={{ ...v!, width: ringPx, height: ringPx }} />
@@ -892,7 +899,7 @@ export function MinimapWindow({ layout, onLayout, data }: ViewProps) {
               );
             })}
             {friends.map((p) => {
-              const v = view(mapPx(p.mapPos.x, p.mapPos.y));
+              const v = view(at(p.worldPos));
               if (inside(v, 3)) return <span key={p.uid} className="mk friend" style={v!} title={p.name} />;
               // outside the minimap: an arrow on the edge pointing at the friend, with name and distance
               const a = Math.atan2(v!.top - half, v!.left - half);

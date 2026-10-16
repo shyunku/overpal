@@ -23,3 +23,32 @@ export function worldPx(worldX: number, worldY: number): [number, number] {
 export function mapPx(mapX: number, mapY: number): [number, number] {
   return worldPx(mapY * 459 - 123888, mapX * 459 + 158000);
 }
+
+/**
+ * The game's maps (DT_WorldMapUIData, read on the server 2026-10-17): the main islands and the
+ * World Tree, a region of its own outside the main map's rectangle with its own texture
+ * (T_TreeMap, 4.2 times finer). Images are 4096 px; world Y runs left to right, X bottom to top.
+ */
+export type MapId = "main" | "tree";
+const MAPS: Record<MapId, { minX: number; maxX: number; minY: number; maxY: number; image: string }> = {
+  main: { minX: MIN_X, maxX: MAX_X, minY: MIN_Y, maxY: MAX_Y, image: "/map/palpagos.webp" },
+  tree: { minX: 347351.5, maxX: 689148.5, minY: -818197, maxY: -476400, image: "/map/worldtree.webp" },
+};
+
+/** the map a world position is on */
+export function mapAt(worldX: number, worldY: number): MapId {
+  const t = MAPS.tree;
+  return worldX >= t.minX && worldX <= t.maxX && worldY >= t.minY && worldY <= t.maxY ? "tree" : "main";
+}
+
+/** world position (cm) -> pixels on that map's image */
+export function worldPxOn(map: MapId, worldX: number, worldY: number): [number, number] {
+  const m = MAPS[map];
+  return [((worldY - m.minY) / (m.maxY - m.minY)) * MAP_SIZE, (1 - (worldX - m.minX) / (m.maxX - m.minX)) * MAP_SIZE];
+}
+
+/** world units (cm) per pixel of that map's image */
+export const worldPerPxOn = (map: MapId): number => (MAPS[map].maxY - MAPS[map].minY) / MAP_SIZE;
+
+export const mapImage = (map: MapId): string => MAPS[map].image;
+
