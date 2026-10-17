@@ -659,12 +659,13 @@ export function MainWindow({ layout, onLayout, data }: ViewProps) {
         min: ITEM_MIN[shownMode],
         onDone: (size, win) => onLayout({ ...layout, windows: { ...layout.windows, items: win }, itemSizes: { ...layout.itemSizes, [shownMode]: size } }),
       }}
-      className={`glass win items mode-${shownMode}${detail ? " is-detail" : ""}${layout.windows.items.ax === "right" ? " rail-right" : ""}`}
+      className={`glass win items mode-${shownMode}${detail ? " is-detail" : ""}${layout.windows.items.ax === "right" ? " at-right" : ""}`}
     >
-      <nav className="rail">
+      <nav className="tabs">
         {TABS.map((x) => (
           <button key={x.id} className={tab === x.id ? "on" : ""} onClick={() => setTab(x.id)}>
             <Icon name={x.icon} />
+            <span className="lb">{x.label}</span>
             <span className="tip">{x.label}</span>
           </button>
         ))}

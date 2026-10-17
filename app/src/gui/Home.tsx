@@ -330,7 +330,7 @@ function OverlaySwitch() {
   );
 }
 
-/** Quitting while the game server runs: save and stop it, wait for it to end, then quit. */
+/** Quitting while the game server runs: save and stop it (wait for it to end, then quit), or leave it running. */
 function QuitDialog({ gs, onCancel }: { gs: GameServerStatus; onCancel: () => void }) {
   const [phase, setPhase] = useState<"ask" | "stopping" | "norest">(gs.restEnabled ? "ask" : "norest");
   const [error, setError] = useState<string | null>(null);
@@ -362,13 +362,9 @@ function QuitDialog({ gs, onCancel }: { gs: GameServerStatus; onCancel: () => vo
           <p className="qp">
             게임 서버가 켜져 있습니다.
             <br />
-            Overpal을 종료하면 월드를 저장한 뒤 게임 서버도 끕니다.
-            {gs.players ? (
-              <>
-                <br />
-                접속 중인 플레이어 {gs.players}명의 연결이 끊깁니다.
-              </>
-            ) : null}
+            <b>저장 후 종료</b>: 월드를 저장한 뒤 게임 서버도 끕니다.
+            <br />
+            <b>Overpal만 종료</b>: 게임 서버는 계속 실행됩니다.
           </p>
         )}
         {phase === "stopping" && (
@@ -399,10 +395,15 @@ function QuitDialog({ gs, onCancel }: { gs: GameServerStatus; onCancel: () => vo
                 취소
               </button>
               {phase === "ask" ? (
-                <button className="btn danger-fill" onClick={go}>
-                  <Icon name="power" />
-                  저장 후 종료
-                </button>
+                <>
+                  <button className="btn" onClick={() => api.quit()}>
+                    Overpal만 종료
+                  </button>
+                  <button className="btn danger-fill" onClick={go}>
+                    <Icon name="power" />
+                    저장 후 종료
+                  </button>
+                </>
               ) : (
                 <button className="btn" onClick={() => api.quit()}>
                   <Icon name="power" />
@@ -869,6 +870,19 @@ function Finder({ found, onPick, onClose }: { found: FoundServer[]; onPick: (pat
   );
 }
 
+/** The settings' port rows: what is set, else what the server's files say, else the defaults. */
+function portRows(server: Profile["server"], detected: Detected | null) {
+  type Key = "gamePort" | "queryPort" | "restPort" | "pdPort" | "port";
+  const rows: { key: Key; name: string; note: string; udp: boolean; value: number }[] = [
+    { key: "gamePort", name: "게임", note: "UDP · 친구 접속용", udp: true, value: server?.gamePort ?? 8211 },
+    { key: "queryPort", name: "Steam 쿼리", note: "UDP · 서버 목록", udp: true, value: server?.queryPort ?? 27015 },
+    { key: "restPort", name: "관리 REST", note: "TCP · 이 PC만", udp: false, value: server?.restPort ?? detected?.restPort ?? 8212 },
+    { key: "pdPort", name: "PalDefender REST", note: "TCP · 이 PC만", udp: false, value: server?.pdPort ?? detected?.pdPort ?? 17993 },
+    { key: "port", name: "Overpal 앱 서버", note: "TCP · 친구 오버레이용", udp: false, value: server?.port ?? 17994 },
+  ];
+  return rows;
+}
+
 function SettingsView({ session, mode, prestart, onSaved }: { session: SessionView; mode: Mode; prestart?: boolean; onSaved: (p: Profile) => void }) {
   const original = session.profile;
   const [p, setP] = useState<Profile | null>(original);
@@ -881,6 +895,23 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
   const [found, setFound] = useState<FoundServer[] | null>(null);
   const dirty = useMemo(() => JSON.stringify(p) !== JSON.stringify(original), [p, original]);
   const dir = p?.server?.gameServerDir ?? "";
+  // the game server runs: its ports cannot change (its files are in use, and it would not notice)
+  const [gsRunning, setGsRunning] = useState(false);
+  const [taken, setTaken] = useState<number[]>([]);
+  useEffect(() => {
+    if (!hasServer(mode) || prestart) return;
+    api.gsStatus().then((s) => setGsRunning(s.running), () => setGsRunning(false));
+  }, [dir, mode, prestart]);
+  const ports = portRows(p?.server, detected);
+  const portKey = ports.map((x) => x.value).join(",");
+  useEffect(() => {
+    if (!hasServer(mode) || gsRunning) return setTaken([]);
+    // this app's own server holds the saved app port
+    const mine = original?.server?.port;
+    const ask = ports.filter((x) => x.value && !(x.key === "port" && x.value === mine)).map((x) => [x.value, x.udp] as [number, boolean]);
+    const t = window.setTimeout(() => api.portsTaken(ask).then(setTaken, () => setTaken([])), 400);
+    return () => window.clearTimeout(t);
+  }, [portKey, gsRunning, mode]);
 
   useEffect(() => {
     if (!hasServer(mode) || !dir) return setDetected(null);
@@ -998,14 +1029,12 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
                 </div>
               </div>
             </div>
-            <div className="field">
-              <label>
-                <Icon name="hash" />
-                포트
-              </label>
-              <div>
-                <input style={{ width: 120 }} value={server.port} onChange={(e) => setServer({ port: Number(e.target.value.replace(/\D/g, "")) || 0 })} />
-              </div>
+            <div className="sec">
+              <span>
+                <Icon name="game" />
+                게임 서버
+              </span>
+              <span>{gsRunning ? "서버가 켜져 있어 포트는 바꿀 수 없음" : ""}</span>
             </div>
             <div className="field">
               <label>
@@ -1043,6 +1072,50 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
                     <span style={{ color: detected.palDefenderUrl && detected.hasPalDefenderToken ? "#7ee787" : "#f2cc60" }}>
                       {detected.palDefenderUrl && detected.hasPalDefenderToken ? `PalDefender 확인됨 (${detected.palDefenderUrl.replace("http://", "")})` : "PalDefender REST 설정이 없습니다"}
                     </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="field">
+              <label>
+                <Icon name="hash" />
+                포트
+              </label>
+              <div>
+                <div className="ports">
+                  {ports.map((x) => {
+                    const dup = ports.filter((y) => y.value === x.value && y.udp === x.udp).length > 1;
+                    const clash = dup || taken.includes(x.value);
+                    return (
+                      <div key={x.key} className={`port ${clash ? "clash" : ""}`}>
+                        <span>
+                          <b>{x.name}</b>
+                          <small>{dup ? "다른 칸과 겹침" : taken.includes(x.value) ? "다른 프로그램이 사용 중" : x.note}</small>
+                        </span>
+                        <input
+                          className="tabular"
+                          value={x.value || ""}
+                          disabled={gsRunning}
+                          onChange={(e) => {
+                            const v = Math.min(65535, Number(e.target.value.replace(/\D/g, "")) || 0);
+                            setServer(x.key === "port" ? { port: v } : { [x.key]: v || null });
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="help">
+                  저장하면 관리 REST는 서버 폴더의 PalWorldSettings.ini에, PalDefender REST는 RESTConfig.json에 씁니다.
+                  <br />
+                  게임·쿼리 포트는 Overpal이 서버를 켤 때 실행 옵션으로 넘깁니다.
+                  <br />
+                  외부에 열 포트: 게임(UDP), Overpal 앱 서버(TCP). 나머지는 포트포워딩하지 마세요.
+                </div>
+                {taken.length > 0 && (
+                  <div className="banner warn" style={{ margin: "10px 0 0" }}>
+                    <Icon name="alert" className="lg" />
+                    <span>포트 {taken.join(", ")}을(를) 다른 프로그램(다른 게임 서버 등)이 쓰고 있습니다. 두 서버를 같이 켜려면 다른 번호로 바꿔 주세요.</span>
                   </div>
                 )}
               </div>

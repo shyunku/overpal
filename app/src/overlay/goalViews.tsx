@@ -229,8 +229,10 @@ function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
   const walk = (list: MaterialNode[], depth: number) => {
     for (const n of list) {
       const lacking = n.lack > 0;
+      // lacking, but its materials are all there: closed like a filled line, in yellow
+      const ready = lacking && n.children.length > 0 && n.children.every((c) => c.lack === 0);
       const o = own[n.key];
-      const open = n.craftable && (o && o.lack === lacking ? o.open : lacking);
+      const open = n.craftable && (o && o.lack === lacking ? o.open : lacking && !ready);
       lines.push(
         <div
           className={`gl-mat d${Math.min(depth, 3)} ${n.craftable ? "can" : ""}`}
@@ -250,7 +252,7 @@ function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
             <span className="tabular">
               {n.have}/{n.need}
             </span>
-            <small className={lacking ? "gl-lack" : "gl-ok"}>{lacking ? `${n.lack} 부족` : "완료"}</small>
+            <small className={ready ? "gl-ready" : lacking ? "gl-lack" : "gl-ok"}>{ready ? `${n.lack} 제작 가능` : lacking ? `${n.lack} 부족` : "완료"}</small>
           </span>
           {/* how much of this item itself is there (not what could be made of its materials) */}
           <Ring v={n.need ? n.have / n.need : 1} done={!lacking} />

@@ -52,6 +52,18 @@ pub struct ServerProfile {
     /// listen on all addresses (friends reach it through port forwarding) instead of this PC only
     pub allow_external: bool,
     pub port: u16,
+    /// game port (UDP), passed as -port= when Overpal starts the server; None: the server's default (8211)
+    #[serde(default)]
+    pub game_port: Option<u16>,
+    /// Steam query port (UDP), passed as -QueryPort=; None: the default (27015)
+    #[serde(default)]
+    pub query_port: Option<u16>,
+    /// the server's REST port (PalWorldSettings.ini RESTAPIPort), written there on save
+    #[serde(default)]
+    pub rest_port: Option<u16>,
+    /// PalDefender's REST port (RESTConfig.json Port), written there on save
+    #[serde(default)]
+    pub pd_port: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +166,10 @@ pub struct Detected {
     #[serde(skip)]
     pub pal_defender_token: Option<String>,
     pub has_pal_defender_token: bool,
+    /// RESTAPIPort in PalWorldSettings.ini
+    pub rest_port: Option<u16>,
+    /// Port in PalDefender's RESTConfig.json
+    pub pd_port: Option<u16>,
 }
 
 pub fn detect_server(dir: &Path) -> Detected {
@@ -162,6 +178,7 @@ pub fn detect_server(dir: &Path) -> Detected {
     if let Ok(text) = std::fs::read_to_string(pd.join("RESTConfig.json")) {
         let port = serde_json::from_str::<serde_json::Value>(text.trim_start_matches('\u{feff}')).ok().and_then(|v| v.get("Port").and_then(|p| p.as_u64()));
         d.pal_defender_url = port.map(|p| format!("http://127.0.0.1:{p}"));
+        d.pd_port = port.and_then(|p| u16::try_from(p).ok());
     }
     // any token file PalDefender accepts
     if let Ok(entries) = std::fs::read_dir(pd.join("Tokens")) {
@@ -177,7 +194,40 @@ pub fn detect_server(dir: &Path) -> Detected {
         }
     }
     d.has_pal_defender_token = d.pal_defender_token.is_some();
+    d.rest_port = crate::gameserver::rest_port(dir);
     d
+}
+
+/// Writes the REST ports of a profile into its server's files where they differ from what is there.
+pub fn write_server_ports(sp: &ServerProfile) -> Result<(), String> {
+    let dir = &sp.game_server_dir;
+    let now = detect_server(dir);
+    let rest = sp.rest_port.filter(|p| Some(*p) != now.rest_port);
+    let pd = sp.pd_port.filter(|p| Some(*p) != now.pd_port);
+    if rest.is_none() && pd.is_none() {
+        return Ok(());
+    }
+    if crate::gameserver::is_running(dir) {
+        return Err("게임 서버가 켜져 있어 포트를 바꿀 수 없습니다. 서버를 끈 뒤 저장해 주세요.".into());
+    }
+    if let Some(p) = rest {
+        crate::gameserver::set_rest_port(dir, p)?;
+    }
+    if let Some(p) = pd {
+        let path = dir.join(PD_DIR).join("RESTConfig.json");
+        let text = std::fs::read_to_string(&path).map_err(|_| "PalDefender RESTConfig.json을 읽을 수 없습니다.".to_string())?;
+        std::fs::write(&path, set_json_port(&text, p).ok_or("RESTConfig.json에서 Port를 찾지 못했습니다.")?).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// The JSON text with the number after "Port" replaced (the rest of the file as it was).
+fn set_json_port(text: &str, port: u16) -> Option<String> {
+    let key = text.find("\"Port\"")? + 6;
+    let colon = key + text[key..].find(':')? + 1;
+    let start = colon + text[colon..].find(|c: char| c.is_ascii_digit())?;
+    let end = start + text[start..].find(|c: char| !c.is_ascii_digit()).unwrap_or(text.len() - start);
+    Some(format!("{}{}{}", &text[..start], port, &text[end..]))
 }
 
 /// A dedicated server found in a Steam library.
@@ -395,7 +445,7 @@ mod tests {
     fn both_mode_config() {
         let mut p = Profile::new("t");
         assert!(!p.ready_for(Mode::Both));
-        p.server = Some(ServerProfile { game_server_dir: PathBuf::from(r"E:\srv"), allow_external: true, port: 17995 });
+        p.server = Some(ServerProfile { game_server_dir: PathBuf::from(r"E:\srv"), allow_external: true, port: 17995, game_port: None, query_port: None, rest_port: None, pd_port: None });
         p.player_name = Some("me".into());
         p.friends.push(Friend { name: "f".into(), nickname: "fn".into(), token: "ft".into() });
         assert!(p.ready_for(Mode::Both));
@@ -413,6 +463,12 @@ mod tests {
         assert_eq!(c.player_name.as_deref(), Some("me"));
         // the same host token next time
         assert_eq!(p.to_config(Mode::Server).unwrap().server.unwrap().access_tokens[0], host);
+    }
+
+    #[test]
+    fn sets_pal_defender_port() {
+        assert_eq!(set_json_port("\u{feff}{\n  \"Port\": 17993,\n  \"Enabled\": true\n}", 18993).unwrap(), "\u{feff}{\n  \"Port\": 18993,\n  \"Enabled\": true\n}");
+        assert!(set_json_port("{}", 1).is_none());
     }
 
     #[test]

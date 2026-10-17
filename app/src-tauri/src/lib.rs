@@ -104,6 +104,7 @@ pub fn run() {
             gui::app_quit,
             gui::overlay_on,
             gui::overlay_set,
+            gui::ports_taken,
             gui::profiles_list,
             gui::profile_delete,
             gui::launcher_open,

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Main Window Top Tabs</title>
+<style>
+  :root {
+    --glass-line: rgba(255, 255, 255, 0.14);
+    --glass-fg: #f2f5f9;
+    --glass-muted: rgba(242, 245, 249, 0.62);
+    --chip: rgba(255, 255, 255, 0.08);
+    --accent: #ffb84c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    color: var(--glass-fg);
+    background: #1b2330 linear-gradient(135deg, #2b3a2a, #1d2a3a 55%, #3a2f24);
+    min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+  .page { display: flex; gap: 28px; padding: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .controls, .notes {
+    background: rgba(10, 12, 16, 0.8);
+    border: 1px solid var(--glass-line);
+    border-radius: 12px;
+    padding: 16px;
+    font-size: 14px;
+  }
+  .controls { width: 300px; }
+  .notes { width: 360px; line-height: 1.6; }
+  .notes h3 { margin: 12px 0 4px; font-size: 14px; color: var(--accent); }
+  .notes h3:first-child { margin-top: 0; }
+  .notes ul { margin: 0; padding-left: 18px; }
+  .row { margin-bottom: 14px; }
+  .row > label { display: block; color: var(--glass-muted); margin-bottom: 6px; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; }
+  .seg button { padding: 5px 10px; border-radius: 7px; background: var(--chip); }
+  .seg button.on { background: #2f81f7; }
+  input[type=range] { width: 100%; }
+  .wlabel { font-variant-numeric: tabular-nums; }
+
+  /* ---------- the overlay window ---------- */
+  .stage { flex: 1; min-width: 300px; }
+  .win {
+    width: 361px;
+    height: 620px;
+    background: rgba(16, 20, 28, 0.62);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-line);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 17px;
+    container-type: inline-size;
+    container-name: win;
+  }
+  /* the tab bar: across the top, the tabs share its width */
+  .tabs {
+    flex: none;
+    display: flex;
+    gap: 4px;
+    padding: 8px 8px 0;
+    border-bottom: 1px solid var(--glass-line);
+  }
+  .tabs button {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: var(--glass-muted);
+    border-radius: 9px 9px 0 0;
+  }
+  .tabs button:hover { color: var(--glass-fg); background: var(--chip); }
+  .tabs button.on { color: var(--glass-fg); }
+  .tabs svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tabs .lb { font-size: 15px; white-space: nowrap; line-height: 1; }
+  /* A: accent line under the active tab */
+  .tabs.a button.on::after {
+    content: ""; position: absolute; left: 14%; right: 14%; bottom: -1px; height: 3px; border-radius: 2px; background: var(--accent);
+  }
+  /* B: filled pill, no bottom line on the bar */
+  .tabs.b { border-bottom: 0; padding-bottom: 4px; gap: 6px; }
+  .tabs.b button { border-radius: 10px; height: 40px; }
+  .tabs.b button.on { background: rgba(255, 255, 255, 0.18); }
+  .tabs.b button.on svg { color: var(--accent); }
+
+  /* C: accent line under the active tab, with an accent glow rising from it */
+  .tabs.c button.on {
+    background: linear-gradient(to top, rgba(255, 184, 76, 0.28), rgba(255, 184, 76, 0.06) 60%, rgba(255, 184, 76, 0));
+  }
+  .tabs.c button.on svg { color: var(--accent); }
+  .tabs.c button.on::after {
+    content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 3px; border-radius: 2px 2px 0 0; background: var(--accent);
+    box-shadow: 0 0 10px rgba(255, 184, 76, 0.7);
+  }
+  /* C2: the same, softer (thinner line, fainter glow, white icon) */
+  .tabs.c2 button.on {
+    background: linear-gradient(to top, rgba(255, 184, 76, 0.16), rgba(255, 184, 76, 0) 75%);
+  }
+  .tabs.c2 button.on::after {
+    content: ""; position: absolute; left: 10%; right: 10%; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent);
+  }
+
+  /* narrow: icons only, the name in a tooltip */
+  .tabs .tip {
+    position: absolute; top: 46px; left: 50%; translate: -50% 0; z-index: 5;
+    font-size: 13px; padding: 3px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.75);
+    white-space: nowrap; opacity: 0; pointer-events: none;
+  }
+  @container win (max-width: 459px) {
+    .tabs .lb { display: none; }
+    .tabs button:hover .tip { opacity: 1; }
+  }
+  .force-icons .tabs .lb { display: none !important; }
+  .force-icons .tabs button:hover .tip { opacity: 1; }
+
+  .wtitle { padding: 16px 18px 10px; cursor: move; }
+  .tline { display: flex; align-items: center; gap: 8px; }
+  .tline .t { font-size: 22px; font-weight: 600; flex: 1; }
+  .modes { display: flex; gap: 4px; }
+  .modes span { width: 30px; height: 30px; border-radius: 8px; background: var(--chip); display: grid; place-items: center; }
+  .modes span.on { background: rgba(255, 255, 255, 0.2); }
+  .modes svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .sub { margin-top: 6px; color: var(--glass-muted); font-size: 14px; }
+  .search { margin: 4px 18px 10px; height: 38px; border-radius: 9px; background: var(--chip); border: 1px solid var(--glass-line); padding: 0 12px; display: flex; align-items: center; color: var(--glass-muted); font-size: 15px; }
+  .list { flex: 1; overflow: hidden; padding: 0 18px; }
+  .li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
+  .li i { width: 36px; height: 36px; border-radius: 8px; background: rgba(255, 255, 255, 0.1); flex: none; }
+  .li b { flex: 1; font-weight: 500; }
+  .li em { font-style: normal; color: var(--glass-muted); font-variant-numeric: tabular-nums; }
+  .old { margin-top: 14px; font-size: 13px; color: var(--glass-muted); }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="controls">
+    <div class="row">
+      <label>후보</label>
+      <div class="seg" id="cand">
+        <button data-v="c" class="on">C 밑줄+그라데이션</button>
+        <button data-v="c2">C2 은은하게</button>
+        <button data-v="a">A 밑줄</button>
+        <button data-v="b">B 채운 알약</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>창 크기 (메인 창 레이아웃)</label>
+      <div class="seg" id="size">
+        <button data-v="272">컴팩트 272</button>
+        <button data-v="361" class="on">일반 361</button>
+        <button data-v="861">와이드 861</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>드래그로 크기 조절 흉내: <span class="wlabel" id="wv">361</span>px</label>
+      <input type="range" id="w" min="240" max="900" value="361" />
+    </div>
+    <div class="row">
+      <label>선택된 탭</label>
+      <div class="seg" id="tabsel"></div>
+    </div>
+    <div class="row">
+      <label>이름 표시 기준 (창 폭)</label>
+      <div class="seg" id="th">
+        <button data-v="auto" class="on">460px 이상이면 이름</button>
+        <button data-v="icons">항상 아이콘만</button>
+      </div>
+    </div>
+    <div class="old">좁을 때 아이콘에 마우스 올리면 이름 툴팁 나옴 (지금 레일과 같음).</div>
+  </div>
+
+  <div class="stage">
+    <div class="win" id="win">
+      <nav class="tabs c" id="tabs"></nav>
+      <div class="wtitle">
+        <div class="tline">
+          <div class="t" id="title">아이템</div>
+          <div class="modes">
+            <span><svg viewBox="0 0 24 24"><path d="M6 5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM8 19h8"/></svg></span>
+            <span class="on"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></span>
+            <span><svg viewBox="0 0 24 24"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/></svg></span>
+          </div>
+        </div>
+        <div class="sub">거점 1 · 보관함 14개</div>
+      </div>
+      <div class="search">아이템 검색</div>
+      <div class="list" id="list"></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h3>바뀌는 것</h3>
+    <ul>
+      <li>왼쪽(또는 오른쪽) 세로 아이콘 레일 → 창 맨 위 가로 탭바</li>
+      <li>탭 5개가 탭바 폭을 똑같이 나눠 가짐</li>
+      <li>창 폭 460px 미만: 아이콘만, 마우스 올리면 이름 툴팁</li>
+      <li>창 폭 460px 이상: 아이콘 + 이름, 세로 가운데 정렬</li>
+      <li>레일 56px가 빠지니 내용 폭이 그만큼 넓어짐 (창 크기 자체는 그대로)</li>
+      <li>화면 오른쪽에 둘 때 레일을 오른쪽으로 옮기던 동작(rail-right)은 필요 없어져서 없앰</li>
+    </ul>
+    <h3>그대로인 것</h3>
+    <ul>
+      <li>탭 종류/순서, 아이콘, 제목줄(뒤로·레이아웃 버튼), 검색, 목록</li>
+      <li>창 이동 손잡이는 지금처럼 제목줄 (탭바는 클릭만)</li>
+      <li>레이아웃별 저장된 창 크기</li>
+    </ul>
+    <h3>정할 것</h3>
+    <ul>
+      <li>C(주황 밑줄 + 아래에서 올라오는 주황 그라데이션, 아이콘 주황) vs C2(같은 구성, 더 은은하게)</li>
+      <li>이름 나오는 기준 폭 (460px 제안 — 와이드에서만 이름, 컴팩트·일반은 아이콘만. 드래그로 넓히면 이름 나옴)</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  const ICONS = {
+    bag: '<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2"/>',
+    paw: '<circle cx="8" cy="7" r="2"/><circle cx="16" cy="7" r="2"/><circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M8 18c0-3 2-5 4-5s4 2 4 5c0 2-8 2-8 0z"/>',
+    house: '<path d="M3 21h18M5 21V10l7-5 7 5v11M10 21v-6h4v6"/>',
+    pin: '<path d="M12 21s-7-6-7-12a7 7 0 0 1 14 0c0 6-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+    flag: '<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>',
+  };
+  const TABS = [["bag", "아이템"], ["paw", "팰"], ["house", "구조물"], ["pin", "장소"], ["flag", "목표"]];
+  const ITEMS = ["나무 2,340", "돌 1,812", "금속 주괴 486", "팰 금속 주괴 120", "제련된 금속 주괴 64", "탄소 섬유 220", "시멘트 310", "고대 문명의 부품 18", "팰지움 조각 940", "종이 75"];
+  let cur = 0;
+  const tabs = document.getElementById("tabs");
+  const win = document.getElementById("win");
+  function render() {
+    tabs.innerHTML = TABS.map(([ic, lb], i) =>
+      `<button class="${i === cur ? "on" : ""}" data-i="${i}"><svg viewBox="0 0 24 24">${ICONS[ic]}</svg><span class="lb">${lb}</span><span class="tip">${lb}</span></button>`).join("");
+    document.getElementById("title").textContent = TABS[cur][1];
+    document.getElementById("tabsel").innerHTML = TABS.map(([, lb], i) => `<button data-i="${i}" class="${i === cur ? "on" : ""}">${lb}</button>`).join("");
+  }
+  document.getElementById("list").innerHTML = ITEMS.map((t) => { const [n, ...r] = t.split(" "); const c = r.pop(); return `<div class="li"><i></i><b>${[n, ...r].join(" ")}</b><em>${c}</em></div>`; }).join("");
+  tabs.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { cur = +b.dataset.i; render(); } });
+  document.getElementById("tabsel").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) { cur = +b.dataset.i; render(); } });
+  function seg(id, fn) {
+    const el = document.getElementById(id);
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      el.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+      fn(b.dataset.v);
+    });
+  }
+  const setW = (w) => { win.style.width = w + "px"; document.getElementById("wv").textContent = w; document.getElementById("w").value = w; };
+  seg("cand", (v) => { tabs.className = "tabs " + v; });
+  seg("size", (v) => setW(+v));
+  seg("th", (v) => win.classList.toggle("force-icons", v === "icons"));
+  document.getElementById("w").addEventListener("input", (e) => {
+    setW(+e.target.value);
+    document.querySelectorAll("#size button").forEach((x) => x.classList.toggle("on", x.dataset.v === e.target.value));
+  });
+  render();
+</script>
+</body>
+</html>

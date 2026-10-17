@@ -226,10 +226,13 @@ svg.ic {
   height: 18px;
 }
 
-/* main window ("items" view): icon rail on the left, tab content on the right.
-   Widths per layout are the content widths plus the 56 px rail (before the window scale). */
+/* main window ("items" view): tab bar across the top, tab content below. The layout widths
+   are the same as with the earlier side rail, so the content got its 56 px. */
 .win.items {
-  flex-direction: row;
+  flex-direction: column;
+  /* the tab bar shows the tab names once the window is wide enough */
+  container-type: inline-size;
+  container-name: main;
   /* Windows rounds the window corners itself; match that radius */
   border-radius: var(--win-radius);
 }
@@ -246,7 +249,7 @@ svg.ic {
   width: 861px;
 }
 .items .wtitle {
-  padding-top: 20px;
+  padding-top: 14px;
 }
 .items .wtitle .sub {
   margin-top: 6px;
@@ -257,52 +260,64 @@ svg.ic {
   display: flex;
   flex-direction: column;
 }
-.rail {
-  width: 56px;
+.tabs {
   flex: none;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 0;
-  border-right: 1px solid var(--glass-line);
+  gap: 4px;
+  padding: 8px 8px 0;
+  border-bottom: 1px solid var(--glass-line);
 }
-.rail button {
+.tabs button {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   color: var(--glass-muted);
+  border-radius: 9px 9px 0 0;
 }
-.rail button:hover {
+.tabs button:hover {
   background: var(--chip);
   color: var(--glass-fg);
 }
-.rail button.on {
-  background: rgba(255, 255, 255, 0.18);
+/* the active tab: accent line with a glow rising from it, accent icon */
+.tabs button.on {
   color: var(--glass-fg);
+  background: linear-gradient(to top, rgba(255, 184, 76, 0.28), rgba(255, 184, 76, 0.06) 60%, rgba(255, 184, 76, 0));
 }
-/* accent bar on the active tab */
-.rail button.on::before {
+.tabs button.on svg.ic {
+  color: #ffb84c;
+}
+.tabs button.on::after {
   content: "";
   position: absolute;
-  left: -8px;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  border-radius: 2px;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
   background: #ffb84c;
+  box-shadow: 0 0 10px rgba(255, 184, 76, 0.7);
 }
-.rail svg.ic {
+.tabs svg.ic {
   width: 22px;
   height: 22px;
+  flex: none;
 }
-.rail .tip {
+.tabs .lb {
+  font-size: 15px;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* narrow window: icons only, the name shows on hover */
+.tabs .tip {
   position: absolute;
-  left: 46px;
-  top: 8px;
+  top: 46px;
+  left: 50%;
+  translate: -50% 0;
   white-space: nowrap;
   font-size: 13px;
   padding: 3px 8px;
@@ -313,8 +328,13 @@ svg.ic {
   pointer-events: none;
   z-index: 5;
 }
-.rail button:hover .tip {
-  opacity: 1;
+@container main (max-width: 459px) {
+  .tabs .lb {
+    display: none;
+  }
+  .tabs button:hover .tip {
+    opacity: 1;
+  }
 }
 .back {
   width: 30px;
@@ -1651,22 +1671,6 @@ svg.mk.fan {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* main window on the right half of the screen: the tab rail on its right */
-.items.rail-right {
-  flex-direction: row-reverse;
-}
-.items.rail-right .rail {
-  border-right: 0;
-  border-left: 1px solid var(--glass-line);
-}
-.items.rail-right .rail button.on::before {
-  left: auto;
-  right: -8px;
-}
-.items.rail-right .rail .tip {
-  left: auto;
-  right: 46px;
-}
 
 /* ---------------------------------------------------------------- main window size set by dragging */
 .items.sized {
@@ -1746,7 +1750,7 @@ svg.mk.fan {
   bottom: 0;
   cursor: nwse-resize;
 }
-/* a small mark in the bottom corner away from the tab rail */
+/* a small mark in the bottom corner toward the middle of the screen */
 .items > .corner {
   position: absolute;
   right: 5px;
@@ -1756,7 +1760,7 @@ svg.mk.fan {
   pointer-events: none;
   background: linear-gradient(135deg, transparent 0 55%, rgba(242, 245, 249, 0.45) 55% 62%, transparent 62% 75%, rgba(242, 245, 249, 0.45) 75% 82%, transparent 82%);
 }
-.items.rail-right > .corner {
+.items.at-right > .corner {
   right: auto;
   left: 5px;
   transform: scaleX(-1);
@@ -1789,6 +1793,10 @@ svg.mk.fan {
 }
 .gl-lack {
   color: #ff8a80;
+}
+/* lacking, but craftable from what is there */
+.gl-ready {
+  color: #ffd54a;
 }
 .items .gl-goal .nm {
   gap: 4px;

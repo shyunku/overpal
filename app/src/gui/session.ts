@@ -15,7 +15,16 @@ export interface Profile {
   name: string;
   startMode: StartMode;
   lastUsed?: number | null;
-  server?: { gameServerDir: string; allowExternal: boolean; port: number } | null;
+  server?: {
+    gameServerDir: string;
+    allowExternal: boolean;
+    port: number;
+    /** null: the server's default (written to its files / passed at start only when set) */
+    gamePort?: number | null;
+    queryPort?: number | null;
+    restPort?: number | null;
+    pdPort?: number | null;
+  } | null;
   client?: { serverUrl: string; token: string } | null;
   playerName?: string | null;
   hostToken?: string | null;
@@ -43,6 +52,8 @@ export interface Detected {
   hasMod: boolean;
   palDefenderUrl: string | null;
   hasPalDefenderToken: boolean;
+  restPort: number | null;
+  pdPort: number | null;
 }
 
 export interface FoundServer {
@@ -80,6 +91,8 @@ export const api = {
   /** true when the app restarts to apply it */
   save: (profile: Profile) => invoke<boolean>("profile_update", { profile }),
   detect: (dir: string) => invoke<Detected>("detect_server_dir", { dir }),
+  /** of [port, udp] pairs, the ports something on this PC already holds */
+  portsTaken: (ports: [number, boolean][]) => invoke<number[]>("ports_taken", { ports }),
   findServers: () => invoke<FoundServer[]>("find_game_servers"),
   gsStatus: () => invoke<GameServerStatus>("gs_status"),
   gsStart: () => invoke<void>("gs_start"),

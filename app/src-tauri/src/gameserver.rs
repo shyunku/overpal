@@ -97,9 +97,45 @@ pub async fn status(dir: &Path) -> GameServerStatus {
 /// the server itself; PalServer.exe only starts this (with the argument "Pal") in a console window
 const SERVER_EXE: &str = r"Pal\Binaries\Win64\PalServer-Win64-Shipping-Cmd.exe";
 
+/// RESTAPIPort in the server's settings (whether REST is on or not).
+pub fn rest_port(dir: &Path) -> Option<u16> {
+    let ini = std::fs::read_to_string(dir.join(SETTINGS)).ok()?;
+    let at = ini.find("RESTAPIPort=")? + "RESTAPIPort=".len();
+    ini[at..].split([',', ')']).next()?.trim().parse().ok()
+}
+
+/// Writes RESTAPIPort into the server's settings (added to OptionSettings when missing).
+pub fn set_rest_port(dir: &Path, port: u16) -> Result<(), String> {
+    let path = dir.join(SETTINGS);
+    let ini = std::fs::read_to_string(&path).map_err(|_| "PalWorldSettings.ini를 읽을 수 없습니다.".to_string())?;
+    let next = if let Some(at) = ini.find("RESTAPIPort=") {
+        let at = at + "RESTAPIPort=".len();
+        let end = at + ini[at..].find([',', ')']).unwrap_or(ini.len() - at);
+        format!("{}{}{}", &ini[..at], port, &ini[end..])
+    } else {
+        let open = ini.find("OptionSettings=(").ok_or("PalWorldSettings.ini에 OptionSettings가 없습니다.")? + "OptionSettings=(".len();
+        format!("{}RESTAPIPort={},{}", &ini[..open], port, &ini[open..])
+    };
+    std::fs::write(&path, next).map_err(|e| e.to_string())
+}
+
+pub fn is_running(dir: &Path) -> bool {
+    server_running(dir)
+}
+
+/// Of the given ports ([port, udp]), those something on this PC already holds.
+pub fn ports_taken(ports: &[(u16, bool)]) -> Vec<u16> {
+    ports
+        .iter()
+        .filter(|(p, udp)| if *udp { std::net::UdpSocket::bind(("0.0.0.0", *p)).is_err() } else { std::net::TcpListener::bind(("0.0.0.0", *p)).is_err() })
+        .map(|(p, _)| *p)
+        .collect()
+}
+
 /// Starts the server without a console window; it keeps running when the app quits, and stops
-/// through REST (stop) since there is no window to close.
-pub fn start(dir: &Path) -> Result<(), String> {
+/// through REST (stop) since there is no window to close. `game_port` / `query_port`: -port= and
+/// -QueryPort= (the server's defaults when None).
+pub fn start(dir: &Path, game_port: Option<u16>, query_port: Option<u16>) -> Result<(), String> {
     if server_running(dir) {
         return Err("게임 서버가 이미 실행 중입니다.".into());
     }
@@ -109,23 +145,36 @@ pub fn start(dir: &Path) -> Result<(), String> {
     }
     let mut cmd = std::process::Command::new(&exe);
     cmd.arg("Pal").current_dir(dir);
+    if let Some(p) = game_port {
+        cmd.arg(format!("-port={p}"));
+    }
+    if let Some(p) = query_port {
+        cmd.arg(format!("-QueryPort={p}"));
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
+        // a console of its own that is never shown (not DETACHED_PROCESS: without any console,
+        // PalDefender's console setup fails with "invalid handle"); its own process group so
+        // nothing of this app's reaches it
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        const DETACHED_PROCESS: u32 = 0x0000_0008;
-        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        cmd.creation_flags(CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP);
     }
     cmd.spawn().map_err(|e| format!("게임 서버를 시작할 수 없습니다: {e}"))?;
     applog::info(Kind::Conn, "게임 서버를 시작했습니다.");
     Ok(())
 }
 
+/// set while a stop asked for here is under way (the server ending then is no surprise)
+static STOPPING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// Saves the world and shuts the server down through REST.
 pub async fn stop(dir: &Path) -> Result<(), String> {
     let rest = rest_settings(dir).ok_or("서버 설정에서 관리 API(RESTAPIEnabled)가 꺼져 있어 끌 수 없습니다.")?;
     rest_call(&rest, reqwest::Method::POST, "save", None).await?;
     applog::info(Kind::Conn, "게임 서버 월드를 저장했습니다.");
+    STOPPING.store(true, std::sync::atomic::Ordering::SeqCst);
     rest_call(&rest, reqwest::Method::POST, "shutdown", Some(serde_json::json!({ "waittime": 5, "message": "Server is shutting down" }))).await?;
     applog::info(Kind::Conn, "게임 서버를 끄는 중입니다 (5초 뒤 종료).");
     Ok(())
@@ -205,6 +254,142 @@ fn server_running(_dir: &Path) -> bool {
     false
 }
 
+// ---------------------------------------------------------------- trouble into the app log
+
+const CRASHES: &str = r"Pal\Saved\Crashes";
+const CRASH_CONTEXT: &str = "CrashContext.runtime-xml";
+const WATCH_EVERY: Duration = Duration::from_secs(2);
+
+/// New whole lines of a log file as it grows.
+#[derive(Default)]
+struct Tail {
+    file: Option<PathBuf>,
+    pos: u64,
+    partial: String,
+    started: bool,
+}
+
+impl Tail {
+    /// `now`: the file to follow. A file already there when following starts is read from its end
+    /// (old trouble is not reported again), one that turns up later from its start.
+    fn new_lines(&mut self, now: Option<PathBuf>) -> Vec<String> {
+        if now != self.file {
+            self.pos = if self.started { 0 } else { now.as_deref().and_then(|f| std::fs::metadata(f).ok()).map_or(0, |m| m.len()) };
+            self.file = now;
+            self.partial.clear();
+        }
+        self.started = true;
+        let Some(f) = self.file.clone() else { return Vec::new() };
+        let len = std::fs::metadata(&f).map(|m| m.len()).unwrap_or(0);
+        if len < self.pos {
+            // the file was started over
+            self.restart();
+        }
+        if len <= self.pos {
+            return Vec::new();
+        }
+        use std::io::{Read, Seek, SeekFrom};
+        let Ok(mut h) = std::fs::File::open(&f) else { return Vec::new() };
+        let _ = h.seek(SeekFrom::Start(self.pos));
+        let mut buf = Vec::new();
+        let _ = h.take(len - self.pos).read_to_end(&mut buf);
+        self.pos += buf.len() as u64;
+        self.partial.push_str(&String::from_utf8_lossy(&buf));
+        let Some(end) = self.partial.rfind('\n') else { return Vec::new() };
+        let lines = self.partial[..end].lines().map(|l| l.trim_end().to_string()).filter(|l| !l.is_empty()).collect();
+        self.partial = self.partial[end + 1..].to_string();
+        lines
+    }
+
+    /// The same file is written anew (UE4SS.log on a server start).
+    fn restart(&mut self) {
+        self.pos = 0;
+        self.partial.clear();
+    }
+}
+
+/// An error or fatal line of PalDefender's log (spdlog levels).
+fn pd_error(line: &str) -> bool {
+    line.contains("][error]") || line.contains("][critical]")
+}
+
+/// An error line of UE4SS's log (Lua errors, the mod's own); not its offset dump at start
+/// ("UWorld::bKismetScriptError = 0x13D").
+fn ue4ss_error(line: &str) -> bool {
+    let l = line.to_lowercase();
+    (l.contains("error") || l.contains("fatal") || l.contains("exception")) && !l.contains(" = 0x")
+}
+
+fn crash_dirs(dir: &Path) -> std::collections::HashSet<String> {
+    std::fs::read_dir(dir.join(CRASHES))
+        .map(|rd| rd.flatten().filter(|e| e.path().join(CRASH_CONTEXT).exists()).map(|e| e.file_name().to_string_lossy().into_owned()).collect())
+        .unwrap_or_default()
+}
+
+/// What a crash report says: its error and the modules at the top of the crashing call stack
+/// (e.g. "PalServer-Win64-Shipping-Cmd → PalDefender": a plugin called into the game).
+fn crash_text(report: &Path) -> String {
+    let xml = std::fs::read_to_string(report.join(CRASH_CONTEXT)).unwrap_or_default();
+    let tag = |name: &str| -> Option<String> {
+        let open = format!("<{name}>");
+        let at = xml.find(&open)? + open.len();
+        Some(xml[at..at + xml[at..].find(&format!("</{name}>"))?].trim().to_string())
+    };
+    let error = tag("ErrorMessage").filter(|e| !e.is_empty()).unwrap_or_else(|| "원인 불명".into());
+    // "Module 0x<base> + <offset> Module 0x..." -> modules in order, repeats folded
+    let mut modules: Vec<String> = Vec::new();
+    if let Some(stack) = tag("PCallStack") {
+        let words: Vec<&str> = stack.split_whitespace().collect();
+        for w in words.windows(2) {
+            if w[1].starts_with("0x") && !w[0].starts_with("0x") && w[0] != "+" && modules.last().map(String::as_str) != Some(w[0]) {
+                modules.push(w[0].to_string());
+            }
+        }
+    }
+    modules.truncate(4);
+    let stack = if modules.is_empty() { String::new() } else { format!(" / 호출 순서(위부터): {}", modules.join(" → ")) };
+    format!("게임 서버가 비정상 종료되었습니다: {error}{stack} / 보고서: {}", report.display())
+}
+
+/// Puts the game server's trouble into the app log whether or not its log screen is open: error
+/// and fatal lines of PalDefender's and UE4SS's logs, new crash reports, and the server ending
+/// without Overpal stopping it. Runs for the whole run (server modes).
+pub fn watch_errors(dir: PathBuf) {
+    use std::sync::atomic::Ordering;
+    tauri::async_runtime::spawn(async move {
+        let mut pd = Tail::default();
+        let mut ue = Tail::default();
+        let mut crashes = crash_dirs(&dir);
+        let mut was_running = server_running(&dir);
+        loop {
+            let running = server_running(&dir);
+            if running && !was_running {
+                // a new start writes UE4SS.log over from the beginning
+                ue.restart();
+                STOPPING.store(false, Ordering::SeqCst);
+            }
+            for l in pd.new_lines(newest_file(&dir.join(PD_LOGS))).into_iter().filter(|l| pd_error(l)) {
+                applog::error(Kind::Conn, format!("PalDefender 로그: {l}"));
+            }
+            for l in ue.new_lines(Some(dir.join(UE4SS_LOG)).filter(|p| p.exists())).into_iter().filter(|l| ue4ss_error(l)) {
+                applog::error(Kind::Conn, format!("모드(UE4SS) 로그: {l}"));
+            }
+            let now = crash_dirs(&dir);
+            let mut new: Vec<&String> = now.difference(&crashes).collect();
+            new.sort();
+            for c in new {
+                applog::error(Kind::Conn, crash_text(&dir.join(CRASHES).join(c)));
+            }
+            crashes = now;
+            if was_running && !running && !STOPPING.swap(false, Ordering::SeqCst) {
+                applog::error(Kind::Conn, "게임 서버가 꺼졌습니다. Overpal에서 끈 것이 아닙니다 (크래시나 다른 프로그램에서 종료).");
+            }
+            was_running = running;
+            tokio::time::sleep(WATCH_EVERY).await;
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,6 +404,60 @@ mod tests {
         std::fs::write(d.join(SETTINGS), "OptionSettings=(RESTAPIEnabled=False,RESTAPIPort=8212)").unwrap();
         assert!(rest_settings(&d).is_none());
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn writes_rest_port() {
+        let d = std::env::temp_dir().join(format!("overpal-port-{}", crate::profiles::new_token()));
+        std::fs::create_dir_all(d.join(SETTINGS).parent().unwrap()).unwrap();
+        std::fs::write(d.join(SETTINGS), "[x]\nOptionSettings=(Difficulty=None,RESTAPIEnabled=True,RESTAPIPort=8212,ServerName=\"x\")").unwrap();
+        assert_eq!(rest_port(&d), Some(8212));
+        set_rest_port(&d, 8312).unwrap();
+        assert_eq!(rest_port(&d), Some(8312));
+        assert!(std::fs::read_to_string(d.join(SETTINGS)).unwrap().contains("RESTAPIPort=8312,ServerName"));
+        std::fs::write(d.join(SETTINGS), "OptionSettings=(Difficulty=None)").unwrap();
+        set_rest_port(&d, 8412).unwrap();
+        assert_eq!(rest_port(&d), Some(8412));
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn picks_error_lines() {
+        assert!(pd_error("[22:01:17][error] something broke"));
+        assert!(pd_error("[22:01:17][critical] boom"));
+        assert!(!pd_error("[22:00:33][warning] Failed to set console output code page to UTF-8"));
+        assert!(ue4ss_error("[2026-10-17 22:03:05.1] [Lua] Error in OverpalMod: attempt to index a nil value"));
+        assert!(!ue4ss_error("[2026-10-17 22:03:02.4] UWorld::bKismetScriptError = 0x13D"));
+    }
+
+    #[test]
+    fn reads_crash_reports() {
+        let d = std::env::temp_dir().join(format!("overpal-crash-{}", crate::profiles::new_token()));
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(
+            d.join(CRASH_CONTEXT),
+            "<x><ErrorMessage>Unhandled Exception: EXCEPTION_ACCESS_VIOLATION reading address 0x0</ErrorMessage>\
+             <PCallStack>Game 0x00007ff6 + 31 Game 0x00007ff6 + 32 PalDefender 0x00007ffd + 1a Game 0x00007ff6 + 4 UE4SS 0x7ffd + 4 Game 0x1 + 2</PCallStack></x>",
+        )
+        .unwrap();
+        let t = crash_text(&d);
+        assert!(t.contains("EXCEPTION_ACCESS_VIOLATION"), "{t}");
+        assert!(t.contains("Game → PalDefender → Game → UE4SS /"), "{t}");
+        std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn tail_reads_what_is_added() {
+        let f = std::env::temp_dir().join(format!("overpal-tail-{}.log", crate::profiles::new_token()));
+        std::fs::write(&f, "old\n").unwrap();
+        let mut t = Tail::default();
+        // there at the start: from its end
+        assert!(t.new_lines(Some(f.clone())).is_empty());
+        std::fs::write(&f, "old\nnew 1\nnew").unwrap();
+        assert_eq!(t.new_lines(Some(f.clone())), vec!["new 1"]);
+        std::fs::write(&f, "old\nnew 1\nnew 2\n").unwrap();
+        assert_eq!(t.new_lines(Some(f.clone())), vec!["new 2"]);
+        std::fs::remove_file(f).unwrap();
     }
 
     #[test]

@@ -170,6 +170,9 @@ pub fn start_services(app: &AppHandle, cfg: &Config, mode: Mode) -> Result<(), S
                 applog::error(Kind::Conn, format!("앱 서버를 시작할 수 없습니다: {e}"));
             }
         });
+        if let Ok(dir) = game_server_dir(&session) {
+            crate::gameserver::watch_errors(dir);
+        }
     }
     let client = cfg.effective_client(mode);
     let home_client = client.clone().or_else(|| {
@@ -366,6 +369,10 @@ pub fn profile_update(app: AppHandle, session: tauri::State<'_, Session>, profil
         }
         // tokens and friends are managed by the app, not the settings form
         let mut p = profile;
+        // the REST ports live in the server's own files
+        if let Some(sp) = &p.server {
+            profiles::write_server_ports(sp)?;
+        }
         p.host_token = cur.host_token.clone();
         p.friends = cur.friends.clone();
         p.last_used = cur.last_used;
@@ -385,6 +392,12 @@ pub fn profile_update(app: AppHandle, session: tauri::State<'_, Session>, profil
 #[tauri::command]
 pub async fn find_game_servers() -> Vec<profiles::FoundServer> {
     profiles::find_steam_servers()
+}
+
+/// Of the given ports ([port, udp]), those something on this PC already holds.
+#[tauri::command]
+pub fn ports_taken(ports: Vec<(u16, bool)>) -> Vec<u16> {
+    crate::gameserver::ports_taken(&ports)
 }
 
 #[tauri::command]
@@ -439,7 +452,11 @@ pub async fn gs_status(session: tauri::State<'_, Session>) -> Result<crate::game
 
 #[tauri::command]
 pub async fn gs_start(session: tauri::State<'_, Session>) -> Result<(), String> {
-    crate::gameserver::start(&game_server_dir(&session)?)
+    let (game, query) = {
+        let s = session.0.lock().unwrap();
+        s.profile.as_ref().and_then(|p| p.server.as_ref()).map_or((None, None), |x| (x.game_port, x.query_port))
+    };
+    crate::gameserver::start(&game_server_dir(&session)?, game, query)
 }
 
 #[tauri::command]
