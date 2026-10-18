@@ -456,6 +456,11 @@ local function production_tick(force)
             end
             local remain = concrete.RemainProductNum
             local work, required, types = work_of(w, remain)
+            -- the work speed the game keeps: the sum of the working pals' (and players') speed,
+            -- updated as they join or leave (-1 or 0 while nobody works); checked on the test
+            -- server 2026-10-19: work left / this was the time to the finished item
+            local by_sec = nil
+            pcall(function() by_sec = w.ReplicatedWorkAmountBySec end)
             p = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
@@ -464,6 +469,7 @@ local function production_tick(force)
                 work = work,
                 workRequired = required,
                 types = types,
+                bySec = by_sec,
             }
         end)
         local pj = p and to_json(p) or "null"
@@ -481,22 +487,48 @@ local function production_tick(force)
     write_file(PRODUCTION_FILE, text)
 end
 
+-- Work on production buildings started (a pal or player joined), ended (one left) or made an item.
+-- The game calls these from the work's own events (dynamic delegates), so Lua hooks see them
+-- (test server 2026-10-19). The orders are written again on the next fast tick, not in the hook.
+local WORK_HOOKS = {
+    "/Script/Pal.PalMapObjectConvertItemModel:OnStartWorkAnyone_ServerInternal",
+    "/Script/Pal.PalMapObjectConvertItemModel:OnEndWorkAnyone_ServerInternal",
+    "/Script/Pal.PalMapObjectConvertItemModel:OnFinishWorkInServer",
+}
+local work_event = false
+local work_hooked = false
+
 local function try_hook()
-    if hooked then return end
-    local ok, err = pcall(function()
-        RegisterHook(UPDATE_HOOK, function(self)
-            pcall(function()
-                local id = guid_of(self:get().TargetContainer.ID.ID)
-                if id then dirty[id] = true end
+    if not hooked then
+        local ok, err = pcall(function()
+            RegisterHook(UPDATE_HOOK, function(self)
+                pcall(function()
+                    local id = guid_of(self:get().TargetContainer.ID.ID)
+                    if id then dirty[id] = true end
+                end)
             end)
         end)
-    end)
-    hooked = ok
-    if not ok then log_error("hook", err) end
+        hooked = ok
+        if not ok then log_error("hook", err) end
+    end
+    if not work_hooked then
+        local ok, err = pcall(function()
+            for _, path in ipairs(WORK_HOOKS) do
+                RegisterHook(path, function() work_event = true end)
+            end
+        end)
+        work_hooked = ok
+        if not ok then log_error("work hook", err) end
+    end
 end
 
 -- re-read the flagged containers and write the file only when something actually changed
 local function fast_tick()
+    -- a work started, ended or made an item: the orders go out now, not at the next half second
+    if work_event then
+        work_event = false
+        production_tick()
+    end
     if next(dirty) == nil then return end
     local changed = false
     production_now = false

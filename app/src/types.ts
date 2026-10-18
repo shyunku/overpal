@@ -73,6 +73,8 @@ export interface Building {
     workRequired: number;
     /** buildings several pals work on: each work type's work (up to what is left) and one craft's */
     types?: { work: number; max: number }[];
+    /** the work speed the game keeps (work per second of the pals and players at it); -1 or 0 while nobody works */
+    bySec?: number;
   };
 }
 

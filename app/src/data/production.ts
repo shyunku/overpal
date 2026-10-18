@@ -17,6 +17,29 @@ export interface OrderWork {
   work: number;
   workRequired: number;
   types?: { work: number; max: number }[];
+  bySec?: number;
+}
+
+/**
+ * The work speed the game keeps for the order, where it says it all: one work type (the speed of
+ * several types is not known apart yet) and a mod that sends it. 0 while nobody works; null where
+ * it is not known (then the pace is measured, trackEta).
+ */
+export function gameSpeed(o: OrderWork): number | null {
+  if (o.bySec === undefined || o.bySec === null || o.types?.length) return null;
+  return Math.max(0, o.bySec);
+}
+
+/**
+ * Seconds the order still takes at the game's work speed (exact: the work left over it was the
+ * time to the finished item on the test server); null while nobody works or where the speed is
+ * not known.
+ */
+export function exactEta(o: OrderWork): number | null {
+  const speed = gameSpeed(o);
+  if (!speed) return null;
+  const left = workLeft(o)[0];
+  return left > 0 ? left / speed : null;
 }
 
 /**

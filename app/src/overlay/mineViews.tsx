@@ -2,7 +2,7 @@
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
 import { recipeOf } from "../data/goals";
-import { etaParts, trackEta, workShare } from "../data/production";
+import { etaParts, exactEta, gameSpeed, trackEta, workShare } from "../data/production";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
@@ -322,11 +322,43 @@ function ProdStatusLine({ name, eta, status }: { name: string; eta: number | nul
 }
 
 /** One production order: item, (made/requested), building, time left, progress, bar. */
+/**
+ * The order's work as of now: where the game's work speed is known (gameSpeed), the last reading
+ * moved on at that speed every frame, up to what is left (B: the bar follows the pals' work as it
+ * happens; a pal leaving comes as an event at once, so it does not run ahead). Else the reading.
+ */
+function useLiveWork(pr: NonNullable<Building["production"]>): { work: number; live: boolean } {
+  const speed = gameSpeed(pr);
+  const base = useRef({ work: pr.work, remain: pr.remain, at: performance.now() });
+  if (base.current.work !== pr.work || base.current.remain !== pr.remain) base.current = { work: pr.work, remain: pr.remain, at: performance.now() };
+  const [, setFrame] = useState(0);
+  useEffect(() => {
+    if (!speed || pr.remain <= 0) return;
+    let raf = 0;
+    const step = () => {
+      setFrame((f) => f + 1);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [speed, pr.remain]);
+  if (!speed || pr.remain <= 0) return { work: pr.work, live: false };
+  const elapsed = (performance.now() - base.current.at) / 1000;
+  return { work: Math.min(pr.remain * pr.workRequired, base.current.work + speed * elapsed), live: true };
+}
+
 function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
-  const pr = b.production!;
-  const x = prodInfo(b);
-  // shown only while the pals move it on
-  const eta = x.on ? trackEta(b.id ?? `${b.location.x},${b.location.y},${b.location.z}`, pr, Date.now()) : null;
+  const received = b.production!;
+  const { work, live } = useLiveWork(received);
+  const pr = live ? { ...received, work } : received;
+  const x = prodInfo({ ...b, production: pr });
+  // the share shown does not go back within the same order (a reading behind the guess)
+  const shown = useRef({ made: x.made, total: x.total, share: x.share });
+  if (shown.current.made !== x.made || shown.current.total !== x.total || !live) shown.current = { made: x.made, total: x.total, share: x.share };
+  else shown.current.share = Math.max(shown.current.share, x.share);
+  const share = shown.current.share;
+  // shown only while the pals move it on: exact from the game's speed, else the measured pace
+  const eta = !x.on ? null : live ? exactEta(pr) : trackEta(b.id ?? `${b.location.x},${b.location.y},${b.location.z}`, received, Date.now());
   return (
     <>
       <span className="line">
@@ -338,10 +370,10 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
       <ProdStatusLine
         name={`${b.customName || structName(L, b.buildObjectId)}${where ? ` · ${where}` : ""}`}
         eta={eta}
-        status={x.on ? <GlidingPercent value={x.share} /> : x.made > 0 ? "완료 · 꺼내기 대기" : "완료"}
+        status={x.on ? live ? `${share.toFixed(1)}%` : <GlidingPercent value={share} /> : x.made > 0 ? "완료 · 꺼내기 대기" : "완료"}
       />
-      <span className={`mn-bar ${x.on ? "" : "done"}`}>
-        <i style={{ width: `${x.share}%` }} />
+      <span className={`mn-bar ${x.on ? "" : "done"} ${live ? "live" : ""}`}>
+        <i style={{ width: `${share}%` }} />
       </span>
     </>
   );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etaParts, etaSeconds, workLeft, workShare } from "./production";
+import { etaParts, etaSeconds, exactEta, gameSpeed, workLeft, workShare } from "./production";
 
 describe("production share", () => {
   it("counts a single pal's current craft", () => {
@@ -44,6 +44,17 @@ describe("production share", () => {
     expect(etaParts(247)).toEqual(["4분", "7초"]);
     expect(etaParts(3672)).toEqual(["1시간", "1분", "12초"]);
     expect(etaParts(3605)).toEqual(["1시간", "0분", "5초"]);
+  });
+
+  it("takes the time left from the game's work speed where it has one", () => {
+    // the test server: 277075 of 400000 at 9375/s, made 13.1 s later
+    expect(exactEta({ remain: 1, work: 277075, workRequired: 400000, bySec: 9375 })).toBeCloseTo(13.11, 2);
+    // nobody works
+    expect(exactEta({ remain: 1, work: 100, workRequired: 400, bySec: -1 })).toBeNull();
+    expect(exactEta({ remain: 1, work: 100, workRequired: 400, bySec: 0 })).toBeNull();
+    // older mod, or several work types: not known this way
+    expect(gameSpeed({ remain: 1, work: 100, workRequired: 400 })).toBeNull();
+    expect(gameSpeed({ remain: 2, work: 100, workRequired: 400, bySec: 50, types: [{ work: 50, max: 200 }, { work: 50, max: 200 }] })).toBeNull();
   });
 
   it("stays within what is left", () => {
