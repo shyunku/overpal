@@ -264,7 +264,8 @@ function ProdStatusLine({ name, eta, status }: { name: string; eta: number | nul
   const key = parts.join(" ");
   const [keep, setKeep] = useState(parts.length);
   const lineRef = useRef<HTMLSpanElement>(null);
-  const nameRef = useRef<HTMLElement>(null);
+  // a hidden copy of the name: the name itself fills the line (flex), so its own width says nothing
+  const nameMeasureRef = useRef<HTMLSpanElement>(null);
   const statusRef = useRef<HTMLElement>(null);
   const etaRef = useRef<HTMLSpanElement>(null);
   // hidden copies of the time at each length (index k-1: the first k parts), measured to choose one
@@ -272,13 +273,13 @@ function ProdStatusLine({ name, eta, status }: { name: string; eta: number | nul
   useLayoutEffect(() => {
     const line = lineRef.current;
     const fit = () => {
-      const nameEl = nameRef.current;
+      const nameEl = nameMeasureRef.current;
       const statusEl = statusRef.current;
       const etaEl = etaRef.current;
       if (!line || !nameEl || !statusEl || !etaEl) return;
       const gap = parseFloat(getComputedStyle(line).columnGap) || 0;
       // the room the name leaves at its full width, less the status without the time
-      const room = line.clientWidth - nameEl.scrollWidth - gap - (statusEl.offsetWidth - etaEl.offsetWidth);
+      const room = line.clientWidth - nameEl.offsetWidth - gap - (statusEl.offsetWidth - etaEl.offsetWidth);
       let k = parts.length;
       while (k > 0 && (measureRefs.current[k - 1]?.offsetWidth ?? Infinity) > room) k--;
       setKeep(k);
@@ -292,7 +293,12 @@ function ProdStatusLine({ name, eta, status }: { name: string; eta: number | nul
   }, [key]);
   return (
     <span className="line" ref={lineRef}>
-      <small ref={nameRef}>{name}</small>
+      <small>
+        {name}
+        <span className="mn-measure" aria-hidden ref={nameMeasureRef}>
+          {name}
+        </span>
+      </small>
       <small className="tabular mn-status" ref={statusRef}>
         <span className="mn-eta" ref={etaRef}>
           {parts.slice(0, Math.min(keep, parts.length)).join(" ")}
