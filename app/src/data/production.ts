@@ -16,30 +16,50 @@ export interface OrderWork {
   remain: number;
   work: number;
   workRequired: number;
-  types?: { work: number; max: number }[];
+  /** several work types: each one's work, one craft's work and its work per second (newer mod) */
+  types?: { work: number; max: number; speed?: number }[];
   bySec?: number;
 }
 
 /**
- * The work speed the game keeps for the order, where it says it all: one work type (the speed of
- * several types is not known apart yet) and a mod that sends it. 0 while nobody works; null where
- * it is not known (then no time left is shown: a measured pace was too unsteady to be of use).
+ * Work per second of each work type, where the game's speeds are known: one work type, the
+ * work speed the game keeps (bySec); several types (ancient furnace), the speed of the pals
+ * working at each type times the server's WorkSpeedRate, sent by the mod. 0 for a type nobody
+ * works at; null where not known (then no time left is shown: a measured pace was too unsteady).
  */
-export function gameSpeed(o: OrderWork): number | null {
-  if (o.bySec === undefined || o.bySec === null || o.types?.length) return null;
-  return Math.max(0, o.bySec);
+export function typeSpeeds(o: OrderWork): number[] | null {
+  if (o.types?.length) return o.types.every((t) => typeof t.speed === "number") ? o.types.map((t) => Math.max(0, t.speed!)) : null;
+  if (o.bySec === undefined || o.bySec === null) return null;
+  return [Math.max(0, o.bySec)];
 }
 
 /**
- * Seconds the order still takes at the game's work speed (exact: the work left over it was the
- * time to the finished item on the test server); null while nobody works or where the speed is
- * not known.
+ * Seconds the order still takes: per work type the work left over its speed, the type that ends
+ * last setting it (an item needs every type's work). Null while a type with work left has nobody
+ * at it (the order does not end) or where the speeds are not known.
  */
 export function exactEta(o: OrderWork): number | null {
-  const speed = gameSpeed(o);
-  if (!speed) return null;
-  const left = workLeft(o)[0];
-  return left > 0 ? left / speed : null;
+  const speeds = typeSpeeds(o);
+  if (!speeds) return null;
+  const left = workLeft(o);
+  let worst = 0;
+  for (let i = 0; i < left.length; i++) {
+    if (left[i] <= 0) continue;
+    if (!(speeds[i] > 0)) return null;
+    worst = Math.max(worst, left[i] / speeds[i]);
+  }
+  return worst > 0 ? worst : null;
+}
+
+/**
+ * The order's work `seconds` after the reading at the known speeds, each type up to what is left
+ * (for the bar between readings).
+ */
+export function workAfter(o: OrderWork, seconds: number): number {
+  const speeds = typeSpeeds(o);
+  if (!speeds) return o.work;
+  const types = o.types?.length ? o.types : [{ work: o.work, max: o.workRequired }];
+  return types.reduce((sum, t, i) => sum + Math.min(o.remain * t.max, t.work + speeds[i] * seconds), 0);
 }
 
 /**

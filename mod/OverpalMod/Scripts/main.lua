@@ -403,7 +403,44 @@ local last_production = nil
 -- types (up to MaxStorableProgress, e.g. 111 crafts' worth while the other type had 0.16). A craft
 -- is made once every type has one craft's work. So the work counts up to `remain` crafts per type,
 -- and done / required can be more than one craft (the app turns it into the order's share). The
--- third value lists each type's work ({work, max}) for the time left: the slowest type sets it.
+-- third value lists each type's work ({work, max, speed}) for the time left: the slowest type sets it.
+
+-- The server's WorkSpeedRate (PalWorldSettings.ini; the game's default 1). A pal's work per second
+-- is its craft speed for the work type times this (2.5 on both servers: measured on the test
+-- server 2026-10-19 against the game clock, for one work type and for each type of a multi-type work).
+local function read_work_speed_rate()
+    local root = DIR:gsub("\\", "/"):match("^(.*)/Pal/Binaries/")
+    if not root then return 1 end
+    local f = io.open(root .. "/Pal/Saved/Config/WindowsServer/PalWorldSettings.ini", "r")
+    if not f then return 1 end
+    local text = f:read("*a")
+    f:close()
+    return tonumber(text:match("WorkSpeedRate=([%d%.]+)")) or 1
+end
+local WORK_SPEED_RATE = read_work_speed_rate()
+
+-- work per second of each work type at the multi-type works: work address -> { [suitability] = speed },
+-- from the pals working there now (WorkingState 2; 1 is a pal assigned but resting or on its way)
+local type_speeds = {}
+local function collect_type_speeds()
+    local by = {}
+    for _, comp in ipairs(FindAllOf("PalCharacterParameterComponent") or {}) do
+        pcall(function()
+            if tonumber(comp.WorkingState) ~= 2 then return end
+            local work = comp:GetWork()
+            if not work or not work:IsValid() then return end
+            -- only the multi-type assignment says which work type the pal does
+            local suit = tonumber(comp:GetWorkAssign().AssignedWorkSuitability)
+            if not suit then return end
+            local speed = comp:GetIndividualParameter():GetCraftSpeed_withBuff_WorkSuitability(suit)
+            local key = work:GetAddress()
+            by[key] = by[key] or {}
+            by[key][suit] = (by[key][suit] or 0) + speed * WORK_SPEED_RATE
+        end)
+    end
+    type_speeds = by
+end
+
 local function work_of(w, remain)
     if not w then return 0, 0, nil end
     local entries = nil
@@ -419,13 +456,28 @@ local function work_of(w, remain)
         local work = math.min(e.CurrentProgress, max * crafts)
         done = done + work
         total = total + max
-        types[#types + 1] = { work = work, max = max }
+        local speed = 0
+        pcall(function() speed = (type_speeds[w:GetAddress()] or {})[tonumber(e.WorkSuitability)] or 0 end)
+        types[#types + 1] = { work = work, max = max, speed = speed }
     end
     return done, total, types
 end
 
+-- production ticks until the pals at multi-type works are looked up again (see collect_type_speeds)
+local SPEEDS_EVERY = 10
+local speeds_in = 0
+local multi_running = false
+
 local function production_tick(force)
     take_pending("progress")
+    if multi_running then
+        speeds_in = speeds_in - 1
+        if speeds_in <= 0 then
+            speeds_in = SPEEDS_EVERY
+            pcall(collect_type_speeds)
+        end
+    end
+    local any_multi = false
     local progress = {}
     for addr, w in pairs(objects.progress) do
         if not w:IsValid() then
@@ -456,6 +508,7 @@ local function production_tick(force)
             end
             local remain = concrete.RemainProductNum
             local work, required, types = work_of(w, remain)
+            if types and remain > 0 then any_multi = true end
             -- the work speed the game keeps: the sum of the working pals' (and players') speed,
             -- updated as they join or leave (-1 or 0 while nobody works); checked on the test
             -- server 2026-10-19: work left / this was the time to the finished item
@@ -480,6 +533,7 @@ local function production_tick(force)
             json_cache[b] = nil
         end
     end
+    multi_running = any_multi
     table.sort(parts)
     local text = '{"buildings":[' .. table.concat(parts, ",") .. "]}"
     if text == last_production and not force then return end
@@ -527,6 +581,9 @@ local function fast_tick()
     -- a work started, ended or made an item: the orders go out now, not at the next half second
     if work_event then
         work_event = false
+        -- who works where changed: the multi-type works' speeds now, and again in a second
+        pcall(collect_type_speeds)
+        speeds_in = 2
         production_tick()
     end
     if next(dirty) == nil then return end

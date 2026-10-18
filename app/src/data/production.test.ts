@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etaParts, exactEta, gameSpeed, workLeft, workShare } from "./production";
+import { etaParts, exactEta, typeSpeeds, workAfter, workLeft, workShare } from "./production";
 
 describe("production share", () => {
   it("counts a single pal's current craft", () => {
@@ -33,9 +33,27 @@ describe("production share", () => {
     // nobody works
     expect(exactEta({ remain: 1, work: 100, workRequired: 400, bySec: -1 })).toBeNull();
     expect(exactEta({ remain: 1, work: 100, workRequired: 400, bySec: 0 })).toBeNull();
-    // older mod, or several work types: not known this way
-    expect(gameSpeed({ remain: 1, work: 100, workRequired: 400 })).toBeNull();
-    expect(gameSpeed({ remain: 2, work: 100, workRequired: 400, bySec: 50, types: [{ work: 50, max: 200 }, { work: 50, max: 200 }] })).toBeNull();
+    // older mod: not known
+    expect(typeSpeeds({ remain: 1, work: 100, workRequired: 400 })).toBeNull();
+    expect(typeSpeeds({ remain: 2, work: 100, workRequired: 400, types: [{ work: 50, max: 200 }, { work: 50, max: 200 }] })).toBeNull();
+  });
+
+  it("takes the work type that ends last where several pals work", () => {
+    // 3 crafts of 100 per type: type A 250 left at 50/s (5 s), type B 100 left at 10/s (10 s)
+    const o = { remain: 3, work: 250, workRequired: 200, types: [{ work: 50, max: 100, speed: 50 }, { work: 200, max: 100, speed: 10 }] };
+    expect(exactEta(o)).toBeCloseTo(10);
+    // a type with work left and nobody at it: the order does not end
+    expect(exactEta({ ...o, types: [o.types[0], { ...o.types[1], speed: 0 }] })).toBeNull();
+    // a type that is done does not hold it back
+    expect(exactEta({ ...o, types: [o.types[0], { work: 300, max: 100, speed: 0 }] })).toBeCloseTo(5);
+  });
+
+  it("moves the work on at the known speeds, each type up to what is left", () => {
+    const o = { remain: 3, work: 250, workRequired: 200, types: [{ work: 50, max: 100, speed: 50 }, { work: 200, max: 100, speed: 10 }] };
+    expect(workAfter(o, 2)).toBeCloseTo(150 + 220);
+    // type A stops at 300 (3 crafts)
+    expect(workAfter(o, 10)).toBeCloseTo(300 + 300);
+    expect(workAfter({ remain: 1, work: 100, workRequired: 400, bySec: 30 }, 2)).toBeCloseTo(160);
   });
 
   it("stays within what is left", () => {
