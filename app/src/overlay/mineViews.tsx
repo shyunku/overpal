@@ -2,7 +2,7 @@
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
 import { recipeOf } from "../data/goals";
-import { etaParts, exactEta, gameTimeNow, typeSpeeds, workAfter, workShare } from "../data/production";
+import { craftsAfter, etaParts, exactEta, gameTimeNow, typeSpeeds, workAfter, workShare } from "../data/production";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
@@ -214,16 +214,18 @@ function PalRow({ L, p, onOpen }: { L: Lookups; p: MinePal; onOpen: () => void }
  */
 type Prod = Building & { made: number; /** the order's recipe row (production.recipe is its product) */ key: string };
 
-function prodInfo(b: Prod) {
+/**
+ * A production order's counts: made is what sits in the building (taking items out lowers it and
+ * the total with it, as the game shows it: 20/500 -> 0/480), the total that plus what is left.
+ * `crafts`: items made since the reading (the work moved on at the known speeds), counted at once.
+ */
+function prodInfo(b: Prod, crafts = 0) {
   const pr = b.production!;
   const on = pr.remain > 0;
-  // the game counts the order and what is left in crafts; one craft can make several (energy
-  // cartridges: 20). Made is what the order has made (read with what is left, so they never
-  // disagree), also once the items were taken out of the building or carried off.
+  // the game counts what is left in crafts; one craft can make several (energy cartridges: 20)
   const per = recipeOf(b.key).n;
-  const crafts = Math.max(pr.requested, pr.remain);
-  const total = crafts * per;
-  const made = (crafts - pr.remain) * per;
+  const total = b.made + pr.remain * per;
+  const made = b.made + crafts * per;
   const part = on ? workShare(pr.work, pr.workRequired, pr.remain) * per : 0;
   return {
     made,
@@ -232,7 +234,7 @@ function prodInfo(b: Prod) {
     // items made and still in the building (done: waiting to be taken out)
     waiting: b.made,
     // the item in progress counts with its share, so the bar moves between finished items
-    share: total > 0 ? Math.min(100, ((made + part) / total) * 100) : 100,
+    share: total > 0 ? Math.min(100, ((b.made + part) / total) * 100) : 100,
   };
 }
 
@@ -333,7 +335,7 @@ function ProdStatusLine({ name, eta, status }: { name: string; eta: number | nul
  * follows the work as it happens; a pal leaving comes as an event at once, so it does not run
  * ahead), and the time left from the reading less the time since. Else the reading, no time.
  */
-function useLiveWork(pr: NonNullable<Building["production"]>): { work: number; live: boolean; eta: number | null } {
+function useLiveWork(pr: NonNullable<Building["production"]>): { work: number; crafts: number; live: boolean; eta: number | null } {
   const speeds = typeSpeeds(pr);
   const moving = !!speeds && speeds.some((v) => v > 0) && pr.remain > 0;
   const base = useRef({ pr, at: performance.now() });
@@ -349,21 +351,21 @@ function useLiveWork(pr: NonNullable<Building["production"]>): { work: number; l
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [moving]);
-  if (!moving) return { work: pr.work, live: false, eta: null };
+  if (!moving) return { work: pr.work, crafts: 0, live: false, eta: null };
   // seconds since the reading by the game's clock (the time it took to arrive does not count);
   // without a stamp (older mod) since it arrived
   const now = gameTimeNow();
   const elapsed = pr.at !== undefined && now !== null ? Math.max(0, now - pr.at) : (performance.now() - base.current.at) / 1000;
   const eta = exactEta(pr);
-  return { work: workAfter(pr, elapsed), live: true, eta: eta === null ? null : Math.max(0, eta - elapsed) };
+  return { work: workAfter(pr, elapsed), crafts: craftsAfter(pr, elapsed), live: true, eta: eta === null ? null : Math.max(0, eta - elapsed) };
 }
 
 /** One production order: item, (made/requested), building, time left, progress, bar. */
 function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
   const received = b.production!;
-  const { work, live, eta: etaLive } = useLiveWork(received);
+  const { work, crafts, live, eta: etaLive } = useLiveWork(received);
   const pr = live ? { ...received, work } : received;
-  const x = prodInfo({ ...b, production: pr });
+  const x = prodInfo({ ...b, production: pr }, crafts);
   // the share shown does not go back within the same order (a reading behind the guess)
   const shown = useRef({ made: x.made, total: x.total, share: x.share });
   if (shown.current.made !== x.made || shown.current.total !== x.total || !live) shown.current = { made: x.made, total: x.total, share: x.share };

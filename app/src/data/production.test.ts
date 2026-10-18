@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etaParts, exactEta, gameTimeNow, noteGameTime, typeSpeeds, workAfter, workLeft, workShare } from "./production";
+import { craftsAfter, etaParts, exactEta, gameTimeNow, noteGameTime, typeSpeeds, workAfter, workLeft, workShare } from "./production";
 
 describe("production share", () => {
   it("counts a single pal's current craft", () => {
@@ -65,6 +65,18 @@ describe("production share", () => {
     // the server started over: its clock begins again
     noteGameTime(0.2, 2000.4);
     expect(gameTimeNow(2001)).toBeCloseTo(0.8, 5);
+  });
+
+  it("counts the items made since the reading, the type furthest behind setting it", () => {
+    // one type: 100 per item, 30 done, 50/s: 2 s -> 130 (1 item), 5 s -> 280 (2 items)
+    expect(craftsAfter({ remain: 5, work: 30, workRequired: 100, bySec: 50 }, 2)).toBe(1);
+    expect(craftsAfter({ remain: 5, work: 30, workRequired: 100, bySec: 50 }, 5)).toBe(2);
+    // never past what is left
+    expect(craftsAfter({ remain: 2, work: 30, workRequired: 100, bySec: 50 }, 60)).toBe(2);
+    // two types: A 4 items ahead, B at 60 of 100 at 20/s: B sets it (2 s -> 1 item)
+    const o = { remain: 10, work: 460, workRequired: 200, types: [{ work: 400, max: 100, speed: 0 }, { work: 60, max: 100, speed: 20 }] };
+    expect(craftsAfter(o, 1)).toBe(0);
+    expect(craftsAfter(o, 2)).toBe(1);
   });
 
   it("stays within what is left", () => {

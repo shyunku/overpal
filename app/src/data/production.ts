@@ -91,6 +91,21 @@ export function workAfter(o: OrderWork, seconds: number): number {
 }
 
 /**
+ * Items (crafts) made `seconds` after the reading at the known speeds: a craft is made once every
+ * work type has one craft's work, so the type furthest behind sets it (0..remain).
+ */
+export function craftsAfter(o: OrderWork, seconds: number): number {
+  const speeds = typeSpeeds(o);
+  if (!speeds || o.remain <= 0) return 0;
+  const types = o.types?.length ? o.types : [{ work: o.work, max: o.workRequired }];
+  let crafts = o.remain;
+  types.forEach((t, i) => {
+    if (t.max > 0) crafts = Math.min(crafts, Math.floor(Math.min(o.remain * t.max, t.work + speeds[i] * seconds) / t.max));
+  });
+  return Math.max(0, crafts);
+}
+
+/**
  * Work still to do per work type: the order is done when the slowest type is. Without the
  * per-type list (one work type, or an older mod) the order counts as one.
  */

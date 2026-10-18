@@ -477,6 +477,8 @@ end
 
 -- production ticks until the pals at multi-type works are looked up again (see collect_type_speeds)
 local SPEEDS_EVERY = 10
+-- per production building: its last speed and when, its last work and since when (see production_tick)
+local order_state = {}
 local speeds_in = 0
 local multi_running = false
 
@@ -490,6 +492,8 @@ local function production_tick(force)
         end
     end
     local any_multi = false
+    -- the game's clock (or the process clock before the world is there), for the speed checks
+    local now = game_seconds() or os.clock()
     local progress = {}
     for addr, w in pairs(objects.progress) do
         if not w:IsValid() then
@@ -526,6 +530,23 @@ local function production_tick(force)
             -- server 2026-10-19: work left / this was the time to the finished item
             local by_sec = nil
             pcall(function() by_sec = w.ReplicatedWorkAmountBySec end)
+            -- between two items the game's speed reads -1 a moment (fast items like gunpowder):
+            -- the speed of a second ago stands, so the overlay's time left does not blink
+            local st = order_state[id] or {}
+            order_state[id] = st
+            if by_sec and by_sec > 0 then
+                st.speed, st.speed_at = by_sec, now
+            elseif remain > 0 and st.speed and now - st.speed_at < 1 then
+                by_sec = st.speed
+            end
+            -- work that does not move for a second while a speed is given (output full, power
+            -- out, pals in place but not working): no speed, else the overlay moves it on alone
+            local moved = work ~= st.work or remain ~= st.remain
+            if moved then st.work, st.remain, st.since = work, remain, now end
+            if not moved and now - (st.since or now) >= 1 then
+                if by_sec and by_sec > 0 then by_sec = 0 end
+                if types then for _, ty in ipairs(types) do ty.speed = 0 end end
+            end
             p = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
