@@ -8,7 +8,9 @@ export function TitleBar({ resizable, version, profile }: { resizable: boolean; 
     <div className="titlebar" data-tauri-drag-region>
       <img className="tlogo" src="/app-icon.png" alt="" draggable={false} data-tauri-drag-region />
       <span className="ttext" data-tauri-drag-region>
+        {/* the debug build loads the dev server's pages (vite dev): told apart from the installed app */}
         Overpal{version ? ` v${version}` : ""}
+        {import.meta.env.DEV ? " (debug)" : ""}
         {profile ? ` (Profile: ${profile})` : ""}
       </span>
       <span className="sp" data-tauri-drag-region />
