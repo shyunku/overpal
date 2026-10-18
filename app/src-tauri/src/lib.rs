@@ -133,6 +133,7 @@ pub fn run() {
             gui::gs_status,
             gui::gs_start,
             gui::gs_stop,
+            gui::gs_announce,
             gui::gs_log_follow,
             gui::gs_log_dir,
             gui::players_in,

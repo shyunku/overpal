@@ -166,6 +166,18 @@ pub fn start(dir: &Path, game_port: Option<u16>, query_port: Option<u16>) -> Res
     Ok(())
 }
 
+/// Sends a message to every player on the server (their chat), through REST.
+pub async fn announce(dir: &Path, message: &str) -> Result<(), String> {
+    let message = message.trim();
+    if message.is_empty() {
+        return Err("보낼 문구가 없습니다.".into());
+    }
+    let rest = rest_settings(dir).ok_or("서버 설정에서 관리 API(RESTAPIEnabled)가 꺼져 있어 보낼 수 없습니다.")?;
+    rest_call(&rest, reqwest::Method::POST, "announce", Some(serde_json::json!({ "message": message }))).await?;
+    applog::info(Kind::Conn, format!("공지를 보냈습니다: {message}"));
+    Ok(())
+}
+
 /// set while a stop asked for here is under way (the server ending then is no surprise)
 static STOPPING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 

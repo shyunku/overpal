@@ -3,6 +3,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
+import { showToast } from "./toast";
 import { api, errorText, shortPath, type GameServerStatus } from "./session";
 
 type Busy = "starting" | "stopping" | null;
@@ -143,6 +144,7 @@ export function GameServerView({ gs, onChanged }: { gs: GameServerStatus | null;
           </span>
         ))}
       </div>
+      <Announce enabled={state === "on"} />
       <ServerLog />
       {confirm && (
         <div className="modal-back">
@@ -179,6 +181,63 @@ export function GameServerView({ gs, onChanged }: { gs: GameServerStatus | null;
 const MAX_LINES = 1000;
 
 /** The server log as it is written ("pd" = PalDefender, "mod" = UE4SS). */
+/** longest announcement the field takes */
+const ANNOUNCE_MAX = 200;
+
+/**
+ * Sends an announcement to every player on the server (their chat). How it went shows as a toast.
+ * Mock: docs/designs/announce-mock.html (A).
+ */
+function Announce({ enabled }: { enabled: boolean }) {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const send = async () => {
+    const message = text.trim();
+    if (!enabled || sending || !message) return;
+    setSending(true);
+    try {
+      await api.gsAnnounce(message);
+      setText("");
+      showToast("공지를 보냈습니다.", "ok");
+    } catch (e) {
+      showToast(`공지를 보내지 못했습니다. ${errorText(e)}`, "bad");
+    }
+    setSending(false);
+  };
+  return (
+    <>
+      <div className="sec">
+        <span>
+          <Icon name="megaphone" />
+          공지 보내기
+        </span>
+        <span>접속한 모든 플레이어의 채팅에 표시됩니다.</span>
+      </div>
+      <div className="row announce">
+        <span className="field">
+          <input
+            value={text}
+            maxLength={ANNOUNCE_MAX}
+            disabled={!enabled}
+            placeholder={enabled ? "보낼 문구 (예: 10분 뒤 서버를 재시작합니다)" : "게임 서버가 켜져 있을 때 보낼 수 있습니다."}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) send();
+            }}
+          />
+          <span className="count tabular">
+            {text.length}/{ANNOUNCE_MAX}
+          </span>
+        </span>
+        <button className="btn primary" disabled={!enabled || sending || !text.trim()} onClick={send}>
+          <Icon name="send" />
+          보내기
+        </button>
+      </div>
+    </>
+  );
+}
+
 function ServerLog() {
   const [source, setSource] = useState<"pd" | "mod">("pd");
   const [file, setFile] = useState<string | null>(null);

@@ -97,6 +97,7 @@ export const api = {
   gsStatus: () => invoke<GameServerStatus>("gs_status"),
   gsStart: () => invoke<void>("gs_start"),
   gsStop: () => invoke<void>("gs_stop"),
+  gsAnnounce: (message: string) => invoke<void>("gs_announce", { message }),
   gsLogFollow: (source: "pd" | "mod") => invoke<void>("gs_log_follow", { source }),
   gsLogDir: (source: "pd" | "mod") => invoke<string>("gs_log_dir", { source }),
   playersIn: (dir: string) => invoke<string[]>("players_in", { dir }),

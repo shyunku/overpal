@@ -465,6 +465,13 @@ pub async fn gs_stop(session: tauri::State<'_, Session>) -> Result<(), String> {
     crate::gameserver::stop(&dir).await
 }
 
+/// Sends an announcement to every player on the game server (their chat).
+#[tauri::command]
+pub async fn gs_announce(session: tauri::State<'_, Session>, message: String) -> Result<(), String> {
+    let dir = game_server_dir(&session)?;
+    crate::gameserver::announce(&dir, &message).await
+}
+
 /// Starts following a server log ("pd" or "mod"); lines arrive as `gs-log` events.
 #[tauri::command]
 pub fn gs_log_follow(app: AppHandle, session: tauri::State<'_, Session>, source: String) -> Result<(), String> {

@@ -6,6 +6,7 @@ import type { PdPlayers } from "../data/paldefender";
 import type { ClientConfig, ModStatus } from "../types";
 import { Icon, type IconName } from "./icons";
 import { GameServerView, gsState } from "./GameServer";
+import { Toasts } from "./toast";
 import { api, errorText, MODE_NAME, shortPath, type Detected, type FoundServer, type GameServerStatus, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
 
 // ---------------------------------------------------------------- data from the app server
@@ -272,6 +273,7 @@ function Running({ session, setSession }: { session: SessionView; setSession: (s
 
   return (
     <div className="home">
+      <Toasts />
       <div className="nav">
         {tabs.map(([t, label, icon]) => (
           <div key={t} className={`item ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>
