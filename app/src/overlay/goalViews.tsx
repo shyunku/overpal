@@ -220,8 +220,9 @@ export function addGoal(goals: Goal[], g: Goal): Goal[] {
 }
 
 /**
- * Material lines: lacking ones open, filled ones closed by default; a line's own toggle holds
- * until it turns filled or lacking.
+ * Material lines: open by default while something below is lacking (to make or to get), so a
+ * closed line never hides one; filled lines and lines whose materials are all filled are closed.
+ * A line's own toggle holds until it turns filled or lacking.
  */
 function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
   const [own, setOwn] = useState<Record<string, { open: boolean; lack: boolean }>>({});
@@ -229,10 +230,10 @@ function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
   const walk = (list: MaterialNode[], depth: number) => {
     for (const n of list) {
       const lacking = n.lack > 0;
-      // lacking, but makeable from what is there (all the way down): closed like a filled line, in yellow
+      // lacking, but makeable from what is there (all the way down): in yellow
       const ready = readyToCraft(n);
       const o = own[n.key];
-      const open = n.craftable && (o && o.lack === lacking ? o.open : lacking && !ready);
+      const open = n.craftable && (o && o.lack === lacking ? o.open : n.children.some((c) => c.lack > 0));
       lines.push(
         <div
           className={`gl-mat d${Math.min(depth, 3)} ${n.craftable ? "can" : ""}`}
