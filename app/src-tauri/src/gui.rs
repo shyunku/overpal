@@ -465,9 +465,9 @@ pub async fn gs_stop(session: tauri::State<'_, Session>) -> Result<(), String> {
     crate::gameserver::stop(&dir).await
 }
 
-/// Sends an announcement to every player on the game server (their chat).
+/// Sends an announcement to every player on the game server (banner and chat); Some: what did not go out.
 #[tauri::command]
-pub async fn gs_announce(session: tauri::State<'_, Session>, message: String) -> Result<(), String> {
+pub async fn gs_announce(session: tauri::State<'_, Session>, message: String) -> Result<Option<String>, String> {
     let dir = game_server_dir(&session)?;
     crate::gameserver::announce(&dir, &message).await
 }

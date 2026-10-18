@@ -185,7 +185,8 @@ const MAX_LINES = 1000;
 const ANNOUNCE_MAX = 200;
 
 /**
- * Sends an announcement to every player on the server (their chat). How it went shows as a toast.
+ * Sends an announcement to every player on the server: the red server notice banner and a chat
+ * line. How it went shows as a toast.
  * Mock: docs/designs/announce-mock.html (A).
  */
 function Announce({ enabled }: { enabled: boolean }) {
@@ -196,9 +197,10 @@ function Announce({ enabled }: { enabled: boolean }) {
     if (!enabled || sending || !message) return;
     setSending(true);
     try {
-      await api.gsAnnounce(message);
+      const note = await api.gsAnnounce(message);
       setText("");
-      showToast("공지를 보냈습니다.", "ok");
+      if (note) showToast(`채팅에는 보냈지만 ${note}`, "bad");
+      else showToast("공지를 보냈습니다.", "ok");
     } catch (e) {
       showToast(`공지를 보내지 못했습니다. ${errorText(e)}`, "bad");
     }

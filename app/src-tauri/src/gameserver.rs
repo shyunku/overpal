@@ -166,16 +166,45 @@ pub fn start(dir: &Path, game_port: Option<u16>, query_port: Option<u16>) -> Res
     Ok(())
 }
 
-/// Sends a message to every player on the server (their chat), through REST.
-pub async fn announce(dir: &Path, message: &str) -> Result<(), String> {
+/// the mod shows the red server notice banner with the text it finds here, then removes the file
+const NOTICE_FILE: &str = "notice.txt";
+/// how long the mod has to take the notice (it looks four times a second)
+const NOTICE_WAIT: Duration = Duration::from_secs(2);
+
+/// Sends a message to every player on the server: the red "server notice" banner on their screen
+/// (the one the shutdown shows; through the mod, as REST has no such call) and a line in their
+/// chat (REST announce). Err when neither went out; Ok(Some(..)) when only the chat did.
+pub async fn announce(dir: &Path, message: &str) -> Result<Option<String>, String> {
     let message = message.trim();
     if message.is_empty() {
         return Err("보낼 문구가 없습니다.".into());
     }
     let rest = rest_settings(dir).ok_or("서버 설정에서 관리 API(RESTAPIEnabled)가 꺼져 있어 보낼 수 없습니다.")?;
-    rest_call(&rest, reqwest::Method::POST, "announce", Some(serde_json::json!({ "message": message }))).await?;
+    // the banner: left for the mod
+    let notice = crate::profiles::mod_dir(dir).join(NOTICE_FILE);
+    let banner = std::fs::write(&notice, message).map_err(|e| e.to_string());
+    // the chat shows "[SYSTEM]:" right before the text; a space keeps them apart
+    rest_call(&rest, reqwest::Method::POST, "announce", Some(serde_json::json!({ "message": format!(" {message}") }))).await?;
+    let banner_note = match banner {
+        Err(e) => Some(format!("배너를 띄우지 못했습니다 ({e}).")),
+        Ok(()) => {
+            let start = std::time::Instant::now();
+            while notice.exists() && start.elapsed() < NOTICE_WAIT {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            if notice.exists() {
+                let _ = std::fs::remove_file(&notice);
+                Some("배너는 띄우지 못했습니다 (모드 응답 없음).".to_string())
+            } else {
+                None
+            }
+        }
+    };
     applog::info(Kind::Conn, format!("공지를 보냈습니다: {message}"));
-    Ok(())
+    if let Some(n) = &banner_note {
+        applog::warn(Kind::Conn, n.clone());
+    }
+    Ok(banner_note)
 }
 
 /// set while a stop asked for here is under way (the server ending then is no surprise)

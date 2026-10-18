@@ -15,7 +15,7 @@ const MOD_DIR: &str = r"Pal\Binaries\Win64\ue4ss\Mods\OverpalMod";
 const OLD_MOD_DIR: &str = r"Pal\Binaries\Win64\ue4ss\Mods\PalHelperMod";
 
 /// The mod folder of a server: the new name, or the old one while only that is installed.
-fn mod_dir(server: &Path) -> PathBuf {
+pub fn mod_dir(server: &Path) -> PathBuf {
     let new = server.join(MOD_DIR);
     let old = server.join(OLD_MOD_DIR);
     if !new.is_dir() && old.is_dir() { old } else { new }

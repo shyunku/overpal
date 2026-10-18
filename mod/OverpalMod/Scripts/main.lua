@@ -613,7 +613,28 @@ local function try_hook()
 end
 
 -- re-read the flagged containers and write the file only when something actually changed
+-- The red "server notice" banner on every player's screen (the one the shutdown shows), with a
+-- text the app leaves in notice.txt (Home's announcement): shown once, the file removed so the app
+-- knows it was taken. PalGameStateInGame:BroadcastServerNotice(NoticeMessage), tried on the test
+-- server 2026-10-19.
+local NOTICE_FILE = "notice.txt"
+local function take_notice()
+    local f = io.open(DIR .. NOTICE_FILE, "r")
+    if not f then return end
+    local text = f:read("*a")
+    f:close()
+    os.remove(DIR .. NOTICE_FILE)
+    text = text and text:gsub("^%s+", ""):gsub("%s+$", "") or ""
+    if text == "" then return end
+    local ok, err = pcall(function()
+        local gs = FindFirstOf("PalGameStateInGame")
+        gs:BroadcastServerNotice(text)
+    end)
+    if not ok then log_error("notice", err) end
+end
+
 local function fast_tick()
+    pcall(take_notice)
     -- a work started, ended or made an item: the orders go out now, not at the next half second
     if work_event then
         work_event = false
