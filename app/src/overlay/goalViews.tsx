@@ -1,7 +1,7 @@
 // The main window's goals tab: items or structures to make, and the materials the base has for them.
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { craftableNow, goalKey, goalMaterials, loadRecipes, materialTree, treeProgress, type Goal, type MaterialNode, type Recipes } from "../data/goals";
+import { craftableNow, goalKey, goalMaterials, loadRecipes, materialTree, readyToCraft, treeProgress, type Goal, type MaterialNode, type Recipes } from "../data/goals";
 import { dexIconUrl, type Dex, type DexStruct } from "../data/dex";
 import type { BaseView } from "../data/snapshot";
 import { itemIconUrl, itemName, matchRank } from "./labels";
@@ -229,8 +229,8 @@ function MaterialLines({ nodes }: { nodes: MaterialNode[] }) {
   const walk = (list: MaterialNode[], depth: number) => {
     for (const n of list) {
       const lacking = n.lack > 0;
-      // lacking, but its materials are all there: closed like a filled line, in yellow
-      const ready = lacking && n.children.length > 0 && n.children.every((c) => c.lack === 0);
+      // lacking, but makeable from what is there (all the way down): closed like a filled line, in yellow
+      const ready = readyToCraft(n);
       const o = own[n.key];
       const open = n.craftable && (o && o.lack === lacking ? o.open : lacking && !ready);
       lines.push(

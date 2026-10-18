@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { craftableNow, goalMaterials, materialTree, materialsOf, treeProgress, type Recipes } from "./goals";
+import { craftableNow, goalMaterials, materialTree, materialsOf, readyToCraft, treeProgress, type Recipes } from "./goals";
 
 const recipes: Recipes = {
   Arrow: { n: 10, mats: [["Wood", 2], ["Stone", 2]] },
@@ -42,6 +42,20 @@ describe("goals", () => {
     // with coal at hand the regular recipe stays
     const [cf2] = materialTree(r, [["CarbonFiber", 2]], pool({ Coal: 4, FireOrgan: 2 }));
     expect(cf2.children[0].id).toBe("Coal");
+  });
+
+  it("finds lines makeable from the stock all the way down", () => {
+    // 2 nails lacking: their 2 ingots lacking too, but the ore for them is there
+    const [nail] = materialTree(recipes, [["Nail", 2]], pool({ CopperOre: 4 }));
+    expect(nail.children[0].lack).toBe(2);
+    expect(readyToCraft(nail.children[0])).toBe(true);
+    expect(readyToCraft(nail)).toBe(true);
+    // not enough ore at the bottom: nothing above is makeable
+    const [nail2] = materialTree(recipes, [["Nail", 2]], pool({ CopperOre: 3 }));
+    expect(readyToCraft(nail2)).toBe(false);
+    // a filled line is not "makeable", it is done
+    const [nail3] = materialTree(recipes, [["Nail", 2]], pool({ Nail: 2 }));
+    expect(readyToCraft(nail3)).toBe(false);
   });
 
   it("tells how many the stock makes now", () => {

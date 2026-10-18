@@ -100,6 +100,14 @@ export function materialTree(recipes: Recipes, mats: [string, number][], pool: M
   });
 }
 
+/**
+ * A lacking line that can be made from what is there: each of its materials is filled or, lacking,
+ * can itself be made that way (all the way down).
+ */
+export function readyToCraft(n: MaterialNode): boolean {
+  return n.lack > 0 && n.children.length > 0 && n.children.every((c) => c.lack === 0 || readyToCraft(c));
+}
+
 /** how far lines are covered (0..1), each weighted by the base materials it takes */
 function covered(recipes: Recipes, nodes: MaterialNode[]): number {
   let done = 0;
