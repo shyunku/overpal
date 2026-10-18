@@ -2,6 +2,7 @@
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
 import { recipeOf } from "../data/goals";
+import { workShare } from "../data/production";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
@@ -219,7 +220,7 @@ function prodInfo(b: Prod) {
   // the game counts what is left in crafts; one craft can make several (energy cartridges: 20)
   const per = recipeOf(b.key).n;
   const total = b.made + pr.remain * per;
-  const part = on && pr.workRequired > 0 ? Math.min(1, pr.work / pr.workRequired) * per : 0;
+  const part = on ? workShare(pr.work, pr.workRequired, pr.remain) * per : 0;
   return {
     made: b.made,
     total,

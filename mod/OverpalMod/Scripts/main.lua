@@ -397,18 +397,25 @@ local last_production = nil
 -- furnace, ancient workbench) use PalWorkProgressMultiType: its CurrentWorkAmount stays 0 and each
 -- work type has its own entry (CurrentProgress may run past MaxProgress, kept for the next items);
 -- an item is done when every type reaches its MaxProgress, the maxima adding up to the requirement.
-local function work_of(w)
+-- Work done on the order and the work one craft takes. Buildings several pals work on
+-- (PalWorkProgressMultiType) keep an entry per work type: MaxProgress is one craft's work of that
+-- type, CurrentProgress all the work of that type stored so far, which runs ahead of the other
+-- types (up to MaxStorableProgress, e.g. 111 crafts' worth while the other type had 0.16). A craft
+-- is made once every type has one craft's work. So the work counts up to `remain` crafts per type,
+-- and done / required can be more than one craft (the app turns it into the order's share).
+local function work_of(w, remain)
     if not w then return 0, 0 end
     local entries = nil
     pcall(function()
         if w:GetClass():GetFName():ToString() == "PalWorkProgressMultiType" then entries = w.ProgressEntries end
     end)
     if not entries then return w.CurrentWorkAmount, w.RequiredWorkAmount end
+    local crafts = math.max(remain or 1, 1)
     local done, total = 0, 0
     for i = 1, #entries do
         local e = entries[i]
         local max = e.MaxProgress
-        done = done + math.min(e.CurrentProgress, max)
+        done = done + math.min(e.CurrentProgress, max * crafts)
         total = total + max
     end
     return done, total
@@ -444,11 +451,12 @@ local function production_tick(force)
                     if it.item == recipe then made = made + it.count end
                 end
             end
-            local work, required = work_of(w)
+            local remain = concrete.RemainProductNum
+            local work, required = work_of(w, remain)
             p = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
-                remain = concrete.RemainProductNum,
+                remain = remain,
                 made = made,
                 work = work,
                 workRequired = required,

@@ -65,7 +65,10 @@ export interface Building {
     remain: number;
     /** finished items still in the building, read with `remain` (newer mod output) */
     made?: number;
-    /** progress of the current item */
+    /**
+     * work done on what is left and one craft's work; work / workRequired is in crafts, more than
+     * one where several pals work ahead of each other (each work type's stored work, summed)
+     */
     work: number;
     workRequired: number;
   };
