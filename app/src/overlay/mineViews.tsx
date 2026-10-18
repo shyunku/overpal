@@ -2,7 +2,7 @@
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
 import { recipeOf } from "../data/goals";
-import { etaParts, exactEta, typeSpeeds, workAfter, workShare } from "../data/production";
+import { etaParts, exactEta, gameTimeNow, typeSpeeds, workAfter, workShare } from "../data/production";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
@@ -350,7 +350,10 @@ function useLiveWork(pr: NonNullable<Building["production"]>): { work: number; l
     return () => cancelAnimationFrame(raf);
   }, [moving]);
   if (!moving) return { work: pr.work, live: false, eta: null };
-  const elapsed = (performance.now() - base.current.at) / 1000;
+  // seconds since the reading by the game's clock (the time it took to arrive does not count);
+  // without a stamp (older mod) since it arrived
+  const now = gameTimeNow();
+  const elapsed = pr.at !== undefined && now !== null ? Math.max(0, now - pr.at) : (performance.now() - base.current.at) / 1000;
   const eta = exactEta(pr);
   return { work: workAfter(pr, elapsed), live: true, eta: eta === null ? null : Math.max(0, eta - elapsed) };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etaParts, exactEta, typeSpeeds, workAfter, workLeft, workShare } from "./production";
+import { etaParts, exactEta, gameTimeNow, noteGameTime, typeSpeeds, workAfter, workLeft, workShare } from "./production";
 
 describe("production share", () => {
   it("counts a single pal's current craft", () => {
@@ -54,6 +54,17 @@ describe("production share", () => {
     // type A stops at 300 (3 crafts)
     expect(workAfter(o, 10)).toBeCloseTo(300 + 300);
     expect(workAfter({ remain: 1, work: 100, workRequired: 400, bySec: 30 }, 2)).toBeCloseTo(160);
+  });
+
+  it("tells the game's time from the quickest arrival, whatever the others took", () => {
+    // readings stamped every 0.5 s, arriving 0.05 to 0.3 s later (local = game + 1000 + delay)
+    const delays = [0.3, 0.05, 0.2, 0.12, 0.25];
+    delays.forEach((d, i) => noteGameTime(i * 0.5, 1000 + i * 0.5 + d));
+    // the game's time at local 1003: 1003 - (1000 + 0.05)
+    expect(gameTimeNow(1003)).toBeCloseTo(2.95, 5);
+    // the server started over: its clock begins again
+    noteGameTime(0.2, 2000.4);
+    expect(gameTimeNow(2001)).toBeCloseTo(0.8, 5);
   });
 
   it("stays within what is left", () => {

@@ -1,6 +1,7 @@
 // Receives the mod output from the app server as it changes (GET /api/events, server-sent events).
 // EventSource cannot send the Authorization header, so the stream is read with fetch.
 
+import { noteGameTime } from "../data/production";
 import type { BaseStorage, Building, ClientConfig } from "../types";
 
 /** a production building's order from the mod (every 0.5 s while it changes); null when idle */
@@ -68,7 +69,12 @@ export async function streamStorage(
           }
           if (event === "storage" && data.length) onStorage(JSON.parse(data.join("\n")) as BaseStorage);
           else if (event === "positions" && data.length && onPositions) onPositions((JSON.parse(data.join("\n")) as { players: LivePosition[] }).players);
-          else if (event === "production" && data.length && onProduction) onProduction((JSON.parse(data.join("\n")) as { buildings: ProductionUpdate[] }).buildings);
+          else if (event === "production" && data.length && onProduction) {
+            // t: when the mod read it, in game seconds; each order carries it (the bar moves on from there)
+            const msg = JSON.parse(data.join("\n")) as { t?: number; buildings: ProductionUpdate[] };
+            if (typeof msg.t === "number") noteGameTime(msg.t);
+            onProduction(msg.buildings.map((b) => (b.production && typeof msg.t === "number" ? { ...b, production: { ...b.production, at: msg.t } } : b)));
+          }
         }
       }
       throw new Error("events stream ended");

@@ -16,6 +16,8 @@ export interface OrderWork {
   remain: number;
   work: number;
   workRequired: number;
+  /** when it was read, in game seconds */
+  at?: number;
   /** several work types: each one's work, one craft's work and its work per second (newer mod) */
   types?: { work: number; max: number; speed?: number }[];
   bySec?: number;
@@ -49,6 +51,32 @@ export function exactEta(o: OrderWork): number | null {
     worst = Math.max(worst, left[i] / speeds[i]);
   }
   return worst > 0 ? worst : null;
+}
+
+// ---------------------------------------------------------------- the game's clock
+// The mod stamps its readings with the game's time. A reading reaches the overlay a varying while
+// later (file, app server, stream); taking the time it arrived as its time made the bar and the
+// time left step back and forth. Instead the game's time now is the local clock less the smallest
+// gap seen lately between arrival and stamp (the reading that came quickest).
+
+/** gaps (local seconds - game seconds) of the latest readings */
+const gaps: number[] = [];
+const GAPS_KEPT = 40;
+let lastGameTime = -Infinity;
+
+/** A reading stamped `t` (game seconds) arrived now (`local`: seconds, performance clock). */
+export function noteGameTime(t: number, local = performance.now() / 1000): void {
+  // the game started over (server restart): earlier gaps say nothing any more
+  if (t < lastGameTime - 1) gaps.length = 0;
+  lastGameTime = t;
+  gaps.push(local - t);
+  if (gaps.length > GAPS_KEPT) gaps.shift();
+}
+
+/** The game's time now (seconds), or null before any stamped reading. */
+export function gameTimeNow(local = performance.now() / 1000): number | null {
+  if (!gaps.length) return null;
+  return local - Math.min(...gaps);
 }
 
 /**

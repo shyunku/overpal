@@ -463,6 +463,18 @@ local function work_of(w, remain)
     return done, total, types
 end
 
+-- the game's clock (world time in seconds), nil until the world is there
+local gameplay_statics, world_context = nil, nil
+local function game_seconds()
+    local t = nil
+    pcall(function()
+        if not gameplay_statics or not gameplay_statics:IsValid() then gameplay_statics = StaticFindObject("/Script/Engine.Default__GameplayStatics") end
+        if not world_context or not world_context:IsValid() then world_context = FindFirstOf("PalGameStateInGame") end
+        t = gameplay_statics:GetTimeSeconds(world_context)
+    end)
+    return t
+end
+
 -- production ticks until the pals at multi-type works are looked up again (see collect_type_speeds)
 local SPEEDS_EVERY = 10
 local speeds_in = 0
@@ -535,10 +547,13 @@ local function production_tick(force)
     end
     multi_running = any_multi
     table.sort(parts)
-    local text = '{"buildings":[' .. table.concat(parts, ",") .. "]}"
-    if text == last_production and not force then return end
-    last_production = text
-    write_file(PRODUCTION_FILE, text)
+    local body = '"buildings":[' .. table.concat(parts, ",") .. "]"
+    if body == last_production and not force then return end
+    last_production = body
+    -- when it was read, in game seconds: the overlay moves the work on from here, not from when the
+    -- reading reached it (that took a varying while, and the bar stepped back and forth with it)
+    local t = game_seconds()
+    write_file(PRODUCTION_FILE, "{" .. (t and ('"t":%.3f,'):format(t) or "") .. body .. "}")
 end
 
 -- Work on production buildings started (a pal or player joined), ended (one left) or made an item.

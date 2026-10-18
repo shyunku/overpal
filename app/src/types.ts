@@ -75,6 +75,8 @@ export interface Building {
     types?: { work: number; max: number }[];
     /** the work speed the game keeps (work per second of the pals and players at it); -1 or 0 while nobody works */
     bySec?: number;
+    /** when the mod read it, in game seconds (set from the production event) */
+    at?: number;
   };
 }
 
