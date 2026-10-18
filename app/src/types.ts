@@ -71,6 +71,8 @@ export interface Building {
      */
     work: number;
     workRequired: number;
+    /** buildings several pals work on: each work type's work (up to what is left) and one craft's */
+    types?: { work: number; max: number }[];
   };
 }
 

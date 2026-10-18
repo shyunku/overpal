@@ -2,8 +2,8 @@
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
 import { recipeOf } from "../data/goals";
-import { workShare } from "../data/production";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { etaText, trackEta, workShare } from "../data/production";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
 import type { PdPal } from "../data/paldefender";
@@ -230,10 +230,36 @@ function prodInfo(b: Prod) {
   };
 }
 
-/** One production order: item, (made/requested), building, current item progress, bar. */
+/** how long the bar and the percent take to reach a new value: the mod's update period, so they move on without pause */
+const PROD_GLIDE_MS = 500;
+
+/** A percent that glides to each new value in PROD_GLIDE_MS, at the bar's pace (linear). */
+function GlidingPercent({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = performance.now();
+    const a = from.current;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - start) / PROD_GLIDE_MS);
+      const v = a + (value - a) * k;
+      from.current = v;
+      setShown(v);
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{shown.toFixed(1)}%</>;
+}
+
+/** One production order: item, (made/requested), building, time left, progress, bar. */
 function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
   const pr = b.production!;
   const x = prodInfo(b);
+  // shown only while the pals move it on
+  const eta = x.on ? trackEta(b.id ?? `${b.location.x},${b.location.y},${b.location.z}`, pr, Date.now()) : null;
   return (
     <>
       <span className="line">
@@ -247,7 +273,18 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
           {b.customName || structName(L, b.buildObjectId)}
           {where ? ` · ${where}` : ""}
         </small>
-        <small className="tabular">{x.on ? `${x.share.toFixed(1)}%` : x.made > 0 ? "완료 · 꺼내기 대기" : "완료"}</small>
+        <small className="tabular">
+          {x.on ? (
+            <>
+              {eta !== null && <span className="mn-eta">{etaText(eta)}</span>}
+              <GlidingPercent value={x.share} />
+            </>
+          ) : x.made > 0 ? (
+            "완료 · 꺼내기 대기"
+          ) : (
+            "완료"
+          )}
+        </small>
       </span>
       <span className={`mn-bar ${x.on ? "" : "done"}`}>
         <i style={{ width: `${x.share}%` }} />

@@ -402,23 +402,26 @@ local last_production = nil
 -- type, CurrentProgress all the work of that type stored so far, which runs ahead of the other
 -- types (up to MaxStorableProgress, e.g. 111 crafts' worth while the other type had 0.16). A craft
 -- is made once every type has one craft's work. So the work counts up to `remain` crafts per type,
--- and done / required can be more than one craft (the app turns it into the order's share).
+-- and done / required can be more than one craft (the app turns it into the order's share). The
+-- third value lists each type's work ({work, max}) for the time left: the slowest type sets it.
 local function work_of(w, remain)
-    if not w then return 0, 0 end
+    if not w then return 0, 0, nil end
     local entries = nil
     pcall(function()
         if w:GetClass():GetFName():ToString() == "PalWorkProgressMultiType" then entries = w.ProgressEntries end
     end)
-    if not entries then return w.CurrentWorkAmount, w.RequiredWorkAmount end
+    if not entries then return w.CurrentWorkAmount, w.RequiredWorkAmount, nil end
     local crafts = math.max(remain or 1, 1)
-    local done, total = 0, 0
+    local done, total, types = 0, 0, {}
     for i = 1, #entries do
         local e = entries[i]
         local max = e.MaxProgress
-        done = done + math.min(e.CurrentProgress, max * crafts)
+        local work = math.min(e.CurrentProgress, max * crafts)
+        done = done + work
         total = total + max
+        types[#types + 1] = { work = work, max = max }
     end
-    return done, total
+    return done, total, types
 end
 
 local function production_tick(force)
@@ -452,7 +455,7 @@ local function production_tick(force)
                 end
             end
             local remain = concrete.RemainProductNum
-            local work, required = work_of(w, remain)
+            local work, required, types = work_of(w, remain)
             p = {
                 recipe = recipe,
                 requested = concrete.RequestedProductNum,
@@ -460,6 +463,7 @@ local function production_tick(force)
                 made = made,
                 work = work,
                 workRequired = required,
+                types = types,
             }
         end)
         local pj = p and to_json(p) or "null"
