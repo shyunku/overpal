@@ -364,7 +364,8 @@ async fn pal_defender_get(s: &AppState, path: &str) -> Response {
         return json_error(StatusCode::SERVICE_UNAVAILABLE, "PalDefender is not configured");
     };
     let url = format!("{}/v1/pdapi/{}", pd.url.trim_end_matches('/'), path);
-    match s.http.get(&url).bearer_auth(token).send().await {
+    // a slow PalDefender answer held the overlay's storage updates back (they wait for the inventory)
+    match s.http.get(&url).bearer_auth(token).timeout(Duration::from_secs(4)).send().await {
         Ok(res) => {
             let status = StatusCode::from_u16(res.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
             match res.text().await {

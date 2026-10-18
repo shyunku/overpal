@@ -11,6 +11,8 @@ const PLAYERS_MS = 500;
 export const MINIMAP_PLAYERS_MS = 100;
 /** own inventory (PalDefender has no push) */
 const INVENTORY_MS = 2000;
+/** how long a new storage version waits for the inventory fetched with it */
+const INVENTORY_WAIT_MS = 1500;
 /** guilds and camps change rarely */
 const GUILDS_MS = 15000;
 const STATUS_MS = 10000;
@@ -119,9 +121,17 @@ export function useOverlayData(playersMs = PLAYERS_MS, livePositionsMs = 1000): 
             const next: BaseStorage = waiting;
             waiting = null;
             const uid = meUidRef.current;
-            const inv = uid ? await fetchInventory(cfg, uid).catch(() => null) : null;
+            // a slow inventory answer must not hold the storage back: after a moment the storage
+            // goes first and the inventory follows when it comes (2026-10-19: a chest's 907 solite
+            // ingots stayed missing until a stuck PalDefender request ended)
+            const invFetch = uid ? fetchInventory(cfg, uid).catch(() => null) : Promise.resolve(null);
+            const inv = await Promise.race([invFetch, new Promise<null>((r) => window.setTimeout(() => r(null), INVENTORY_WAIT_MS))]);
             if (abort.signal.aborted) break;
             if (inv) setInventory(inv);
+            else
+              invFetch.then((late) => {
+                if (late && !abort.signal.aborted) setInventory(late);
+              });
             setStorage(next);
             setStreamDown(false);
             setError(null);
