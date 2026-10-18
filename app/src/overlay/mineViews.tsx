@@ -2,7 +2,7 @@
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
 import { recipeOf } from "../data/goals";
-import { etaParts, exactEta, gameSpeed, trackEta, workShare } from "../data/production";
+import { etaParts, exactEta, gameSpeed, workShare } from "../data/production";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
@@ -217,16 +217,22 @@ type Prod = Building & { made: number; /** the order's recipe row (production.re
 function prodInfo(b: Prod) {
   const pr = b.production!;
   const on = pr.remain > 0;
-  // the game counts what is left in crafts; one craft can make several (energy cartridges: 20)
+  // the game counts the order and what is left in crafts; one craft can make several (energy
+  // cartridges: 20). Made is what the order has made (read with what is left, so they never
+  // disagree), also once the items were taken out of the building or carried off.
   const per = recipeOf(b.key).n;
-  const total = b.made + pr.remain * per;
+  const crafts = Math.max(pr.requested, pr.remain);
+  const total = crafts * per;
+  const made = (crafts - pr.remain) * per;
   const part = on ? workShare(pr.work, pr.workRequired, pr.remain) * per : 0;
   return {
-    made: b.made,
+    made,
     total,
     on,
+    // items made and still in the building (done: waiting to be taken out)
+    waiting: b.made,
     // the item in progress counts with its share, so the bar moves between finished items
-    share: total > 0 ? Math.min(100, ((b.made + part) / total) * 100) : 100,
+    share: total > 0 ? Math.min(100, ((made + part) / total) * 100) : 100,
   };
 }
 
@@ -357,8 +363,8 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
   if (shown.current.made !== x.made || shown.current.total !== x.total || !live) shown.current = { made: x.made, total: x.total, share: x.share };
   else shown.current.share = Math.max(shown.current.share, x.share);
   const share = shown.current.share;
-  // shown only while the pals move it on: exact from the game's speed, else the measured pace
-  const eta = !x.on ? null : live ? exactEta(pr) : trackEta(b.id ?? `${b.location.x},${b.location.y},${b.location.z}`, received, Date.now());
+  // shown only where the game's work speed gives it exactly, while someone works
+  const eta = x.on && live ? exactEta(pr) : null;
   return (
     <>
       <span className="line">
@@ -370,7 +376,7 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
       <ProdStatusLine
         name={`${b.customName || structName(L, b.buildObjectId)}${where ? ` · ${where}` : ""}`}
         eta={eta}
-        status={x.on ? live ? `${share.toFixed(1)}%` : <GlidingPercent value={share} /> : x.made > 0 ? "완료 · 꺼내기 대기" : "완료"}
+        status={x.on ? live ? `${share.toFixed(1)}%` : <GlidingPercent value={share} /> : x.waiting > 0 ? "완료 · 꺼내기 대기" : "완료"}
       />
       <span className={`mn-bar ${x.on ? "" : "done"} ${live ? "live" : ""}`}>
         <i style={{ width: `${share}%` }} />
