@@ -1,7 +1,7 @@
 // The main window's "내 것" (mine) views for pals, structures and places: this server's data in
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
-import { recipeYield } from "../data/goals";
+import { recipeOf } from "../data/goals";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
@@ -211,13 +211,13 @@ function PalRow({ L, p, onOpen }: { L: Lookups; p: MinePal; onOpen: () => void }
  * after players take items out, so "made" is what still sits in the building (its production
  * storage) and the order is that plus what is left to make, as the game shows it.
  */
-type Prod = Building & { made: number };
+type Prod = Building & { made: number; /** the order's recipe row (production.recipe is its product) */ key: string };
 
 function prodInfo(b: Prod) {
   const pr = b.production!;
   const on = pr.remain > 0;
   // the game counts what is left in crafts; one craft can make several (energy cartridges: 20)
-  const per = recipeYield(pr.recipe);
+  const per = recipeOf(b.key).n;
   const total = b.made + pr.remain * per;
   const part = on && pr.workRequired > 0 ? Math.min(1, pr.work / pr.workRequired) * per : 0;
   return {
@@ -329,9 +329,14 @@ function productions(base: BaseView | null): Prod[] {
     .map((x) => {
       // the building's storage has the same actor location as the building
       const store = base!.storages.find((s) => s.kind === "production" && sameSpot(s.location, x.location));
-      // read by the mod together with what is left (made + remain stays the order); else from the storage
-      const made = x.production!.made ?? (store?.items ?? []).filter((it) => it.item === x.production!.recipe).reduce((a, it) => a + it.count, 0);
-      return { ...x, made };
+      // the order names its recipe row; shown as the item it makes (CarbonFiber2 -> CarbonFiber)
+      const key = x.production!.recipe;
+      const { product } = recipeOf(key);
+      // read by the mod together with what is left (made + remain stays the order); else from the
+      // storage. The mod counts items named like the recipe row, which misses other ways' products.
+      const fromMod = product === key ? x.production!.made : undefined;
+      const made = fromMod ?? (store?.items ?? []).filter((it) => it.item === product).reduce((a, it) => a + it.count, 0);
+      return { ...x, production: { ...x.production!, recipe: product }, key, made };
     });
 }
 

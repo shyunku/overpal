@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 DUMP = ROOT / "scripts" / "data" / "recipes_dump.json"
 ITEM_TABLE = ROOT / "app" / "src" / "data" / "itemTable.json"
 OUT = ROOT / "app" / "public" / "data" / "recipes.json"
+KEYS_OUT = ROOT / "app" / "public" / "data" / "recipe_keys.json"
 
 
 def main() -> None:
@@ -54,6 +55,11 @@ def main() -> None:
         out[r["product"]] = e
 
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    # production orders name the recipe row, which is not always the product (CarbonFiber2 makes
+    # CarbonFiber): row key -> [product, how many one craft makes] where they differ
+    keys = {r["key"]: [r["product"], r["count"]] for r in rows if r["key"] != r["product"] and r["count"] > 0}
+    KEYS_OUT.write_text(json.dumps(keys, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"recipe keys other than their product: {len(keys)}")
     multi = sum(1 for e in out.values() if e["n"] > 1)
     print(f"recipes {len(out)} (more than one per craft: {multi}, with a building: {sum(1 for e in out.values() if 'bench' in e)}), {OUT.stat().st_size / 1024:.0f} KB")
 

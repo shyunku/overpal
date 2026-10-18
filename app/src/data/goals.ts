@@ -134,17 +134,33 @@ export function craftableNow(recipe: Recipe | undefined, mats: [string, number][
 
 let loading: Promise<Recipes> | null = null;
 let loaded: Recipes | null = null;
+/** recipe row key -> [product, how many one craft makes], where the key is not the product */
+let keys: Record<string, [string, number]> = {};
 
 /** Loads the recipes once per window. */
 export function loadRecipes(): Promise<Recipes> {
-  loading ??= fetch("/data/recipes.json")
-    .then((r) => (r.ok ? (r.json() as Promise<Recipes>) : {}))
-    .then((r) => (loaded = r));
+  loading ??= Promise.all([
+    fetch("/data/recipes.json").then((r) => (r.ok ? (r.json() as Promise<Recipes>) : {})),
+    fetch("/data/recipe_keys.json").then((r) => (r.ok ? (r.json() as Promise<Record<string, [string, number]>>) : {})),
+  ]).then(([r, k]) => {
+    keys = k;
+    return (loaded = r);
+  });
   return loading;
+}
+
+/**
+ * What a recipe row (a production order's recipe) makes and how many per craft. The row key is
+ * mostly the product's item id; other ways to make it have keys of their own (CarbonFiber2 makes
+ * CarbonFiber from charcoal). The key itself and 1 until the recipes are loaded.
+ */
+export function recipeOf(key: string): { product: string; n: number } {
+  if (!loaded) loadRecipes();
+  const k = keys[key];
+  return k ? { product: k[0], n: k[1] } : { product: key, n: loaded?.[key]?.n ?? 1 };
 }
 
 /** How many one craft of the item makes (1 until the recipes are loaded, or without a recipe). */
 export function recipeYield(id: string): number {
-  if (!loaded) loadRecipes();
-  return loaded?.[id]?.n ?? 1;
+  return recipeOf(id).n;
 }
