@@ -162,45 +162,42 @@ fn no_frame_painting(window: &tauri::WebviewWindow) {
     const WM_NCUAHDRAWCAPTION: u32 = 0xAE;
     const WM_NCUAHDRAWFRAME: u32 = 0xAF;
 
-    // a moment after activation the whole window (frame included) is painted again: in 0.1.3 the
-    // title bar still showed after clicking, and a full repaint like this one cleared it
+    // After activation the compositor (DWM) kept a light caption backdrop at the top of the main
+    // window, under the webview (not in the window's own content: PrintWindow showed none). A
+    // repaint alone did not clear it (0.1.3 to 0.2.0); recomputing the frame (SWP_FRAMECHANGED,
+    // redraw_frame) did, also when done from outside on the running app (2026-10-19). Done a moment
+    // after activation, and once more later should the compositor draw it again late.
     const REDRAW_TIMER: usize = 0x5041;
     const REDRAW_AFTER_MS: u32 = 60;
+    const REDRAW_LATE_TIMER: usize = 0x5042;
+    const REDRAW_LATE_MS: u32 = 400;
 
     unsafe extern "system" fn proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, _data: usize) -> LRESULT {
-        use windows_sys::Win32::Foundation::RECT;
-        use windows_sys::Win32::Graphics::Gdi::{BLACK_BRUSH, FillRect, GetStockObject, HDC, RDW_ALLCHILDREN, RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow};
-        use windows_sys::Win32::UI::WindowsAndMessaging::{GetClientRect, KillTimer, SetTimer, WM_ACTIVATE, WM_ACTIVATEAPP, WM_ERASEBKGND, WM_KILLFOCUS, WM_SETFOCUS, WM_TIMER};
-        let full = RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW;
+        use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow};
+        use windows_sys::Win32::UI::WindowsAndMessaging::{KillTimer, SetTimer, WM_ACTIVATE, WM_ACTIVATEAPP, WM_KILLFOCUS, WM_SETFOCUS, WM_TIMER};
+        let full = RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW;
+        let later = |hwnd: HWND| unsafe {
+            SetTimer(hwnd, REDRAW_TIMER, REDRAW_AFTER_MS, None);
+            SetTimer(hwnd, REDRAW_LATE_TIMER, REDRAW_LATE_MS, None);
+        };
         match msg {
             // the window has no frame to paint
             WM_NCPAINT | WM_NCUAHDRAWCAPTION | WM_NCUAHDRAWFRAME => 0,
-            // The title bar Windows painted while the window still had a caption (right after
-            // creation) stayed in the window's surface where the client area is now: the webview
-            // is drawn above that surface, and nothing cleared it, so a light bar showed through the
-            // panel at the top (0.1.3 to 0.1.8, without its text once the title was empty). Clear
-            // the surface to transparent (black, alpha 0) whenever Windows asks.
-            WM_ERASEBKGND => unsafe {
-                let mut rc: RECT = std::mem::zeroed();
-                GetClientRect(hwnd, &mut rc);
-                FillRect(wparam as HDC, &rc, GetStockObject(BLACK_BRUSH) as _);
-                1
-            },
             // let activation go on, but lParam -1 tells the default handling not to repaint the frame
             WM_NCACTIVATE => unsafe {
                 let r = DefSubclassProc(hwnd, msg, wparam, -1);
                 RedrawWindow(hwnd, std::ptr::null(), std::ptr::null_mut(), full);
-                SetTimer(hwnd, REDRAW_TIMER, REDRAW_AFTER_MS, None);
+                later(hwnd);
                 r
             },
             WM_ACTIVATE | WM_ACTIVATEAPP | WM_SETFOCUS | WM_KILLFOCUS => unsafe {
                 let r = DefSubclassProc(hwnd, msg, wparam, lparam);
-                SetTimer(hwnd, REDRAW_TIMER, REDRAW_AFTER_MS, None);
+                later(hwnd);
                 r
             },
-            WM_TIMER if wparam == REDRAW_TIMER => unsafe {
-                KillTimer(hwnd, REDRAW_TIMER);
-                RedrawWindow(hwnd, std::ptr::null(), std::ptr::null_mut(), full);
+            WM_TIMER if wparam == REDRAW_TIMER || wparam == REDRAW_LATE_TIMER => unsafe {
+                KillTimer(hwnd, wparam);
+                redraw_frame(hwnd as isize);
                 0
             },
             _ => unsafe { DefSubclassProc(hwnd, msg, wparam, lparam) },
@@ -296,13 +293,12 @@ pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
 /// app-name bar until the frame is redrawn.
 #[cfg(windows)]
 fn redraw_frame(hwnd: isize) {
-    use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_ERASE, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow};
+    use windows_sys::Win32::Graphics::Gdi::{RDW_ALLCHILDREN, RDW_FRAME, RDW_INVALIDATE, RDW_UPDATENOW, RedrawWindow};
     use windows_sys::Win32::UI::WindowsAndMessaging::{SWP_FRAMECHANGED, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetWindowPos};
     let h = hwnd as _;
     unsafe {
         SetWindowPos(h, std::ptr::null_mut(), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
-        // RDW_ERASE: also clear what the old caption left in the client area (see no_frame_painting)
-        RedrawWindow(h, std::ptr::null(), std::ptr::null_mut(), RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+        RedrawWindow(h, std::ptr::null(), std::ptr::null_mut(), RDW_INVALIDATE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
     }
 }
 
