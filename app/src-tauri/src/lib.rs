@@ -62,9 +62,26 @@ fn fail(msg: &str) -> ! {
     std::process::exit(1);
 }
 
+/// The app's context. Debug builds get an identifier of their own, so their settings, profiles,
+/// window layout and webview data (folders named by it) stay apart from the installed app's, and
+/// both can run at once.
+fn context() -> tauri::Context<tauri::Wry> {
+    #[allow(unused_mut)]
+    let mut ctx = tauri::generate_context!();
+    #[cfg(debug_assertions)]
+    {
+        ctx.config_mut().identifier = "com.overpal.app.dev".into();
+    }
+    ctx
+}
+
 /// The app was called PalHelper with the id com.palworldhelper.mod; its folder (profiles, friend
 /// folders, layout, logs) moves to the new id's folder the first time. True when it moved.
+/// Debug builds (their own id) leave it alone.
 fn move_old_config_dir(config_dir: &std::path::Path) -> bool {
+    if cfg!(debug_assertions) {
+        return false;
+    }
     let old = config_dir.with_file_name("com.palworldhelper.mod");
     !config_dir.exists() && old.is_dir() && std::fs::rename(&old, config_dir).is_ok()
 }
@@ -176,6 +193,6 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .run(context())
         .expect("error while running tauri application");
 }
