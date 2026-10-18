@@ -1540,11 +1540,27 @@ svg.mk.fan {
   /* the mod's update period, linear: the bar moves on without pausing between updates */
   transition: width 0.5s linear;
 }
-/* time left of a production order, before its percent: the bar's color */
+/* time left of a production order, before its percent: the bar's color. The status is never cut:
+   the time shortens instead (ProdStatusLine), and the building name gives way after that. */
+.items .mn-row .line small.mn-status,
+.items .mn-plist .line small.mn-status {
+  position: relative;
+  flex: none;
+  overflow: visible;
+}
+/* the time at each length, measured but not shown */
+.mn-measure {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .mn-eta {
   color: #ff9a3c;
 }
-.mn-eta::after {
+.mn-eta:not(:empty)::after {
   content: " · ";
   color: var(--glass-muted);
 }

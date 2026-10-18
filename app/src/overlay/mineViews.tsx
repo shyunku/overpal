@@ -2,8 +2,8 @@
 // the compact, normal and wide layouts, and the detail shown in place of the list.
 // Mock: docs/designs/mine-mock.html
 import { recipeOf } from "../data/goals";
-import { etaText, trackEta, workShare } from "../data/production";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { etaParts, trackEta, workShare } from "../data/production";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { fetchPlayerPals, loadClientConfig } from "../api";
 import { dexIconUrl, type Dex, type DexPal, type DexStruct } from "../data/dex";
 import type { PdPal } from "../data/paldefender";
@@ -254,6 +254,67 @@ function GlidingPercent({ value }: { value: number }) {
   return <>{shown.toFixed(1)}%</>;
 }
 
+/**
+ * The building line of a production order: its name, then the time left and the progress (or
+ * done). The name stays whole: where the line is too narrow the time drops parts from its end
+ * (1시간 0분 12초 → 1시간 0분 → 1시간), then goes; only after that the name gets cut.
+ */
+function ProdStatusLine({ name, eta, status }: { name: string; eta: number | null; status: ReactNode }) {
+  const parts = eta === null ? [] : etaParts(eta);
+  const key = parts.join(" ");
+  const [keep, setKeep] = useState(parts.length);
+  const lineRef = useRef<HTMLSpanElement>(null);
+  const nameRef = useRef<HTMLElement>(null);
+  const statusRef = useRef<HTMLElement>(null);
+  const etaRef = useRef<HTMLSpanElement>(null);
+  // hidden copies of the time at each length (index k-1: the first k parts), measured to choose one
+  const measureRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  useLayoutEffect(() => {
+    const line = lineRef.current;
+    const fit = () => {
+      const nameEl = nameRef.current;
+      const statusEl = statusRef.current;
+      const etaEl = etaRef.current;
+      if (!line || !nameEl || !statusEl || !etaEl) return;
+      const gap = parseFloat(getComputedStyle(line).columnGap) || 0;
+      // the room the name leaves at its full width, less the status without the time
+      const room = line.clientWidth - nameEl.scrollWidth - gap - (statusEl.offsetWidth - etaEl.offsetWidth);
+      let k = parts.length;
+      while (k > 0 && (measureRefs.current[k - 1]?.offsetWidth ?? Infinity) > room) k--;
+      setKeep(k);
+    };
+    fit();
+    if (!line) return;
+    const ro = new ResizeObserver(fit);
+    ro.observe(line);
+    return () => ro.disconnect();
+    // parts is new each render; key says what it holds
+  }, [key]);
+  return (
+    <span className="line" ref={lineRef}>
+      <small ref={nameRef}>{name}</small>
+      <small className="tabular mn-status" ref={statusRef}>
+        <span className="mn-eta" ref={etaRef}>
+          {parts.slice(0, Math.min(keep, parts.length)).join(" ")}
+        </span>
+        {status}
+        {parts.map((_, i) => (
+          <span
+            key={i}
+            className="mn-eta mn-measure"
+            aria-hidden
+            ref={(el) => {
+              measureRefs.current[i] = el;
+            }}
+          >
+            {parts.slice(0, i + 1).join(" ")}
+          </span>
+        ))}
+      </small>
+    </span>
+  );
+}
+
 /** One production order: item, (made/requested), building, time left, progress, bar. */
 function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
   const pr = b.production!;
@@ -268,24 +329,11 @@ function ProdLines({ L, b, where }: { L: Lookups; b: Prod; where?: string }) {
           <b>{x.made}</b>/{x.total}
         </span>
       </span>
-      <span className="line">
-        <small>
-          {b.customName || structName(L, b.buildObjectId)}
-          {where ? ` · ${where}` : ""}
-        </small>
-        <small className="tabular">
-          {x.on ? (
-            <>
-              {eta !== null && <span className="mn-eta">{etaText(eta)}</span>}
-              <GlidingPercent value={x.share} />
-            </>
-          ) : x.made > 0 ? (
-            "완료 · 꺼내기 대기"
-          ) : (
-            "완료"
-          )}
-        </small>
-      </span>
+      <ProdStatusLine
+        name={`${b.customName || structName(L, b.buildObjectId)}${where ? ` · ${where}` : ""}`}
+        eta={eta}
+        status={x.on ? <GlidingPercent value={x.share} /> : x.made > 0 ? "완료 · 꺼내기 대기" : "완료"}
+      />
       <span className={`mn-bar ${x.on ? "" : "done"}`}>
         <i style={{ width: `${x.share}%` }} />
       </span>

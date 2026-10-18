@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etaSeconds, etaText, workLeft, workShare } from "./production";
+import { etaParts, etaSeconds, workLeft, workShare } from "./production";
 
 describe("production share", () => {
   it("counts a single pal's current craft", () => {
@@ -39,10 +39,11 @@ describe("production share", () => {
     expect(workLeft({ remain: 3, work: 40, workRequired: 100 })).toEqual([260]);
   });
 
-  it("writes the time short", () => {
-    expect(etaText(12.4)).toBe("12초");
-    expect(etaText(247)).toBe("4분 07초");
-    expect(etaText(7500)).toBe("2시간 5분");
+  it("writes the time in parts, largest first", () => {
+    expect(etaParts(12.4)).toEqual(["12초"]);
+    expect(etaParts(247)).toEqual(["4분", "7초"]);
+    expect(etaParts(3672)).toEqual(["1시간", "1분", "12초"]);
+    expect(etaParts(3605)).toEqual(["1시간", "0분", "5초"]);
   });
 
   it("stays within what is left", () => {

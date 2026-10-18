@@ -81,11 +81,16 @@ export function trackEta(id: string, o: OrderWork, now: number): number | null {
   return etaSeconds(list);
 }
 
-/** "2시간 5분", "4분 07초", "12초" */
-export function etaText(seconds: number): string {
+/**
+ * The time left in parts, largest first: [1시간, 0분, 12초], [4분, 7초], [12초]. Shown whole where
+ * there is room; a narrow line drops parts from the end (1시간 0분 → 1시간), then all of them.
+ */
+export function etaParts(seconds: number): string[] {
   const s = Math.max(1, Math.round(seconds));
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  return h ? `${h}시간 ${m}분` : m ? `${m}분 ${String(sec).padStart(2, "0")}초` : `${sec}초`;
+  if (h) return [`${h}시간`, `${m}분`, `${sec}초`];
+  if (m) return [`${m}분`, `${sec}초`];
+  return [`${sec}초`];
 }
