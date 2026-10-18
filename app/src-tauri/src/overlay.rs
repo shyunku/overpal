@@ -268,6 +268,24 @@ pub fn overlay_rects(app: AppHandle, window: tauri::WebviewWindow) -> Vec<[i32; 
         .collect()
 }
 
+/// Recomputes the window's frame (see redraw_frame), called by the window when it gains or loses
+/// focus: the compositor's caption backdrop that activation brings stayed although the window's own
+/// timers redrew the frame (0.2.1), while the same done here, as set_shown does, clears it.
+#[tauri::command]
+pub fn refresh_frame(window: tauri::WebviewWindow) {
+    #[cfg(windows)]
+    {
+        let w = window.clone();
+        let _ = window.run_on_main_thread(move || {
+            if let Ok(hwnd) = w.hwnd() {
+                redraw_frame(hwnd.0 as isize);
+            }
+        });
+    }
+    #[cfg(not(windows))]
+    let _ = window;
+}
+
 #[tauri::command]
 pub fn set_shown(window: tauri::WebviewWindow, on: bool) {
     #[cfg(windows)]

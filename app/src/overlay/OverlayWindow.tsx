@@ -92,6 +92,19 @@ export function OverlayWindow({ view, layout, onLayout, scale = 1, className = "
     if (passive) invoke("click_through", { on: !takesMouse });
   }, [passive, takesMouse]);
 
+  // gaining or losing focus brings a caption backdrop from the compositor at the window's top;
+  // recomputing the frame clears it (overlay.rs, refresh_frame), done twice should it come late
+  useEffect(() => {
+    const timers: number[] = [];
+    const un = getCurrentWindow().onFocusChanged(() => {
+      for (const ms of [150, 500]) timers.push(window.setTimeout(() => invoke("refresh_frame"), ms));
+    });
+    return () => {
+      un.then((f) => f());
+      timers.forEach((t) => window.clearTimeout(t));
+    };
+  }, []);
+
   useEffect(() => {
     getScreen(monitor).then(setScreen);
   }, [monitor?.x, monitor?.y, monitor?.w, monitor?.h]);

@@ -133,6 +133,7 @@ pub fn run() {
             overlay::round_corners,
             overlay::click_through,
             overlay::set_shown,
+            overlay::refresh_frame,
             overlay::overlay_rects,
             overlay_watch::overlay_state
         ])
