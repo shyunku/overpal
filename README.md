@@ -1,7 +1,5 @@
 # Overpal
 
-(formerly PalHelper; this repository is still named palworld-helper-mod)
-
 Real-time base storage data for a Palworld dedicated server, shown as an in-game overlay.
 
 - **Mod** (`mod/OverpalMod`): a UE4SS Lua mod that runs inside the dedicated server and writes every base storage container (chests, production buildings, guild storage, items dropped by players, and map pickups such as stones and berry bushes) with its items and world location to `base_storage.json` every 10 seconds.
