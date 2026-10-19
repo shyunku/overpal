@@ -1,2 +1,23 @@
 ﻿.local/
 __pycache__/
+
+# secrets and local settings: never in the repository
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.pfx
+*.p12
+# the app's real config (tokens; overpal.config.example.json is the template)
+overpal.config.json
+palhelper.config.json
+# PalDefender REST tokens and server settings with passwords, should a server folder be copied in
+**/PalDefender/RESTAPI/Tokens/
+PalWorldSettings.ini
+.claude/settings.local.json
+
+# crash dumps and logs
+*.dmp
+*.log
