@@ -20,6 +20,10 @@
     "targets": [
       "nsis"
     ],
+    "resources": {
+      "../../mod/OverpalMod/Scripts/main.lua": "mod/OverpalMod/Scripts/main.lua",
+      "../../mod/OverpalMod/enabled.txt": "mod/OverpalMod/enabled.txt"
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

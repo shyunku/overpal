@@ -47,7 +47,8 @@ export function GameServerView({ gs, onChanged }: { gs: GameServerStatus | null;
   const start = async () => {
     setError(null);
     try {
-      await api.gsStart();
+      const note = await api.gsStart();
+      if (note) showToast(note, "info");
       setBusy("starting");
       onChanged();
     } catch (e) {

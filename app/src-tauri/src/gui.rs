@@ -451,12 +451,23 @@ pub async fn gs_status(session: tauri::State<'_, Session>) -> Result<crate::game
 }
 
 #[tauri::command]
-pub async fn gs_start(session: tauri::State<'_, Session>) -> Result<(), String> {
+pub async fn gs_start(app: AppHandle, session: tauri::State<'_, Session>) -> Result<Option<String>, String> {
     let (game, query) = {
         let s = session.0.lock().unwrap();
         s.profile.as_ref().and_then(|p| p.server.as_ref()).map_or((None, None), |x| (x.game_port, x.query_port))
     };
-    crate::gameserver::start(&game_server_dir(&session)?, game, query)
+    let dir = game_server_dir(&session)?;
+    // the app's own mod into the server folder first (it loads at start); a failure does not
+    // keep the server from starting
+    let note = match app.path().resolve("mod/OverpalMod", tauri::path::BaseDirectory::Resource) {
+        Ok(bundled) => crate::gameserver::update_mod(&dir, &bundled).unwrap_or_else(|e| {
+            applog::warn(Kind::Conn, e.clone());
+            Some(e)
+        }),
+        Err(_) => None,
+    };
+    crate::gameserver::start(&dir, game, query)?;
+    Ok(note)
 }
 
 #[tauri::command]

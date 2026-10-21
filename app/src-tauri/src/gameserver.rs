@@ -135,6 +135,48 @@ pub fn ports_taken(ports: &[(u16, bool)]) -> Vec<u16> {
 /// Starts the server without a console window; it keeps running when the app quits, and stops
 /// through REST (stop) since there is no window to close. `game_port` / `query_port`: -port= and
 /// -QueryPort= (the server's defaults when None).
+/// UE4SS's mods folder in a server folder, and Overpal's mod in it
+const UE4SS_MODS: &str = r"Pal\Binaries\Win64\ue4ss\Mods";
+const OVERPAL_MOD: &str = "OverpalMod";
+/// the mod's files, relative to its folder (the app carries the same ones)
+const MOD_FILES: [&str; 2] = [r"Scripts\main.lua", "enabled.txt"];
+
+/// Puts the app's own copy of the mod (`bundled`: its OverpalMod folder) into the server folder
+/// where it is missing or differs, so a new app never runs with an old mod (2026-10-19: the app
+/// was new, the server's mod six days old). A replaced main.lua is kept as main.lua.bak. Only
+/// with UE4SS in place (it loads the mod). Some(..): what was done, for the user.
+pub fn update_mod(dir: &Path, bundled: &Path) -> Result<Option<String>, String> {
+    let mods = dir.join(UE4SS_MODS);
+    if !mods.is_dir() {
+        return Ok(None);
+    }
+    let target = mods.join(OVERPAL_MOD);
+    let fresh = !target.join(MOD_FILES[0]).exists();
+    let mut changed = false;
+    for f in MOD_FILES {
+        let src = bundled.join(f);
+        let dst = target.join(f);
+        let want = std::fs::read(&src).map_err(|e| format!("Overpal에 들어 있는 모드를 읽을 수 없습니다 ({f}): {e}"))?;
+        if std::fs::read(&dst).ok().as_deref() == Some(want.as_slice()) {
+            continue;
+        }
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+        }
+        if dst.exists() && f.ends_with(".lua") {
+            let _ = std::fs::copy(&dst, dst.with_extension("lua.bak"));
+        }
+        std::fs::write(&dst, &want).map_err(|e| format!("모드를 넣을 수 없습니다 ({f}): {e}"))?;
+        changed = true;
+    }
+    if !changed {
+        return Ok(None);
+    }
+    let note = if fresh { "Overpal 모드를 설치했습니다." } else { "Overpal 모드를 최신으로 바꿨습니다." };
+    applog::info(Kind::Conn, note);
+    Ok(Some(note.to_string()))
+}
+
 pub fn start(dir: &Path, game_port: Option<u16>, query_port: Option<u16>) -> Result<(), String> {
     if server_running(dir) {
         return Err("게임 서버가 이미 실행 중입니다.".into());
@@ -460,6 +502,31 @@ mod tests {
         set_rest_port(&d, 8412).unwrap();
         assert_eq!(rest_port(&d), Some(8412));
         std::fs::remove_dir_all(d).unwrap();
+    }
+
+    #[test]
+    fn puts_the_mod_in_where_it_differs() {
+        let root = std::env::temp_dir().join(format!("overpal-mod-{}", crate::profiles::new_token()));
+        let bundled = root.join("bundled");
+        std::fs::create_dir_all(bundled.join("Scripts")).unwrap();
+        std::fs::write(bundled.join(r"Scripts\main.lua"), "new").unwrap();
+        std::fs::write(bundled.join("enabled.txt"), "").unwrap();
+        let server = root.join("server");
+        // no UE4SS: left alone
+        assert_eq!(update_mod(&server, &bundled).unwrap(), None);
+        // UE4SS, no mod: installed
+        std::fs::create_dir_all(server.join(UE4SS_MODS)).unwrap();
+        assert_eq!(update_mod(&server, &bundled).unwrap().as_deref(), Some("Overpal 모드를 설치했습니다."));
+        let lua = server.join(UE4SS_MODS).join(OVERPAL_MOD).join(r"Scripts\main.lua");
+        assert_eq!(std::fs::read_to_string(&lua).unwrap(), "new");
+        // the same: nothing to do
+        assert_eq!(update_mod(&server, &bundled).unwrap(), None);
+        // an old one: replaced, kept as .bak
+        std::fs::write(&lua, "old").unwrap();
+        assert_eq!(update_mod(&server, &bundled).unwrap().as_deref(), Some("Overpal 모드를 최신으로 바꿨습니다."));
+        assert_eq!(std::fs::read_to_string(&lua).unwrap(), "new");
+        assert_eq!(std::fs::read_to_string(lua.with_extension("lua.bak")).unwrap(), "old");
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

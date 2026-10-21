@@ -95,7 +95,8 @@ export const api = {
   portsTaken: (ports: [number, boolean][]) => invoke<number[]>("ports_taken", { ports }),
   findServers: () => invoke<FoundServer[]>("find_game_servers"),
   gsStatus: () => invoke<GameServerStatus>("gs_status"),
-  gsStart: () => invoke<void>("gs_start"),
+  /** what was done to the server folder first (the mod put in), if anything */
+  gsStart: () => invoke<string | null>("gs_start"),
   gsStop: () => invoke<void>("gs_stop"),
   /** null when the banner and the chat went out; else what did not (the chat did) */
   gsAnnounce: (message: string) => invoke<string | null>("gs_announce", { message }),
