@@ -7,6 +7,7 @@ import type { ClientConfig, ModStatus } from "../types";
 import { Icon, type IconName } from "./icons";
 import { GameServerView, gsState } from "./GameServer";
 import { Toasts } from "./toast";
+import { ServerParts } from "./ServerParts";
 import { api, errorText, MODE_NAME, shortPath, type Detected, type FoundServer, type GameServerStatus, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
 
 // ---------------------------------------------------------------- data from the app server
@@ -1066,15 +1067,10 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
                   />
                 )}
                 {!found && detected && (
-                  <div className="help">
-                    <span style={{ color: detected.hasServer ? "#7ee787" : "#ffa198" }}>{detected.hasServer ? "게임 서버 확인됨" : "PalServer.exe가 없습니다"}</span>
-                    {" · "}
-                    <span style={{ color: detected.hasMod ? "#7ee787" : "#f2cc60" }}>{detected.hasMod ? "모드 확인됨" : "모드 폴더가 없습니다"}</span>
-                    {" · "}
-                    <span style={{ color: detected.palDefenderUrl && detected.hasPalDefenderToken ? "#7ee787" : "#f2cc60" }}>
-                      {detected.palDefenderUrl && detected.hasPalDefenderToken ? `PalDefender 확인됨 (${detected.palDefenderUrl.replace("http://", "")})` : "PalDefender REST 설정이 없습니다"}
-                    </span>
-                  </div>
+                  <>
+                    <ServerParts dir={dir} detected={detected} onChanged={() => api.detect(dir).then(setDetected)} />
+                    <div className="help">UE4SS와 PalDefender는 정해 둔 버전을 각 프로젝트의 공식 GitHub 릴리스에서 받아 서버 폴더에 넣습니다(MIT 라이선스). Overpal 모드는 서버를 켤 때 자동으로 넣습니다.</div>
+                  </>
                 )}
               </div>
             </div>

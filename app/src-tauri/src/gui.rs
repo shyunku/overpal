@@ -476,6 +476,13 @@ pub async fn gs_stop(session: tauri::State<'_, Session>) -> Result<(), String> {
     crate::gameserver::stop(&dir).await
 }
 
+/// Installs server parts ("ue4ss", "paldefender", "pdrest") into a game server folder, one after
+/// the other (progress as `install-progress` events). Returns the parts installed.
+#[tauri::command]
+pub async fn install_server_parts(app: AppHandle, dir: String, parts: Vec<String>) -> Result<Vec<String>, String> {
+    crate::installer::install(&app, std::path::Path::new(&dir), &parts).await
+}
+
 /// Sends an announcement to every player on the game server (banner and chat); Some: what did not go out.
 #[tauri::command]
 pub async fn gs_announce(session: tauri::State<'_, Session>, message: String) -> Result<Option<String>, String> {

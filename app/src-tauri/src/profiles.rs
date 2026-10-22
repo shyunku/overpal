@@ -170,6 +170,10 @@ pub struct Detected {
     pub rest_port: Option<u16>,
     /// Port in PalDefender's RESTConfig.json
     pub pd_port: Option<u16>,
+    /// the server parts Overpal needs (installer.rs)
+    pub has_ue4ss: bool,
+    pub has_pal_defender: bool,
+    pub pd_rest_enabled: bool,
 }
 
 pub fn detect_server(dir: &Path) -> Detected {
@@ -195,6 +199,9 @@ pub fn detect_server(dir: &Path) -> Detected {
     }
     d.has_pal_defender_token = d.pal_defender_token.is_some();
     d.rest_port = crate::gameserver::rest_port(dir);
+    d.has_ue4ss = crate::installer::has_ue4ss(dir);
+    d.has_pal_defender = crate::installer::has_pal_defender(dir);
+    d.pd_rest_enabled = crate::installer::pd_rest_enabled(dir);
     d
 }
 

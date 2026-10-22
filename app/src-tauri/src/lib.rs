@@ -3,6 +3,7 @@ mod config;
 mod gameserver;
 mod gui;
 mod hotkeys;
+mod installer;
 mod overlay;
 mod overlay_watch;
 mod profiles;
@@ -134,6 +135,7 @@ pub fn run() {
             gui::gs_start,
             gui::gs_stop,
             gui::gs_announce,
+            gui::install_server_parts,
             gui::gs_log_follow,
             gui::gs_log_dir,
             gui::players_in,

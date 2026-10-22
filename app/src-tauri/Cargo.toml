@@ -24,8 +24,11 @@ futures-util = "0.3"
 tower-http = { version = "0.6", features = ["cors"] }
 # folder picker for the game server folder (profile settings)
 tauri-plugin-dialog = "2"
-# PalDefender is reached over plain http on localhost, so no TLS backend is needed
-reqwest = { version = "0.12", default-features = false }
+# PalDefender over plain http on localhost; the server parts (UE4SS, PalDefender, SteamCMD) over
+# https with Windows' own TLS (no crypto library of our own), streamed for the progress
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "stream"] }
+# the server parts come as zip files
+zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [target.'cfg(windows)'.dependencies]
 # foreground window and cursor visibility checks for the overlay

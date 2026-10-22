@@ -54,6 +54,9 @@ export interface Detected {
   hasPalDefenderToken: boolean;
   restPort: number | null;
   pdPort: number | null;
+  hasUe4ss: boolean;
+  hasPalDefender: boolean;
+  pdRestEnabled: boolean;
 }
 
 export interface FoundServer {
@@ -91,6 +94,8 @@ export const api = {
   /** true when the app restarts to apply it */
   save: (profile: Profile) => invoke<boolean>("profile_update", { profile }),
   detect: (dir: string) => invoke<Detected>("detect_server_dir", { dir }),
+  /** installs "ue4ss", "paldefender", "pdrest" into the folder, one after the other; the parts installed */
+  installServerParts: (dir: string, parts: string[]) => invoke<string[]>("install_server_parts", { dir, parts }),
   /** of [port, udp] pairs, the ports something on this PC already holds */
   portsTaken: (ports: [number, boolean][]) => invoke<number[]>("ports_taken", { ports }),
   findServers: () => invoke<FoundServer[]>("find_game_servers"),
