@@ -1331,3 +1331,88 @@ th.r {
   border-top: 1px solid var(--line);
 }
 
+
+/* settings: making a new game server (CreateServer.tsx) */
+.modal.create {
+  width: 560px;
+}
+.modal.create .lead {
+  color: var(--muted);
+  font-size: 13px;
+  margin: -4px 0 14px;
+}
+.modal.create .field {
+  grid-template-columns: 120px minmax(0, 1fr);
+}
+.modal.create .err {
+  margin-top: 10px;
+}
+.modal .mrow {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.modal .mrow .grow {
+  flex: 1;
+  margin: 0;
+}
+.steps {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 4px;
+}
+.steps .step {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 4px;
+  font-size: 13px;
+}
+.steps .step.wait {
+  color: var(--muted);
+}
+.steps .sub {
+  color: var(--muted);
+  font-size: 12px;
+}
+.steps .st {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+.steps .st.ok {
+  background: rgba(63, 185, 80, 0.18);
+  color: #7ee787;
+}
+.steps .st.no {
+  background: rgba(248, 81, 73, 0.18);
+  color: #ff7b72;
+}
+.steps .st.run {
+  border: 2px solid var(--blue, #4c9aff);
+  border-top-color: transparent;
+  animation: parts-spin 0.8s linear infinite;
+}
+.steps .st.wait {
+  border: 1px solid var(--line);
+}
+.steps .bar {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  margin-top: 4px;
+}
+.steps .bar i {
+  display: block;
+  height: 100%;
+  background: var(--blue, #4c9aff);
+}

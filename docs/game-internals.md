@@ -92,13 +92,16 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 - 서버 종료 때 뜨는 화면 가운데 빨간 "서버 알림 사항" 배너는 `PalGameStateInGame:BroadcastServerNotice(NoticeMessage: FString)`이다(서버→모든 클라 멀티캐스트). 2026-10-19 B에서 임의 문구로 띄웠다. 색과 모양은 클라이언트 위젯이 정하므로 서버에서는 바꿀 수 없다.
 - 게임 서버 REST의 `announce`(RCON `Broadcast`와 같음)는 채팅에 `[SYSTEM]:문구`로만 남는다. 콜론 뒤에 공백이 없어서 앱은 문구 앞에 공백을 붙여 보낸다.
 
-## 서버 설치 구성 (#35)
+## 서버 설치 구성 (#35, #36)
 
 2026-10-21 C 서버에 깔린 파일과 공식 릴리스를 해시로 비교했다.
 
 - UE4SS: 팰월드용 포크 `Okaetsu/RE-UE4SS`의 릴리스 `2281fa31`(`UE4SS-Palworld-g2281fa31.zip`, MIT). 압축을 서버 `Pal\Binaries\Win64`에 그대로 풀면 된다(`dwmapi.dll` + `ue4ss\`, 팰월드용 `MemberVariableLayout.ini` 포함). C의 21개 파일과 모두 같았다. 공식 `UE4SS-RE/RE-UE4SS` v3.0.1은 구조가 다르고(`Win64`에 바로 풀림) 팰월드 설정이 없다.
 - PalDefender: `Ultimeit/PalDefender`의 릴리스 `v1.9.3`(MIT). `PalDefender.zip` 안의 `d3d9.dll`(로더)과 `PalDefender.dll`을 같은 `Win64`에 둔다. C와 같았다. `PalDefender\` 설정 폴더는 처음 켤 때 생긴다. REST는 `PalDefender\RESTAPI\RESTConfig.json`(`Enabled`, `Address`, `Port`)과 `RESTAPI\Tokens\*.json`(`Name`, `Token`, `Permissions`)으로 켠다.
 - OverpalMod: `ue4ss\Mods\OverpalMod`(`Scripts\main.lua`, `enabled.txt`). 앱 설치 파일에 들어 있고, 앱이 서버를 켤 때 바꿔 넣는다(#34).
+- 게임 서버 자체(#36): SteamCMD(`steamcmd.zip`, Valve)로 `+force_install_dir <폴더> +login anonymous +app_update 2394010 validate +quit`. 2026-10-22 받은 크기는 약 5.8GB. 서버 폴더의 `DefaultPalWorldSettings.ini`를 `Pal\Saved\Config\WindowsServer\PalWorldSettings.ini`로 복사하면 처음 실행 없이 설정을 채울 수 있다(복사본으로 켠 서버가 이름·비밀번호·REST를 그대로 읽음 확인).
+- SteamCMD 진행률: 파이프로 받은 출력은 버퍼에 묶여 늦게 한꺼번에 온다. 같은 줄(`Update state (0x61) downloading, progress: 20.11 (1169437468 / 5816529537)`)이 SteamCMD 폴더의 `logs\console_log.txt`에는 2초마다 바로 쓰인다. 설치 폴더 크기는 받기 전에 자리를 먼저 잡아 진행률로 쓸 수 없다. `steamappsppmanifest_2394010.acf`의 `BytesDownloaded`도 받는 중에는 갱신되지 않는다.
+- 2026-10-22 Overpal로 만든 새 서버를 켰을 때 UE4SS가 OverpalMod를 시작했고, PalDefender REST(17993, Overpal 토큰)와 관리 REST(8212, 관리자 비밀번호)가 모두 응답했다.
 
 ## 검증 기록
 

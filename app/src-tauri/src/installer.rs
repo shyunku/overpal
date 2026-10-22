@@ -83,7 +83,7 @@ async fn download(app: &AppHandle, part: &str, name: &str, url: &str) -> Result<
 }
 
 /// Unpacks a zip into `dest` (entries outside it are skipped). Returns how many files.
-fn unzip_into(bytes: &[u8], dest: &Path) -> Result<usize, String> {
+pub fn unzip_into(bytes: &[u8], dest: &Path) -> Result<usize, String> {
     let mut zip = zip::ZipArchive::new(std::io::Cursor::new(bytes)).map_err(|e| format!("압축을 열 수 없습니다: {e}"))?;
     let mut n = 0;
     for i in 0..zip.len() {

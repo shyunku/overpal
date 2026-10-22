@@ -19,7 +19,7 @@ tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 axum = "0.8"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "time", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "fs", "time", "sync", "process", "io-util"] }
 futures-util = "0.3"
 tower-http = { version = "0.6", features = ["cors"] }
 # folder picker for the game server folder (profile settings)

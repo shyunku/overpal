@@ -96,6 +96,9 @@ export const api = {
   detect: (dir: string) => invoke<Detected>("detect_server_dir", { dir }),
   /** installs "ue4ss", "paldefender", "pdrest" into the folder, one after the other; the parts installed */
   installServerParts: (dir: string, parts: string[]) => invoke<string[]>("install_server_parts", { dir, parts }),
+  /** makes a new game server in the folder; progress as "create-progress" events */
+  createServer: (dir: string, name: string, adminPassword: string, serverPassword: string) => invoke<void>("create_server", { dir, name, adminPassword, serverPassword }),
+  cancelCreateServer: () => invoke<void>("cancel_create_server"),
   /** of [port, udp] pairs, the ports something on this PC already holds */
   portsTaken: (ports: [number, boolean][]) => invoke<number[]>("ports_taken", { ports }),
   findServers: () => invoke<FoundServer[]>("find_game_servers"),

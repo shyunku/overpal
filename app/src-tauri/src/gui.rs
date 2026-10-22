@@ -483,6 +483,18 @@ pub async fn install_server_parts(app: AppHandle, dir: String, parts: Vec<String
     crate::installer::install(&app, std::path::Path::new(&dir), &parts).await
 }
 
+/// Makes a new game server in a folder (SteamCMD, settings, UE4SS, PalDefender, the mod); progress as
+/// `create-progress` events.
+#[tauri::command]
+pub async fn create_server(app: AppHandle, dir: String, name: String, admin_password: String, server_password: String) -> Result<(), String> {
+    crate::servermaker::create(&app, std::path::Path::new(&dir), &name, &admin_password, &server_password).await
+}
+
+#[tauri::command]
+pub fn cancel_create_server() {
+    crate::servermaker::cancel();
+}
+
 /// Sends an announcement to every player on the game server (banner and chat); Some: what did not go out.
 #[tauri::command]
 pub async fn gs_announce(session: tauri::State<'_, Session>, message: String) -> Result<Option<String>, String> {

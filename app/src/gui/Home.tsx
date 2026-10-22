@@ -8,6 +8,7 @@ import { Icon, type IconName } from "./icons";
 import { GameServerView, gsState } from "./GameServer";
 import { Toasts } from "./toast";
 import { ServerParts } from "./ServerParts";
+import { CreateServer } from "./CreateServer";
 import { api, errorText, MODE_NAME, shortPath, type Detected, type FoundServer, type GameServerStatus, type LogLine, type Mode, type Profile, type SessionView, type StartMode } from "./session";
 
 // ---------------------------------------------------------------- data from the app server
@@ -896,6 +897,7 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
   const [saving, setSaving] = useState(false);
   // auto-find results (Steam libraries); null while the list is closed
   const [found, setFound] = useState<FoundServer[] | null>(null);
+  const [creating, setCreating] = useState(false);
   const dirty = useMemo(() => JSON.stringify(p) !== JSON.stringify(original), [p, original]);
   const dir = p?.server?.gameServerDir ?? "";
   // the game server runs: its ports cannot change (its files are in use, and it would not notice)
@@ -1055,7 +1057,11 @@ function SettingsView({ session, mode, prestart, onSaved }: { session: SessionVi
                     <Icon name="folder" />
                     찾아보기
                   </button>
+                  <button className="btn" onClick={() => setCreating(true)}>
+                    <Icon name="plus" />새 서버 만들기
+                  </button>
                 </div>
+                {creating && <CreateServer gamePort={server.gamePort ?? 8211} onCreated={(d) => setServer({ gameServerDir: d })} onClose={() => setCreating(false)} />}
                 {found && (
                   <Finder
                     found={found}
