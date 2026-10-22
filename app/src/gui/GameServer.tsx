@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icons";
 import { showToast } from "./toast";
+import { ServerSettingsView } from "./ServerSettings";
 import { api, errorText, shortPath, type GameServerStatus } from "./session";
 
 type Busy = "starting" | "stopping" | null;
@@ -30,6 +31,8 @@ const fmtUptime = (secs: number) => {
 export function GameServerView({ gs, onChanged }: { gs: GameServerStatus | null; onChanged: () => void }) {
   const [busy, setBusy] = useState<Busy>(null);
   const [confirm, setConfirm] = useState(false);
+  // the status, or the server's settings (Mock: docs/designs/server-settings-mock.html, B)
+  const [view, setView] = useState<"status" | "settings">("status");
   const [error, setError] = useState<string | null>(null);
   const state = gsState(gs, busy);
 
@@ -121,32 +124,44 @@ export function GameServerView({ gs, onChanged }: { gs: GameServerStatus | null;
         </div>
       </div>
       {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
-      <div className="sec">
-        <span>
-          <Icon name="info" />
-          서버 정보
-        </span>
-        <span />
+      <div className="subtabs">
+        <div className={view === "status" ? "on" : ""} onClick={() => setView("status")}>
+          상태
+        </div>
+        <div className={view === "settings" ? "on" : ""} onClick={() => setView("settings")}>
+          서버 설정
+        </div>
       </div>
-      <div className="gsinfo">
-        {(
-          [
-            ["폴더", gs ? shortPath(gs.dir) : "-", gs?.dir],
-            ["서버 이름", gs?.serverName ?? "-"],
-            ["버전", gs?.version ?? "-"],
-            ["실행 시간", gs?.uptime != null ? fmtUptime(gs.uptime) : "-"],
-            ["접속", gs?.players != null ? `${gs.players}명 / ${gs.maxPlayers ?? "?"}명` : "-"],
-            ["서버 FPS", gs?.fps != null ? String(Math.round(gs.fps)) : "-"],
-          ] as [string, string, string?][]
-        ).map(([k, v, title]) => (
-          <span className="kvr" key={k}>
-            <span>{k}</span>
-            <b title={title}>{v}</b>
+      {view === "settings" && <ServerSettingsView locked={state !== "off"} />}
+      {/* kept while the settings show: the log keeps following */}
+      <div style={view === "status" ? undefined : { display: "none" }}>
+        <div className="sec">
+          <span>
+            <Icon name="info" />
+            서버 정보
           </span>
-        ))}
+          <span />
+        </div>
+        <div className="gsinfo">
+          {(
+            [
+              ["폴더", gs ? shortPath(gs.dir) : "-", gs?.dir],
+              ["서버 이름", gs?.serverName ?? "-"],
+              ["버전", gs?.version ?? "-"],
+              ["실행 시간", gs?.uptime != null ? fmtUptime(gs.uptime) : "-"],
+              ["접속", gs?.players != null ? `${gs.players}명 / ${gs.maxPlayers ?? "?"}명` : "-"],
+              ["서버 FPS", gs?.fps != null ? String(Math.round(gs.fps)) : "-"],
+            ] as [string, string, string?][]
+          ).map(([k, v, title]) => (
+            <span className="kvr" key={k}>
+              <span>{k}</span>
+              <b title={title}>{v}</b>
+            </span>
+          ))}
+        </div>
+        <Announce enabled={state === "on"} />
+        <ServerLog />
       </div>
-      <Announce enabled={state === "on"} />
-      <ServerLog />
       {confirm && (
         <div className="modal-back">
           <div className="modal">

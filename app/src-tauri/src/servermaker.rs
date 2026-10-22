@@ -4,6 +4,7 @@
 //! (installer.rs) and its mod. Mock: docs/designs/server-setup-mock.html (③).
 
 use crate::applog::{self, Kind};
+use crate::serversettings::set_option;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -42,39 +43,6 @@ fn cancelled() -> Result<(), String> {
     } else {
         Ok(())
     }
-}
-
-/// Sets `key` in the OptionSettings=(...) line to `value` (already formatted: quoted for text),
-/// replacing its value or adding the key. Quoted values may hold commas.
-pub fn set_option(ini: &str, key: &str, value: &str) -> Result<String, String> {
-    let open = ini.find("OptionSettings=(").ok_or("설정 파일에 OptionSettings가 없습니다.")? + "OptionSettings=(".len();
-    let line_end = open + ini[open..].find('\n').unwrap_or(ini.len() - open);
-    let line = &ini[open..line_end];
-    // the key at the start of an entry: after "(" or ","
-    let mut at = None;
-    let mut i = 0;
-    let mut quoted = false;
-    let bytes = line.as_bytes();
-    while i < bytes.len() {
-        let c = bytes[i] as char;
-        if c == '"' {
-            quoted = !quoted;
-        } else if !quoted && (i == 0 || bytes[i - 1] == b',') && line[i..].starts_with(&format!("{key}=")) {
-            at = Some(i);
-            break;
-        }
-        i += 1;
-    }
-    let Some(start) = at else {
-        return Ok(format!("{}{key}={value},{}", &ini[..open], &ini[open..]));
-    };
-    let vstart = start + key.len() + 1;
-    let vend = if line[vstart..].starts_with('"') {
-        vstart + 1 + line[vstart + 1..].find('"').map_or(line.len() - vstart - 1, |q| q + 1)
-    } else {
-        vstart + line[vstart..].find([',', ')']).unwrap_or(line.len() - vstart)
-    };
-    Ok(format!("{}{}{}{}", &ini[..open], &line[..vstart], value, &ini[open + vend..]))
 }
 
 /// a text value for the settings: in quotes, without quotes inside

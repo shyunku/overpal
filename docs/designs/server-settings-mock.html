@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Server Settings</title>
+<style>
+  :root { --page-bg:#0d1117; --page-fg:#e6edf3; --page-line:#30363d;
+    --bg:#14181f; --panel:#1b2029; --panel2:#222834; --line:#2d3441; --fg:#e8edf3; --muted:#8d97a5; --accent:#ffb84c; --blue:#4c9aff;
+    --ok:#3fb950; --warn:#d29922; --bad:#f85149; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page-bg); color:var(--page-fg); font-family:"Noto Sans KR","Malgun Gothic",system-ui,sans-serif; font-size:14px; }
+  button, input, select { font:inherit; }
+  .page { display:flex; gap:24px; padding:20px; flex-wrap:wrap; align-items:flex-start; }
+  .controls { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .controls button { padding:6px 12px; border-radius:8px; border:1px solid var(--page-line); background:#161b22; color:var(--page-fg); cursor:pointer; }
+  .controls button.on { background:#1f6feb; border-color:#1f6feb; }
+  .clabel { color:#8b949e; font-size:12px; margin:8px 0 4px; }
+  .notes { width:390px; background:#161b22; border:1px solid var(--page-line); border-radius:12px; padding:14px 16px; line-height:1.6; }
+  .notes h3 { margin:12px 0 4px; font-size:14px; color:var(--accent); }
+  .notes h3:first-child { margin-top:0; }
+  .notes ul { margin:0; padding-left:18px; }
+
+  .app { position:relative; width:960px; height:640px; background:var(--bg); border:1px solid var(--line); border-radius:10px; overflow:hidden; display:flex; color:var(--fg); }
+  .nav { width:180px; background:var(--panel); border-right:1px solid var(--line); padding:12px 8px; flex:none; }
+  .nav div { padding:9px 12px; border-radius:8px; color:var(--muted); }
+  .nav div.on { background:var(--panel2); color:var(--fg); }
+  .main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  .scroll { flex:1; overflow:auto; padding:20px 26px 24px; }
+  h2 { margin:0 0 6px; font-size:20px; }
+  .lead { color:var(--muted); margin:0 0 14px; font-size:13px; }
+  .gscard { display:flex; gap:14px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .gsicon { width:40px; height:40px; border-radius:10px; background:var(--panel2); display:grid; place-items:center; color:var(--muted); }
+  .gsmain { flex:1; }
+  .gstitle { color:var(--muted); font-size:12px; }
+  .big { font-size:18px; font-weight:600; margin:2px 0; display:flex; align-items:center; gap:8px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--ok); display:inline-block; }
+  .dot.off { background:#555c66; }
+  .sub { color:var(--muted); font-size:12px; }
+  .btn { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--fg); font-size:13px; white-space:nowrap; cursor:pointer; }
+  .btn.small { height:26px; padding:0 9px; font-size:12px; }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#1b1405; font-weight:600; }
+  .btn.danger { color:#ffa198; }
+  .btn:disabled { opacity:.45; cursor:default; }
+  .sec { font-size:12px; color:var(--accent); font-weight:600; margin:18px 0 8px; display:flex; justify-content:space-between; gap:12px; }
+  .sec span:last-child { color:var(--muted); font-weight:400; }
+  .gsinfo { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px 18px; font-size:13px; }
+  .kvr { display:flex; justify-content:space-between; border-bottom:1px solid var(--line); padding:4px 0; }
+  .kvr span:first-child { color:var(--muted); }
+  .help { color:var(--muted); font-size:12px; margin-top:6px; line-height:1.5; }
+  .stub { height:34px; border-radius:8px; border:1px dashed var(--line); color:var(--muted); font-size:12px; display:flex; align-items:center; padding:0 10px; }
+
+  /* sub tabs (B) */
+  .subtabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin:14px 0 4px; }
+  .subtabs div { padding:8px 14px; color:var(--muted); font-size:13px; border-bottom:2px solid transparent; cursor:pointer; }
+  .subtabs div.on { color:var(--fg); border-color:var(--accent); }
+
+  /* settings */
+  .banner { display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border-radius:10px; font-size:13px; line-height:1.5; margin-bottom:10px; }
+  .banner.warn { background:rgba(210,153,34,.12); border:1px solid rgba(210,153,34,.4); color:#f2cc60; }
+  .banner.info { background:rgba(76,154,255,.1); border:1px solid rgba(76,154,255,.35); color:#a9c9ff; }
+  .banner b { color:var(--fg); font-weight:500; }
+  .grp { background:var(--panel); border:1px solid var(--line); border-radius:10px; margin-bottom:10px; }
+  .grp h4 { margin:0; padding:9px 12px; font-size:12px; color:var(--muted); font-weight:600; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; }
+  .grid { column-gap:24px; padding:0 12px; }
+  .opt { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:7px 0; border-top:1px solid rgba(255,255,255,.04); position:relative; min-height:44px; }
+  .grid .opt:nth-child(-n+2) { border-top:0; }
+  .opt.wide { grid-column:1 / -1; grid-template-columns:200px minmax(0,1fr); }
+  .opt.wide + .opt.wide, .grid .opt.wide:first-child { border-top:1px solid rgba(255,255,255,.04); }
+  .grid .opt.wide:first-child { border-top:0; }
+  .opt .lbl { min-width:0; }
+  .opt .nmrow { display:flex; align-items:center; gap:5px; min-width:0; }
+  .opt .nm { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .opt .ds { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .info { flex:none; width:15px; height:15px; border-radius:50%; border:1px solid #4a5363; color:var(--muted); font-size:10px; font-weight:700; font-style:normal; display:grid; place-items:center; cursor:help; line-height:1; }
+  .info:hover { border-color:var(--accent); color:var(--accent); }
+  .tip { position:absolute; z-index:5; max-width:300px; background:#0b0e13; border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:12px; line-height:1.55; color:var(--fg); box-shadow:0 8px 24px rgba(0,0,0,.5); pointer-events:none; }
+  .tip code { display:block; font-family:Consolas,monospace; font-size:11px; color:var(--muted); margin-top:4px; word-break:break-all; }
+  .tip .def { color:var(--muted); font-size:11px; }
+  .opt .ds { font-size:11px; color:var(--muted); }
+  .opt.changed::before { content:""; position:absolute; left:-10px; top:8px; bottom:8px; width:3px; border-radius:2px; background:var(--accent); }
+  .opt input, .opt select { height:30px; border-radius:7px; border:1px solid var(--line); background:#0f1318; color:var(--fg); padding:0 8px; font-size:13px; width:100%; outline:none; }
+  .opt > input { width:140px; }
+  .opt > input.n { width:90px; text-align:right; font-variant-numeric:tabular-nums; }
+  .opt > select { width:140px; }
+  .opt.wide > input, .opt.wide .pw { width:100%; }
+  .opt input:disabled, .opt select:disabled { opacity:.55; }
+  .num { display:flex; align-items:center; gap:6px; }
+  .num input { width:76px; }
+  .num input { text-align:right; font-variant-numeric:tabular-nums; }
+  .num span { color:var(--muted); font-size:12px; white-space:nowrap; min-width:22px; }
+  .pw { display:flex; gap:6px; width:220px; }
+  .tog { width:38px; height:22px; border-radius:11px; background:#3a414d; position:relative; cursor:pointer; justify-self:end; border:0; }
+  .tog::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; border-radius:50%; background:#cfd6df; transition:left .15s; }
+  .tog.on { background:var(--accent); }
+  .tog.on::after { left:19px; background:#1b1405; }
+  .tog:disabled { opacity:.5; cursor:default; }
+  .adv-head { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; cursor:pointer; font-size:13px; }
+  .adv-head .what { color:var(--muted); font-size:12px; }
+  .adv-tools { display:flex; gap:8px; padding:0 12px 8px; }
+  .adv-tools input { flex:1; height:30px; border-radius:7px; border:1px solid var(--line); background:#0f1318; color:var(--fg); padding:0 10px; font-size:13px; outline:none; }
+  .adv .opt .nm { font-family:Consolas,monospace; font-size:12px; }
+  .savebar { flex:none; display:flex; align-items:center; gap:10px; padding:10px 26px; border-top:1px solid var(--line); background:var(--panel); }
+  .savebar .msg { flex:1; color:var(--muted); font-size:13px; }
+  .savebar .msg b { color:var(--accent); font-weight:600; }
+  .hide { display:none !important; }
+  .toasts { position:absolute; top:12px; right:14px; display:flex; flex-direction:column; gap:8px; }
+  .toast { padding:9px 14px; border-radius:10px; background:var(--panel2); border:1px solid var(--line); font-size:13px; box-shadow:0 6px 20px rgba(0,0,0,.35); }
+  .toast b { color:#7ee787; font-weight:500; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div>
+    <div class="clabel">후보 (위치)</div>
+    <div class="controls" id="cand">
+      <button data-v="a" class="on">A 탭 안에 섹션 (정보 아래)</button>
+      <button data-v="b">B 탭 위에 '상태 / 서버 설정' 나눔</button>
+    </div>
+    <div class="clabel">상태</div>
+    <div class="controls" id="state">
+      <button data-v="off" class="on">꺼짐 (바꿀 수 있음)</button>
+      <button data-v="dirty">바꾼 뒤 (저장 전)</button>
+      <button data-v="saved">저장함</button>
+      <button data-v="on">켜짐 (잠김)</button>
+      <button data-v="wopt">WorldOption.sav 있음</button>
+    </div>
+
+    <div class="app">
+      <div class="nav"><div>홈</div><div class="on">게임 서버</div><div>로그</div><div>친구</div><div>설정</div></div>
+      <div class="main">
+        <div class="scroll" id="scroll">
+          <h2>게임 서버</h2>
+          <p class="lead">이 프로필의 게임 서버를 켜고 끄고, 서버 로그를 봅니다.</p>
+          <div class="gscard">
+            <div class="gsicon">▣</div>
+            <div class="gsmain">
+              <div class="gstitle">게임 서버 E:\Games\Palworld\servers\MyServer</div>
+              <div class="big"><span class="dot" id="dot"></span><span id="bigtext">꺼짐</span></div>
+              <div class="sub" id="subtext">켜면 이 PC에서 게임 서버를 실행합니다.</div>
+            </div>
+            <button class="btn" id="powerbtn">▶ 켜기</button>
+          </div>
+
+          <div class="subtabs b-only hide"><div class="on" id="tab-status">상태</div><div id="tab-settings">서버 설정</div></div>
+
+          <div id="status-part">
+            <div class="sec"><span>ⓘ 서버 정보</span><span></span></div>
+            <div class="gsinfo">
+              <span class="kvr"><span>서버 이름</span><span>우리 팰월드 서버</span></span>
+              <span class="kvr"><span>버전</span><span>-</span></span>
+              <span class="kvr"><span>접속</span><span>-</span></span>
+            </div>
+          </div>
+
+          <div id="settings-part">
+            <div class="sec"><span>⚙ 서버 설정</span><span id="sechint">켤 때 적용됩니다.</span></div>
+            <div id="banners"></div>
+            <div id="groups"></div>
+          </div>
+
+          <div id="rest-part">
+            <div class="sec"><span>📢 공지 보내기</span><span>서버가 켜져 있을 때 보낼 수 있습니다.</span></div>
+            <div class="stub">(공지 보내기, 그대로)</div>
+            <div class="sec"><span>☰ 서버 로그</span><span>PalDefender · 모드</span></div>
+            <div class="stub" style="height:90px">(서버 로그, 그대로)</div>
+          </div>
+        </div>
+        <div class="savebar" id="savebar">
+          <span class="msg" id="savemsg"></span>
+          <button class="btn" id="revert">되돌리기</button>
+          <button class="btn primary" id="save">저장</button>
+        </div>
+      </div>
+      <div class="toasts" id="toasts"></div>
+      <div class="tip hide" id="tip"></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h3>바뀌는 것</h3>
+    <ul>
+      <li>게임 서버 탭에 '서버 설정': 서버 폴더의 PalWorldSettings.ini를 읽어 보여 주고, 저장하면 그 파일에 씁니다.</li>
+      <li>자주 쓰는 것 30개 정도를 한국어 이름·설명과 함께 묶어서(서버 / 게임 배율 / 전투·생존 / 규칙 / 길드·거점) 보여 줍니다.</li>
+      <li>나머지는 '고급' 칸에 접어 두고, 펼치면 원래 키 이름 그대로 검색해서 바꿀 수 있습니다. 목록은 서버의 DefaultPalWorldSettings.ini에서 읽어 게임 업데이트로 늘어난 항목도 나옵니다.</li>
+      <li>기본값과 다른 항목은 왼쪽에 주황 줄. 바꾼 게 있으면 아래 저장 막대가 뜹니다.</li>
+      <li>모든 항목 이름 옆에 ⓘ: 마우스를 올리면 설명, 원래 키 이름, 기본값이 뜹니다. 이름이 길면 말줄임표로 자릅니다.</li>
+      <li>숫자는 1.000000 대신 1처럼 짧게 보이고, 저장할 때는 원래 형식으로 씁니다.</li>
+      <li>숫자 칸은 좁게, 서버 이름·비밀번호·URL·목록처럼 긴 값은 한 줄 전체를 씁니다(고급 칸에서는 맨 아래로 모음).</li>
+      <li>서버가 켜져 있으면 전부 잠기고 "끈 뒤 바꿀 수 있습니다" 안내.</li>
+      <li>월드 폴더에 WorldOption.sav가 있으면 게임 규칙이 ini 대신 그 파일을 따른다는 경고.</li>
+      <li>포트·관리 API(REST)는 여기서 빼고 설정 탭에서만 바꿉니다(Overpal 연결이 끊기지 않게).</li>
+      <li>#32(서버 이름 설정)는 이걸로 처리됩니다.</li>
+    </ul>
+    <h3>그대로인 것</h3>
+    <ul>
+      <li>켜기/끄기 카드, 서버 정보, 공지 보내기, 서버 로그</li>
+      <li>설정 탭(폴더·포트·부품 목록)</li>
+    </ul>
+    <h3>확정 (2026-10-22)</h3>
+    <ul>
+      <li>위치: B(탭 위에서 '상태 / 서버 설정'을 나눔)</li>
+      <li>값은 서버 기본값에서 시작하고, 서버에 설정 파일이 있으면 그 값을 불러옵니다.</li>
+    </ul>
+  </div>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  // the common ones: [key, name, description, kind, default, unit/options]
+  const GROUPS = [
+    ["서버", [
+      ["ServerName", "서버 이름", "서버 목록과 접속 화면에 보입니다.", "text", "Default Palworld Server", null, true],
+      ["ServerDescription", "서버 설명", "", "text", "", null, true],
+      ["ServerPassword", "접속 비밀번호", "비워 두면 누구나 접속합니다.", "text", "", null, true],
+      ["AdminPassword", "관리자 비밀번호", "서버 관리에 쓰입니다.", "pw", "", null, true],
+      ["ServerPlayerMaxNum", "최대 인원", "1~32", "num", 32, "명"],
+      ["AutoSaveSpan", "자동 저장 간격", "", "num", 30, "초"],
+    ]],
+    ["게임 배율", [
+      ["ExpRate", "경험치", "", "num", 1, "배"],
+      ["PalCaptureRate", "포획 확률", "", "num", 1, "배"],
+      ["WorkSpeedRate", "팰 작업 속도", "", "num", 1, "배"],
+      ["PalSpawnNumRate", "팰 출현 수", "높을수록 서버가 무거워집니다.", "num", 1, "배"],
+      ["DayTimeSpeedRate", "낮 시간 속도", "", "num", 1, "배"],
+      ["NightTimeSpeedRate", "밤 시간 속도", "", "num", 1, "배"],
+      ["CollectionDropRate", "채집 획득량", "", "num", 1, "배"],
+      ["EnemyDropItemRate", "적 드롭량", "", "num", 1, "배"],
+      ["PalEggDefaultHatchingTime", "알 부화 시간", "거대한 알 기준", "num", 1, "시간"],
+      ["ItemWeightRate", "아이템 무게", "", "num", 1, "배"],
+    ]],
+    ["전투·생존", [
+      ["PalDamageRateAttack", "팰이 주는 피해", "", "num", 1, "배"],
+      ["PalDamageRateDefense", "팰이 받는 피해", "", "num", 1, "배"],
+      ["PlayerDamageRateAttack", "플레이어가 주는 피해", "", "num", 1, "배"],
+      ["PlayerDamageRateDefense", "플레이어가 받는 피해", "", "num", 1, "배"],
+      ["PlayerStomachDecreaceRate", "배고픔 속도", "", "num", 1, "배"],
+      ["PlayerStaminaDecreaceRate", "스태미나 소모", "", "num", 1, "배"],
+      ["DeathPenalty", "죽으면 떨어뜨리는 것", "", "sel", "Item", [["None", "없음"], ["Item", "아이템"], ["ItemAndEquipment", "아이템·장비"], ["All", "아이템·장비·팰"]]],
+    ]],
+    ["규칙", [
+      ["bEnableInvaderEnemy", "거점 습격", "적이 거점을 습격합니다.", "tog", true],
+      ["bEnableFastTravel", "빠른 이동", "", "tog", true],
+      ["bEnableFriendlyFire", "같은 편 공격", "", "tog", false],
+      ["bIsPvP", "PvP", "", "tog", false],
+      ["bEnablePlayerToPlayerDamage", "플레이어끼리 피해", "", "tog", false],
+      ["bShowPlayerList", "접속자 목록 보이기", "ESC 메뉴에 접속자 목록", "tog", false],
+    ]],
+    ["길드·거점", [
+      ["GuildPlayerMaxNum", "길드 최대 인원", "", "num", 20, "명"],
+      ["BaseCampMaxNumInGuild", "길드당 거점 수", "최대 10", "num", 4, "개"],
+      ["BaseCampWorkerMaxNum", "거점 작업 팰 수", "최대 50", "num", 15, "마리"],
+      ["DropItemAliveMaxHours", "떨어진 아이템 유지", "", "num", 1, "시간"],
+    ]],
+  ];
+  const ADV = ["Difficulty=None","RandomizerType=None","RandomizerSeed=\"\"","bIsRandomizerPalLevelRandom=False","PlayerAutoHPRegeneRate=1.000000","PlayerAutoHpRegeneRateInSleep=1.000000","PalStomachDecreaceRate=1.000000","PalStaminaDecreaceRate=1.000000","PalAutoHPRegeneRate=1.000000","PalAutoHpRegeneRateInSleep=1.000000","BuildObjectHpRate=1.000000","BuildObjectDamageRate=1.000000","BuildObjectDeteriorationDamageRate=1.000000","CollectionObjectHpRate=1.000000","CollectionObjectRespawnSpeedRate=1.000000","bActiveUNKO=False","bEnableAimAssistPad=True","bEnableAimAssistKeyboard=False","DropItemMaxNum=3000","PhysicsActiveDropItemMaxNum=-1","DropItemMaxNum_UNKO=100","BaseCampMaxNum=128","bAutoResetGuildNoOnlinePlayers=False","AutoResetGuildTimeNoOnlinePlayers=72.000000","bIsMultiplay=False","bHardcore=False","bPalLost=False","bCharacterRecreateInHardcore=False","bCanPickupOtherGuildDeathPenaltyDrop=False","bEnableNonLoginPenalty=True","bEnableFastTravelOnlyBaseCamp=False","bIsStartLocationSelectByMap=False","bExistPlayerAfterLogout=False","bEnableDefenseOtherGuildPlayer=False","bInvisibleOtherGuildBaseCampAreaFX=False","bBuildAreaLimit=False","CoopPlayerMaxNum=4","bAllowClientMod=True","PublicIP=\"\"","RCONEnabled=False","RCONPort=25575","Region=\"\"","bUseAuth=True","BanListURL=\"https://b.palworldgame.com/api/banlist.txt\"","ChatPostLimitPerMinute=30","CrossplayPlatforms=(Steam,Xbox,PS5,Mac)","bIsUseBackupSaveData=True","LogFormatType=Text","bIsShowJoinLeftMessage=True","SupplyDropSpan=180","EnablePredatorBossPal=True","MaxBuildingLimitNum=0","MaxBuildingLimitNumPerPlayer=0","ServerReplicatePawnCullDistance=15000.000000","bAllowGlobalPalboxExport=True","bAllowGlobalPalboxImport=False","EquipmentDurabilityDamageRate=1.000000","ItemContainerForceMarkDirtyInterval=1.000000","PlayerDataPalStorageUpdateCheckTickInterval=1.000000","ItemCorruptionMultiplier=1.000000","MonsterFarmActionSpeedRate=1.000000","FishingDifficultyRate=1.000000","DenyTechnologyList=","GuildRejoinCooldownMinutes=0","AutoTransferMasterCheckIntervalSeconds=3600.000000","AutoTransferMasterThresholdDays=14","MaxGuildsPerFrame=10","BlockRespawnTime=5.000000","RespawnPenaltyDurationThreshold=0.000000","RespawnPenaltyTimeScale=2.000000","bDisplayPvPItemNumOnWorldMap_BaseCamp=False","bDisplayPvPItemNumOnWorldMap_Player=False","AdditionalDropItemWhenPlayerKillingInPvPMode=\"PlayerDropItem\"","AdditionalDropItemNumWhenPlayerKillingInPvPMode=1","bAdditionalDropItemWhenPlayerKillingInPvPMode=False","bEnableVoiceChat=False","VoiceChatMaxVolumeDistance=3000.000000","VoiceChatZeroVolumeDistance=15000.000000","bAllowEnhanceStat_Health=True","bAllowEnhanceStat_Attack=True","bAllowEnhanceStat_Stamina=True","bAllowEnhanceStat_Weight=True","bAllowEnhanceStat_WorkSpeed=True","bEnableBuildingPlayerUIdDisplay=False","BuildingNameDisplayCacheTTLSeconds=60","bAllowEnemyCampSpawnNearBaseCamp=False"].map((s) => { const i = s.indexOf("="); return [s.slice(0, i), s.slice(i + 1)]; });
+
+  const ADV_DESC = {
+    Difficulty: "난이도 묶음입니다. 전용 서버에서는 보통 None으로 두고 배율을 직접 정합니다.",
+    RandomizerType: "팰 출현을 무작위로 섞습니다. None 섞지 않음, Region 지역 안에서, All 전체.",
+    RandomizerSeed: "무작위 섞기에 쓰는 시드 값입니다.",
+    bIsRandomizerPalLevelRandom: "무작위 섞기 때 팰 레벨도 무작위로 합니다.",
+    PlayerAutoHPRegeneRate: "플레이어 체력이 저절로 차는 속도입니다.",
+    PlayerAutoHpRegeneRateInSleep: "잘 때 플레이어 체력이 차는 속도입니다.",
+    PalStomachDecreaceRate: "팰이 배고파지는 속도입니다.",
+    PalStaminaDecreaceRate: "팰 스태미나가 줄어드는 속도입니다.",
+    PalAutoHPRegeneRate: "팰 체력이 저절로 차는 속도입니다.",
+    PalAutoHpRegeneRateInSleep: "팰이 쉴 때(팰 상자 안) 체력이 차는 속도입니다.",
+    BuildObjectHpRate: "건축물 체력 배율입니다.",
+    BuildObjectDamageRate: "건축물이 받는 피해 배율입니다.",
+    BuildObjectDeteriorationDamageRate: "거점 밖 건축물이 낡아 부서지는 속도입니다. 0이면 낡지 않습니다.",
+    CollectionObjectHpRate: "나무·광석 같은 채집물의 체력입니다.",
+    CollectionObjectRespawnSpeedRate: "채집물이 다시 생기는 간격 배율입니다. 작을수록 빨리 생깁니다.",
+    bActiveUNKO: "팰이 똥을 쌉니다.",
+    bEnableAimAssistPad: "게임패드 조준 보조를 켭니다.",
+    bEnableAimAssistKeyboard: "키보드·마우스 조준 보조를 켭니다.",
+    DropItemMaxNum: "월드에 떨어져 있을 수 있는 아이템 최대 수입니다.",
+    PhysicsActiveDropItemMaxNum: "물리 계산을 하는 떨어진 아이템 최대 수입니다. -1이면 제한 없음.",
+    DropItemMaxNum_UNKO: "월드에 남는 똥 최대 수입니다.",
+    BaseCampMaxNum: "서버 전체 거점 최대 수입니다.",
+    bAutoResetGuildNoOnlinePlayers: "오래 아무도 접속하지 않은 길드를 자동으로 해산합니다.",
+    AutoResetGuildTimeNoOnlinePlayers: "자동 해산까지 아무도 접속하지 않은 시간(시간)입니다.",
+    bIsMultiplay: "협동(멀티) 월드 여부입니다. 전용 서버에서는 바꿀 일이 없습니다.",
+    bHardcore: "하드코어: 죽으면 캐릭터를 잃습니다.",
+    bPalLost: "죽으면 데리고 있던 팰을 잃습니다.",
+    bCharacterRecreateInHardcore: "하드코어에서 죽은 뒤 캐릭터를 다시 만들 수 있게 합니다.",
+    bCanPickupOtherGuildDeathPenaltyDrop: "다른 길드 플레이어가 죽으며 떨어뜨린 것을 주울 수 있습니다.",
+    bEnableNonLoginPenalty: "오래 접속하지 않으면 거점 팰이 굶는 등 불이익이 생깁니다.",
+    bEnableFastTravelOnlyBaseCamp: "빠른 이동 도착지를 거점으로만 제한합니다.",
+    bIsStartLocationSelectByMap: "처음 시작할 위치를 지도에서 고릅니다.",
+    bExistPlayerAfterLogout: "나간 뒤에도 캐릭터가 월드에 남습니다.",
+    bEnableDefenseOtherGuildPlayer: "다른 길드 플레이어가 오면 거점 팰이 막아 싸웁니다.",
+    bInvisibleOtherGuildBaseCampAreaFX: "다른 길드 거점의 범위 표시를 숨깁니다.",
+    bBuildAreaLimit: "던전 입구·보스 근처 등 일부 장소에 건축을 막습니다.",
+    CoopPlayerMaxNum: "협동 월드 최대 인원입니다. 전용 서버는 '최대 인원'을 씁니다.",
+    bAllowClientMod: "모드를 쓰는 클라이언트의 접속을 허용합니다.",
+    PublicIP: "커뮤니티 서버 목록에 알릴 공인 IP입니다.",
+    RCONEnabled: "RCON(원격 명령)을 켭니다.",
+    RCONPort: "RCON이 쓰는 포트입니다.",
+    Region: "커뮤니티 서버 목록에 보일 지역입니다.",
+    bUseAuth: "Steam 등 계정 인증을 사용합니다. 끄지 않는 게 좋습니다.",
+    BanListURL: "공식 차단 목록 주소입니다.",
+    ChatPostLimitPerMinute: "한 사람이 1분에 보낼 수 있는 채팅 수입니다.",
+    CrossplayPlatforms: "접속을 허용할 플랫폼입니다.",
+    bIsUseBackupSaveData: "월드 백업을 따로 저장합니다.",
+    LogFormatType: "서버 로그 형식입니다(Text 또는 Json).",
+    bIsShowJoinLeftMessage: "접속·퇴장 메시지를 보여 줍니다.",
+    SupplyDropSpan: "보급품이 떨어지는 간격(분)입니다.",
+    EnablePredatorBossPal: "포식자(프레데터) 보스 팰이 나옵니다.",
+    MaxBuildingLimitNum: "거점 하나에 지을 수 있는 건축물 수입니다. 0이면 제한 없음.",
+    MaxBuildingLimitNumPerPlayer: "플레이어 한 명이 지을 수 있는 건축물 수입니다. 0이면 제한 없음.",
+    ServerReplicatePawnCullDistance: "다른 캐릭터·팰을 보여 주는 거리입니다. 작을수록 서버가 가벼워집니다.",
+    bAllowGlobalPalboxExport: "글로벌 팰 상자로 팰을 내보낼 수 있습니다.",
+    bAllowGlobalPalboxImport: "글로벌 팰 상자에서 팰을 가져올 수 있습니다.",
+    EquipmentDurabilityDamageRate: "장비 내구도가 닳는 속도입니다.",
+    ItemContainerForceMarkDirtyInterval: "상자 내용을 강제로 동기화하는 간격(초)입니다. 바꿀 일이 거의 없습니다.",
+    PlayerDataPalStorageUpdateCheckTickInterval: "팰 보관함 변경을 확인하는 간격(초)입니다. 바꿀 일이 거의 없습니다.",
+    ItemCorruptionMultiplier: "음식 등이 상하는 속도입니다.",
+    MonsterFarmActionSpeedRate: "목장 팰이 아이템을 만드는 속도입니다.",
+    FishingDifficultyRate: "낚시 난이도입니다.",
+    DenyTechnologyList: "배울 수 없게 막을 기술 목록입니다.",
+    GuildRejoinCooldownMinutes: "길드를 나간 뒤 다시 들어가기까지 기다리는 시간(분)입니다.",
+    AutoTransferMasterCheckIntervalSeconds: "길드장 자동 위임을 확인하는 간격(초)입니다.",
+    AutoTransferMasterThresholdDays: "길드장이 이 일수만큼 접속하지 않으면 다른 길드원에게 넘깁니다.",
+    MaxGuildsPerFrame: "한 번에 처리하는 길드 수입니다. 바꿀 일이 거의 없습니다.",
+    BlockRespawnTime: "죽은 뒤 다시 살아나기까지 기다리는 시간(초)입니다.",
+    RespawnPenaltyDurationThreshold: "이 시간 안에 다시 죽으면 연달아 죽은 것으로 봅니다.",
+    RespawnPenaltyTimeScale: "연달아 죽을 때 부활 대기 시간이 늘어나는 배율입니다.",
+    bDisplayPvPItemNumOnWorldMap_BaseCamp: "PvP: 지도에 거점이 가진 아이템 수를 보여 줍니다.",
+    bDisplayPvPItemNumOnWorldMap_Player: "PvP: 지도에 플레이어가 가진 아이템 수를 보여 줍니다.",
+    AdditionalDropItemWhenPlayerKillingInPvPMode: "PvP에서 플레이어를 쓰러뜨리면 추가로 떨어지는 아이템입니다.",
+    AdditionalDropItemNumWhenPlayerKillingInPvPMode: "PvP에서 추가로 떨어지는 아이템 개수입니다.",
+    bAdditionalDropItemWhenPlayerKillingInPvPMode: "PvP에서 플레이어를 쓰러뜨리면 아이템을 추가로 떨어뜨립니다.",
+    bEnableVoiceChat: "게임 안 보이스 채팅을 켭니다.",
+    VoiceChatMaxVolumeDistance: "보이스가 가장 크게 들리는 거리입니다.",
+    VoiceChatZeroVolumeDistance: "보이스가 들리지 않게 되는 거리입니다.",
+    bAllowEnhanceStat_Health: "체력 스탯 강화를 허용합니다.",
+    bAllowEnhanceStat_Attack: "공격 스탯 강화를 허용합니다.",
+    bAllowEnhanceStat_Stamina: "스태미나 스탯 강화를 허용합니다.",
+    bAllowEnhanceStat_Weight: "무게 스탯 강화를 허용합니다.",
+    bAllowEnhanceStat_WorkSpeed: "작업 속도 스탯 강화를 허용합니다.",
+    bEnableBuildingPlayerUIdDisplay: "건축물에 지은 사람을 보여 줍니다.",
+    BuildingNameDisplayCacheTTLSeconds: "지은 사람 이름을 기억해 두는 시간(초)입니다.",
+    bAllowEnemyCampSpawnNearBaseCamp: "거점 근처에 적 캠프가 생길 수 있습니다.",
+  };
+  // text values (quoted, lists, or with letters) get a whole row; numbers and on/off stay narrow
+  const isLong = (v) => v.startsWith('"') || v.startsWith("(") || (v !== "True" && v !== "False" && v !== "" && !/^-?[\d.]+$/.test(v) && v.length > 10) || v === "";
+  const fmtDef = (v) => (v === "True" ? "켬" : v === "False" ? "끔" : v === "" || v === '""' ? "(빈 값)" : /^-?[\d.]+$/.test(v) ? String(Number(v)) : v.replace(/^"|"$/g, ""));
+
+  // values this server has now (some differ from the default)
+  const NOW = { ServerName: "우리 팰월드 서버", AdminPassword: "x9QpLm2Kd7RtWv4B", ServerPassword: "", WorkSpeedRate: 2.5, ExpRate: 2, PalEggDefaultHatchingTime: 0, BaseCampWorkerMaxNum: 20 };
+  const EDIT = { ExpRate: 3, PalCaptureRate: 1.5, bEnableInvaderEnemy: false };
+  let cand = "a", state = "off", tab = "status", advOpen = false, advQ = "", showPw = false;
+
+  const pick = (id, cb) => $(id).addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; $(id).querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b)); cb(b.dataset.v); render(); });
+  pick("cand", (v) => { cand = v; tab = "status"; });
+  pick("state", (v) => { state = v; });
+  $("tab-status").onclick = () => { tab = "status"; render(); };
+  $("tab-settings").onclick = () => { tab = "settings"; render(); };
+
+  function value(key, def) {
+    if (state === "dirty" && key in EDIT) return EDIT[key];
+    if (state === "saved" && key in EDIT) return EDIT[key];
+    return key in NOW ? NOW[key] : def;
+  }
+  function optRow([key, name, desc, kind, def, extra, wide], locked) {
+    const v = value(key, def);
+    const changed = v !== def;
+    const dis = locked ? "disabled" : "";
+    let ctl;
+    if (kind === "text") ctl = `<input value="${v}" ${dis} />`;
+    else if (kind === "pw") ctl = `<div class="pw"><input value="${showPw ? v : "•".repeat(12)}" ${dis} /><button class="btn small" onclick="showPw=!showPw;render()">${showPw ? "숨기기" : "보기"}</button></div>`;
+    else if (kind === "num") ctl = `<div class="num"><input value="${v}" ${dis} /><span>${extra}</span></div>`;
+    else if (kind === "sel") ctl = `<select ${dis}>${extra.map(([k, n]) => `<option ${k === v ? "selected" : ""}>${n}</option>`).join("")}</select>`;
+    else ctl = `<button class="tog ${v ? "on" : ""}" ${dis}></button>`;
+    const defText = kind === "tog" ? (def ? "켬" : "끔") : kind === "sel" ? extra.find((x) => x[0] === def)[1] : def === "" ? "(빈 값)" : kind === "num" ? `${def}${extra}` : def;
+    const tip = `${desc || name + " 설정입니다."}|${key}|${kind === "pw" ? "(빈 값)" : defText}`;
+    return `<div class="opt ${wide ? "wide" : ""} ${changed && kind !== "pw" && kind !== "text" ? "changed" : ""}"><div class="lbl"><div class="nmrow"><span class="nm">${name}</span><i class="info" data-tip="${tip}">i</i></div>${desc ? `<div class="ds">${desc}</div>` : ""}</div>${ctl}</div>`;
+  }
+  function render() {
+    const locked = state === "on";
+    document.querySelectorAll(".b-only").forEach((x) => x.classList.toggle("hide", cand !== "b"));
+    $("tab-status").classList.toggle("on", tab === "status");
+    $("tab-settings").classList.toggle("on", tab === "settings");
+    const showSettings = cand === "a" || tab === "settings";
+    const showStatus = cand === "a" || tab === "status";
+    $("status-part").classList.toggle("hide", !showStatus);
+    $("rest-part").classList.toggle("hide", !showStatus);
+    $("settings-part").classList.toggle("hide", !showSettings);
+    $("settings-part").querySelector(".sec").classList.toggle("hide", cand === "b");
+    // card
+    $("dot").classList.toggle("off", !locked);
+    $("bigtext").textContent = locked ? "켜짐" : "꺼짐";
+    $("subtext").textContent = locked ? "실행 시간 1시간 4분 · 접속 2명 / 32명 · 서버 FPS 59" : "켜면 이 PC에서 게임 서버를 실행합니다.";
+    $("powerbtn").textContent = locked ? "⏻ 끄기" : "▶ 켜기";
+    $("powerbtn").className = locked ? "btn danger" : "btn primary";
+    $("sechint").textContent = locked ? "서버가 켜져 있어 바꿀 수 없습니다." : "저장하면 다음에 켤 때 적용됩니다.";
+    // banners
+    let b = "";
+    if (locked) b += `<div class="banner info"><span>ⓘ</span><span>서버가 켜져 있는 동안에는 설정을 바꿀 수 없습니다. 서버를 끈 뒤 바꾸면 다음에 켤 때 적용됩니다.</span></div>`;
+    if (state === "wopt") b += `<div class="banner warn"><span>⚠</span><span>이 월드에는 <b>WorldOption.sav</b>가 있어 게임 배율·규칙은 이 설정 대신 그 파일을 따릅니다. 서버 이름·비밀번호·인원은 여기 값이 쓰입니다.<br />월드 설정을 여기로 옮기려면 WorldOption.sav를 지워야 합니다(되돌릴 수 없으니 백업 후).</span></div>`;
+    $("banners").innerHTML = b;
+    // groups
+    let html = GROUPS.map(([g, opts]) => `<div class="grp"><h4><span>${g}</span><span></span></h4><div class="grid">${opts.map((o) => optRow(o, locked)).join("")}</div></div>`).join("");
+    const advList = ADV.filter(([k]) => !advQ || k.toLowerCase().includes(advQ.toLowerCase()));
+    html += `<div class="grp adv"><div class="adv-head" onclick="advOpen=!advOpen;render()"><span>${advOpen ? "▾" : "▸"} 고급</span><span class="what">나머지 ${ADV.length}개 · 원래 이름 그대로 · 포트와 관리 API는 설정 탭에서</span></div>`;
+    if (advOpen) {
+      html += `<div class="adv-tools"><input id="advq" placeholder="이름으로 찾기 (예: Respawn)" value="${advQ}" /></div><div class="grid">`;
+      const row = ([k, v]) => {
+        const bool = v === "True" || v === "False";
+        const wide = isLong(v);
+        const numeric = /^-?[\d.]+$/.test(v);
+        const shown = numeric ? String(Number(v)) : v.replace(/^"|"$/g, "");
+        const ctl = bool ? `<button class="tog ${v === "True" ? "on" : ""}" ${locked ? "disabled" : ""}></button>` : `<input class="${numeric ? "n" : ""}" value='${shown}' ${locked ? "disabled" : ""} />`;
+        const tip = `${ADV_DESC[k] ?? "설명이 없는 항목입니다."}|${k}|${fmtDef(v)}`;
+        return `<div class="opt ${wide ? "wide" : ""}"><div class="lbl"><div class="nmrow"><span class="nm">${k}</span><i class="info" data-tip="${tip}">i</i></div></div>${ctl}</div>`;
+      };
+      html += advList.filter(([, v]) => !isLong(v)).map(row).join("") + advList.filter(([, v]) => isLong(v)).map(row).join("");
+      html += `</div>`;
+    }
+    html += `</div>`;
+    $("groups").innerHTML = html;
+    const q = $("advq");
+    if (q) { q.oninput = (e) => { advQ = e.target.value; const pos = e.target.selectionStart; render(); const n = $("advq"); n.focus(); n.setSelectionRange(pos, pos); }; }
+    // save bar
+    const dirty = state === "dirty";
+    $("savebar").classList.toggle("hide", !(dirty && showSettings));
+    $("savemsg").innerHTML = `바꾼 설정 <b>${Object.keys(EDIT).length}개</b> · 저장하면 다음에 켤 때 적용됩니다.`;
+    $("toasts").innerHTML = state === "saved" ? '<div class="toast"><b>✓</b> 서버 설정을 저장했습니다. 다음에 켤 때 적용됩니다.</div>' : "";
+  }
+  // one tooltip for every ⓘ, kept inside the app window
+  const app = document.querySelector(".app");
+  app.addEventListener("mouseover", (e) => {
+    const i = e.target.closest(".info");
+    const tip = $("tip");
+    if (!i) return tip.classList.add("hide");
+    const [desc, key, def] = i.dataset.tip.split("|");
+    tip.innerHTML = `${desc}<code>${key}</code><span class="def">기본값: ${def}</span>`;
+    tip.classList.remove("hide");
+    const a = app.getBoundingClientRect(), r = i.getBoundingClientRect();
+    let left = r.left - a.left - 8, top = r.bottom - a.top + 6;
+    left = Math.min(left, a.width - tip.offsetWidth - 8);
+    if (top + tip.offsetHeight > a.height - 8) top = r.top - a.top - tip.offsetHeight - 6;
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  });
+  render();
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@ mod overlay_watch;
 mod profiles;
 mod server;
 mod servermaker;
+mod serversettings;
 
 use config::{Config, Mode};
 use gui::{ClientState, Session, SessionInner};
@@ -139,6 +140,8 @@ pub fn run() {
             gui::install_server_parts,
             gui::create_server,
             gui::cancel_create_server,
+            gui::gs_settings_read,
+            gui::gs_settings_write,
             gui::gs_log_follow,
             gui::gs_log_dir,
             gui::players_in,

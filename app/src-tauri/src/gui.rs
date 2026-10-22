@@ -502,6 +502,18 @@ pub async fn gs_announce(session: tauri::State<'_, Session>, message: String) ->
     crate::gameserver::announce(&dir, &message).await
 }
 
+/// The game server's settings with its defaults, for the game server tab.
+#[tauri::command]
+pub fn gs_settings_read(session: tauri::State<'_, Session>) -> Result<crate::serversettings::ServerSettings, String> {
+    Ok(crate::serversettings::read(&game_server_dir(&session)?))
+}
+
+/// Writes the changed game server settings ([key, what was typed]); the server must be off.
+#[tauri::command]
+pub fn gs_settings_write(session: tauri::State<'_, Session>, changes: Vec<(String, String)>) -> Result<(), String> {
+    crate::serversettings::write(&game_server_dir(&session)?, &changes)
+}
+
 /// Starts following a server log ("pd" or "mod"); lines arrive as `gs-log` events.
 #[tauri::command]
 pub fn gs_log_follow(app: AppHandle, session: tauri::State<'_, Session>, source: String) -> Result<(), String> {

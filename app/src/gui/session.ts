@@ -99,6 +99,9 @@ export const api = {
   /** makes a new game server in the folder; progress as "create-progress" events */
   createServer: (dir: string, name: string, adminPassword: string, serverPassword: string) => invoke<void>("create_server", { dir, name, adminPassword, serverPassword }),
   cancelCreateServer: () => invoke<void>("cancel_create_server"),
+  gsSettingsRead: () => invoke<ServerSettings>("gs_settings_read"),
+  /** [key, what was typed] for the changed ones; the server must be off */
+  gsSettingsWrite: (changes: [string, string][]) => invoke<void>("gs_settings_write", { changes }),
   /** of [port, udp] pairs, the ports something on this PC already holds */
   portsTaken: (ports: [number, boolean][]) => invoke<number[]>("ports_taken", { ports }),
   findServers: () => invoke<FoundServer[]>("find_game_servers"),
@@ -143,3 +146,18 @@ export function shortPath(v: string): string {
 }
 
 export const errorText = (e: unknown) => (typeof e === "string" ? e : e instanceof Error ? e.message : String(e));
+
+/** one game server setting: as the server's template has it, and as its settings file has it */
+export interface ServerOpt {
+  key: string;
+  default: string | null;
+  value: string | null;
+}
+export interface ServerSettings {
+  options: ServerOpt[];
+  hasFile: boolean;
+  worldOption: boolean;
+  running: boolean;
+  /** set from Overpal's own settings, not here */
+  managed: string[];
+}

@@ -1416,3 +1416,259 @@ th.r {
   height: 100%;
   background: var(--blue, #4c9aff);
 }
+
+/* game server tab: status / server settings (ServerSettings.tsx) */
+.subtabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin: 14px 0 12px;
+}
+.subtabs > div {
+  padding: 8px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+}
+.subtabs > div.on {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.ss .grp {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.ss .grp h4 {
+  margin: 0;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
+.ss .grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 24px;
+  padding: 0 12px;
+}
+.ss .opt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  min-height: 44px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  position: relative;
+}
+.ss .grid .opt:nth-child(-n + 2) {
+  border-top: 0;
+}
+.ss .opt.wide {
+  grid-column: 1 / -1;
+  grid-template-columns: 200px minmax(0, 1fr);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+.ss .grid .opt.wide:first-child {
+  border-top: 0;
+}
+.ss .opt.changed::before {
+  content: "";
+  position: absolute;
+  left: -10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.ss .lbl {
+  min-width: 0;
+}
+.ss .nmrow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.ss .nm {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ss .nm.mono {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}
+.ss .ds {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ss .tipi {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid #4a5363;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-style: normal;
+  display: grid;
+  place-items: center;
+  cursor: help;
+  line-height: 1;
+}
+.ss .tipi:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.ss .opt input,
+.ss .opt select {
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: #0f1318;
+  color: var(--fg);
+  padding: 0 8px;
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+}
+.ss .opt input:disabled,
+.ss .opt select:disabled {
+  opacity: 0.55;
+}
+.ss .opt > input,
+.ss .opt > select {
+  width: 140px;
+}
+.ss .opt input.n {
+  width: 90px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ss .opt.wide > input,
+.ss .opt.wide .pw {
+  width: 100%;
+}
+.ss .num {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ss .num input.n {
+  width: 76px;
+}
+.ss .num span {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 22px;
+}
+.ss .pw {
+  display: flex;
+  gap: 6px;
+}
+.ss .tog {
+  width: 38px;
+  height: 22px;
+  border-radius: 11px;
+  background: #3a414d;
+  position: relative;
+  cursor: pointer;
+  justify-self: end;
+  border: 0;
+  padding: 0;
+}
+.ss .tog::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #cfd6df;
+  transition: left 0.15s;
+}
+.ss .tog.on {
+  background: var(--accent);
+}
+.ss .tog.on::after {
+  left: 19px;
+  background: #1b1405;
+}
+.ss .tog:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ss .adv-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ss .adv-head .what {
+  color: var(--muted);
+  font-size: 12px;
+}
+.ss .adv-tools {
+  display: flex;
+  padding: 0 12px 8px;
+}
+.ss .adv-tools input {
+  flex: 1;
+  height: 30px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: #0f1318;
+  color: var(--fg);
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.ss .savebar b {
+  color: var(--accent);
+  font-weight: 600;
+}
+.ss-tip {
+  position: fixed;
+  z-index: 30;
+  max-width: 300px;
+  background: #0b0e13;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.ss-tip code {
+  display: block;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  word-break: break-all;
+}
+.ss-tip .def {
+  color: var(--muted);
+  font-size: 11px;
+}
