@@ -76,6 +76,30 @@ PalMapObjectItemContainerModule:GetOuter()       → 구체 모델(PalMapObject*
 - 협동(초대) 방식도 같은 코드와 설정을 쓰므로 초대받은 사람은 같은 끊김을 봤을 것으로 본다(확인하지 않음). 호스트는 서버 안에서 직접 보므로 연속으로 보인다.
 - 서버는 Shipping 빌드라 로그가 남지 않는다. 복제 그래프 콘솔 명령(`PalRepGraph.PrintRouting` 등)의 출력은 볼 수 없었다.
 
+## 작업 속도와 작업 이벤트 (#31)
+
+2026-10-19 테스트 서버(B)에서 프로브로 확인했다. 기록은 `.local/probes/work_*.lua`와 출력 파일에 있다.
+
+- 작업 속도: `PalWorkProgress.ReplicatedWorkAmountBySec`가 지금 일하는 팰(과 플레이어)의 초당 작업량 합이다. 팰이 붙거나 빠지면 바로 바뀐다. 아무도 일하지 않으면 -1 또는 0이다. 남은 작업량 ÷ 이 값이 실제 완료 시각과 맞았다(13.1초 예측, 01:47:17.9 완료).
+- 제작 사이 공백: 화약처럼 빨리 만들어지는 물건은 하나가 끝나고 다음이 시작되는 순간 이 값이 잠깐 -1이 된다.
+- 팰 하나의 초당 작업량 = 그 팰의 `GetCraftSpeed_withBuff_WorkSuitability(일 종류)` × 서버 설정 `WorkSpeedRate`(PalWorldSettings.ini, B·C 모두 2.5). 게임 시계로 재서 일 종류가 하나인 작업과 두 팰 작업 양쪽에서 정확히 맞았다.
+- 두 팰 작업(`PalWorkProgressMultiType`, 고대 화로 등): `ReplicatedWorkAmountBySec`는 항상 -1이다. 일 종류마다 `ProgressEntries`(`CurrentProgress`는 앞서 쌓은 작업 포함, `MaxProgress`는 한 개 분량)가 있고, 모든 종류가 한 개 분량을 채우면 하나가 완성된다. 팰이 맡은 종류는 `PalCharacterParameterComponent:GetWorkAssign().AssignedWorkSuitability`, 실제로 일하는 중인지는 같은 컴포넌트의 `WorkingState`(2가 일하는 중, 1은 배정됐지만 쉬거나 이동 중)로 안다.
+- 작업 이벤트: 작업 객체의 `OnStartWorkDelegate` 등은 C++ 이벤트라 Lua가 직접 붙을 수 없다. 대신 이벤트에 묶인 게임 함수에 `RegisterHook`을 걸면 불린다. 제작 건물(`PalMapObjectConvertItemModel`): `OnStartWorkAnyone_ServerInternal`(팰·플레이어가 일을 시작), `OnEndWorkAnyone_ServerInternal`(일을 멈춤, 일하던 수만큼 여러 번 온다), `OnFinishWorkInServer`(하나 완성). 일반 작업은 `PalBaseCampWorkCollection:OnUnassignWork_ServerInternal`.
+- 게임 시계: `Default__GameplayStatics:GetTimeSeconds(월드 객체)`. Lua `os.clock`은 프로세스 CPU 시간이라 경과 시간으로 쓰면 안 된다.
+
+## 서버 공지 배너
+
+- 서버 종료 때 뜨는 화면 가운데 빨간 "서버 알림 사항" 배너는 `PalGameStateInGame:BroadcastServerNotice(NoticeMessage: FString)`이다(서버→모든 클라 멀티캐스트). 2026-10-19 B에서 임의 문구로 띄웠다. 색과 모양은 클라이언트 위젯이 정하므로 서버에서는 바꿀 수 없다.
+- 게임 서버 REST의 `announce`(RCON `Broadcast`와 같음)는 채팅에 `[SYSTEM]:문구`로만 남는다. 콜론 뒤에 공백이 없어서 앱은 문구 앞에 공백을 붙여 보낸다.
+
+## 서버 설치 구성 (#35)
+
+2026-10-21 C 서버에 깔린 파일과 공식 릴리스를 해시로 비교했다.
+
+- UE4SS: 팰월드용 포크 `Okaetsu/RE-UE4SS`의 릴리스 `2281fa31`(`UE4SS-Palworld-g2281fa31.zip`, MIT). 압축을 서버 `Pal\Binaries\Win64`에 그대로 풀면 된다(`dwmapi.dll` + `ue4ss\`, 팰월드용 `MemberVariableLayout.ini` 포함). C의 21개 파일과 모두 같았다. 공식 `UE4SS-RE/RE-UE4SS` v3.0.1은 구조가 다르고(`Win64`에 바로 풀림) 팰월드 설정이 없다.
+- PalDefender: `Ultimeit/PalDefender`의 릴리스 `v1.9.3`(MIT). `PalDefender.zip` 안의 `d3d9.dll`(로더)과 `PalDefender.dll`을 같은 `Win64`에 둔다. C와 같았다. `PalDefender\` 설정 폴더는 처음 켤 때 생긴다. REST는 `PalDefender\RESTAPI\RESTConfig.json`(`Enabled`, `Address`, `Port`)과 `RESTAPI\Tokens\*.json`(`Name`, `Token`, `Permissions`)으로 켠다.
+- OverpalMod: `ue4ss\Mods\OverpalMod`(`Scripts\main.lua`, `enabled.txt`). 앱 설치 파일에 들어 있고, 앱이 서버를 켤 때 바꿔 넣는다(#34).
+
 ## 검증 기록
 
 - 2026-10-12 03:42 KST: 사용자가 알려준 상자 내용(돌 81, 팰지움 파편 58, 빨간 열매 15, 나무 12, 열매 씨앗 10, 팰스피어 2)과 모드 출력이 일치했다. 빨간 열매는 부패로 14, 13으로 줄어드는 것이 반영됐다.
